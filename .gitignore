@@ -83,6 +83,26 @@ docker-compose.override.yml
 # IDE — Cursor
 .cursor/
 
+# IDE — JetBrains
+.idea/
+*.iml
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Terraform / IaC state
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+
+# OS / editor swap
+*.bak
+
 # macOS
 .DS_Store
 .AppleDouble
