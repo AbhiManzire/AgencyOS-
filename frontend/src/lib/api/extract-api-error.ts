@@ -33,3 +33,18 @@ export function isApiNotFoundError(error: unknown): boolean {
   const data = error.response?.data as ApiErrorResponse | undefined;
   return data?.success === false && data.error.statusCode === 404;
 }
+
+/** Maps API validation details to field-level error messages. */
+export function extractApiValidationErrors(error: unknown): Record<string, string> {
+  if (!axios.isAxiosError(error)) {
+    return {};
+  }
+
+  const data = error.response?.data as ApiErrorResponse | undefined;
+
+  if (data?.success !== false || data.error.details === undefined) {
+    return {};
+  }
+
+  return Object.fromEntries(data.error.details.map((detail) => [detail.field, detail.message]));
+}

@@ -11,6 +11,7 @@ import {
 } from '@/features/clients/components/client-list-table';
 import { ClientListPagination } from '@/features/clients/components/client-list-pagination';
 import { ClientListToolbar } from '@/features/clients/components/client-list-toolbar';
+import { CreateClientDrawer } from '@/features/clients/components/create-client-drawer';
 import { useClients } from '@/features/clients/hooks/use-clients';
 import type { ClientSortField, ClientStatus, SortDirection } from '@/features/clients/types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
@@ -39,6 +40,8 @@ export default function ClientsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [editClientId, setEditClientId] = useState<string | null>(null);
 
   const statusParam = statusFilter === 'all' ? undefined : (statusFilter as ClientStatus);
 
@@ -139,11 +142,30 @@ export default function ClientsPage() {
         title="Clients"
         description="Manage all client organizations"
         actions={
-          <Button type="button" className="gap-2">
+          <Button
+            type="button"
+            className="gap-2"
+            onClick={() => {
+              setCreateDrawerOpen(true);
+            }}
+          >
             <Plus className="size-4" />
             New Client
           </Button>
         }
+      />
+
+      <CreateClientDrawer open={createDrawerOpen} onOpenChange={setCreateDrawerOpen} />
+
+      <CreateClientDrawer
+        open={editClientId !== null}
+        mode="edit"
+        clientId={editClientId ?? undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditClientId(null);
+          }
+        }}
       />
 
       <div className="space-y-4">
@@ -207,6 +229,7 @@ export default function ClientsPage() {
               clients={filteredClients}
               selectedIds={selectedIds}
               onToggleRow={handleToggleRow}
+              onEditClient={setEditClientId}
             />
             <div className="hidden md:block">
               <ClientListTable
@@ -217,6 +240,7 @@ export default function ClientsPage() {
                 onSortFieldChange={handleSortFieldChange}
                 onToggleRow={handleToggleRow}
                 onToggleAll={handleToggleAll}
+                onEditClient={setEditClientId}
               />
             </div>
             <ClientListPagination

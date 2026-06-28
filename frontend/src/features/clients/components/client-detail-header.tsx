@@ -7,9 +7,10 @@ import { displayClientField } from '@/features/clients/utils/client-display';
 
 interface ClientDetailHeaderProps {
   readonly client: ClientRecord;
+  readonly onEdit: () => void;
 }
 
-export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
+export function ClientDetailHeader({ client, onEdit }: ClientDetailHeaderProps) {
   const ownerLabel = displayClientField(client.ownerUserId);
 
   return (
@@ -32,7 +33,7 @@ export function ClientDetailHeader({ client }: ClientDetailHeaderProps) {
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" disabled className="gap-2">
+        <Button type="button" variant="outline" className="gap-2" onClick={onEdit}>
           <Pencil className="size-4" />
           Edit
         </Button>

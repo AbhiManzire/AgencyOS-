@@ -1,4 +1,28 @@
-import type { ClientStatus } from '@/features/clients/types';
+import type { ClientStatus, ClientSource } from '@/features/clients/types';
+
+/** Request body for POST /clients — mirrors backend CreateClientDto (MVP fields). */
+export interface CreateClientPayload {
+  readonly displayName: string;
+  readonly legalName?: string;
+  readonly email?: string;
+  readonly phone?: string;
+  readonly website?: string;
+  readonly status?: ClientStatus;
+  readonly ownerUserId?: string;
+  readonly source?: ClientSource;
+}
+
+/** Request body for PATCH /clients/:id — mirrors backend UpdateClientDto (MVP fields). */
+export interface UpdateClientPayload {
+  readonly displayName: string;
+  readonly status: ClientStatus;
+  readonly legalName?: string | null;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  readonly website?: string | null;
+  readonly ownerUserId?: string | null;
+  readonly source?: ClientSource | null;
+}
 
 /** Client row returned by GET /clients — mirrors backend ClientRecord. */
 export interface ClientRecord {

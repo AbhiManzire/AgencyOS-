@@ -8,3 +8,4 @@ export { ErrorState } from './error-state';
 export { StatusBadge, statusBadgeVariants, type StatusBadgeProps } from './status-badge';
 export { Avatar, avatarVariants, type AvatarProps } from './avatar';
 export { SectionDivider } from './section-divider';
+export { ToastProvider, useToast } from './toast-provider';

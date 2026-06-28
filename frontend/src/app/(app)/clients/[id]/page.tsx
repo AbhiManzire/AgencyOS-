@@ -2,6 +2,7 @@
 
 import { Activity, FileText, FolderOpen } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, LoadingState, PageContainer } from '@/design-system';
 import { ClientDetailAddressCard } from '@/features/clients/components/client-detail-address-card';
@@ -9,12 +10,14 @@ import { ClientDetailHeader } from '@/features/clients/components/client-detail-
 import { ClientDetailSectionPlaceholder } from '@/features/clients/components/client-detail-section-placeholder';
 import { ClientDetailSummaryCard } from '@/features/clients/components/client-detail-summary-card';
 import { ClientNotFoundState } from '@/features/clients/components/client-not-found-state';
+import { CreateClientDrawer } from '@/features/clients/components/create-client-drawer';
 import { useClient } from '@/features/clients/hooks/use-client';
 import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-api-error';
 
 export default function ClientDetailPage() {
   const params = useParams<{ id: string }>();
   const clientId = params.id;
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
 
   const { data: client, isLoading, error, refetch } = useClient(clientId);
 
@@ -51,7 +54,19 @@ export default function ClientDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <ClientDetailHeader client={client} />
+      <ClientDetailHeader
+        client={client}
+        onEdit={() => {
+          setEditDrawerOpen(true);
+        }}
+      />
+
+      <CreateClientDrawer
+        open={editDrawerOpen}
+        mode="edit"
+        clientId={clientId}
+        onOpenChange={setEditDrawerOpen}
+      />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <ClientDetailSummaryCard client={client} />

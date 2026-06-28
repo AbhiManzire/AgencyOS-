@@ -8,11 +8,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface ClientRowActionsProps {
-  clientName: string;
+  readonly clientId: string;
+  readonly clientName: string;
+  readonly onEdit: (clientId: string) => void;
 }
 
-/** Row actions menu — UI only; handlers wired in a future task. */
-export function ClientRowActions({ clientName }: ClientRowActionsProps) {
+export function ClientRowActions({ clientId, clientName, onEdit }: ClientRowActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -30,7 +31,12 @@ export function ClientRowActions({ clientName }: ClientRowActionsProps) {
           <Eye className="size-4" />
           View
         </DropdownMenuItem>
-        <DropdownMenuItem disabled className="gap-2">
+        <DropdownMenuItem
+          className="gap-2"
+          onSelect={() => {
+            onEdit(clientId);
+          }}
+        >
           <Pencil className="size-4" />
           Edit
         </DropdownMenuItem>

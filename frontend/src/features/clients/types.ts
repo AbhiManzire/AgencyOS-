@@ -1,5 +1,7 @@
 export type ClientStatus = 'PROSPECT' | 'ACTIVE' | 'INACTIVE';
 
+export type ClientSource = 'REFERRAL' | 'INBOUND' | 'OUTBOUND' | 'IMPORT' | 'SALES_CONVERSION';
+
 export type ClientSortField =
   'displayName' | 'company' | 'status' | 'owner' | 'email' | 'createdAt';
 

@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/app-shell';
+import { ToastProvider } from '@/design-system';
 import { QueryProvider } from '@/lib/api/query-provider';
 
 export default function AppShellLayout({
@@ -8,7 +9,9 @@ export default function AppShellLayout({
 }>) {
   return (
     <QueryProvider>
-      <AppShell>{children}</AppShell>
+      <ToastProvider>
+        <AppShell>{children}</AppShell>
+      </ToastProvider>
     </QueryProvider>
   );
 }

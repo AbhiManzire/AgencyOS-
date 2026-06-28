@@ -24,6 +24,7 @@ interface ClientListTableProps {
   onSortFieldChange: (field: ClientSortField) => void;
   onToggleRow: (id: string, checked: boolean) => void;
   onToggleAll: (checked: boolean) => void;
+  onEditClient: (clientId: string) => void;
 }
 
 interface SortableHeaderProps {
@@ -77,6 +78,7 @@ export function ClientListTable({
   onSortFieldChange,
   onToggleRow,
   onToggleAll,
+  onEditClient,
 }: ClientListTableProps) {
   const allSelected = clients.length > 0 && clients.every((client) => selectedIds.has(client.id));
   const someSelected = clients.some((client) => selectedIds.has(client.id));
@@ -187,7 +189,11 @@ export function ClientListTable({
                     {formatDate(client.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <ClientRowActions clientName={client.displayName} />
+                    <ClientRowActions
+                      clientId={client.id}
+                      clientName={client.displayName}
+                      onEdit={onEditClient}
+                    />
                   </TableCell>
                 </TableRow>
               );
@@ -204,7 +210,8 @@ export function ClientListMobileCards({
   clients,
   selectedIds,
   onToggleRow,
-}: Pick<ClientListTableProps, 'clients' | 'selectedIds' | 'onToggleRow'>) {
+  onEditClient,
+}: Pick<ClientListTableProps, 'clients' | 'selectedIds' | 'onToggleRow' | 'onEditClient'>) {
   return (
     <div className="space-y-3 md:hidden">
       {clients.map((client) => (
@@ -234,7 +241,11 @@ export function ClientListMobileCards({
               <p className="text-sm text-muted-foreground">{client.owner}</p>
               <p className="truncate text-sm">{client.email}</p>
             </div>
-            <ClientRowActions clientName={client.displayName} />
+            <ClientRowActions
+              clientId={client.id}
+              clientName={client.displayName}
+              onEdit={onEditClient}
+            />
           </div>
         </div>
       ))}
