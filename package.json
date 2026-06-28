@@ -4,7 +4,7 @@
   "private": true,
   "description": "Enterprise Operating System for Digital Marketing Agencies",
   "scripts": {
-    "dev": "pnpm run --parallel dev:frontend dev:backend",
+    "dev": "pnpm --parallel --filter @agencyos/frontend --filter @agencyos/backend dev",
     "dev:frontend": "pnpm --filter @agencyos/frontend dev",
     "dev:backend": "pnpm --filter @agencyos/backend dev",
     "build": "pnpm run --filter @agencyos/shared build && pnpm run --filter @agencyos/backend build && pnpm run --filter @agencyos/frontend build",
