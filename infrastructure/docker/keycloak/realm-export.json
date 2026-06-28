@@ -1,0 +1,24 @@
+{
+  "realm": "agencyos",
+  "enabled": true,
+  "displayName": "AgencyOS",
+  "clients": [
+    {
+      "clientId": "agencyos-web",
+      "name": "AgencyOS Web",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"]
+    },
+    {
+      "clientId": "agencyos-api",
+      "name": "AgencyOS API",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false
+    }
+  ]
+}

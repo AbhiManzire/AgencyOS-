@@ -1,0 +1,76 @@
+import type { ClientSource, ClientStatus } from '@prisma/client';
+import type {
+  ArchiveValidationContext,
+  ClientMembershipContext,
+} from '../domain/client-domain.types';
+import type {
+  ClientRecord,
+  ClientScope,
+  ListClientsResult,
+} from '../repositories/client.repository.interface';
+
+/** Actor and membership context supplied by the caller (not auth — orchestration only). */
+export interface ClientApplicationContext {
+  readonly actorUserId: string;
+  readonly membership?: ClientMembershipContext;
+  readonly archive?: ArchiveValidationContext;
+}
+
+export interface CreateClientCommand {
+  readonly displayName: string;
+  readonly slug?: string;
+  readonly status?: ClientStatus;
+  readonly legalName?: string | null;
+  readonly industry?: string | null;
+  readonly website?: string | null;
+  readonly phone?: string | null;
+  readonly email?: string | null;
+  readonly addressLine1?: string | null;
+  readonly addressLine2?: string | null;
+  readonly city?: string | null;
+  readonly stateRegion?: string | null;
+  readonly postalCode?: string | null;
+  readonly countryCode?: string | null;
+  readonly ownerUserId?: string | null;
+  readonly source?: ClientSource | null;
+  readonly externalReferenceId?: string | null;
+  readonly becameClientAt?: Date | null;
+}
+
+export interface UpdateClientCommand {
+  readonly displayName?: string;
+  readonly slug?: string;
+  readonly status?: ClientStatus;
+  readonly legalName?: string | null;
+  readonly industry?: string | null;
+  readonly website?: string | null;
+  readonly phone?: string | null;
+  readonly email?: string | null;
+  readonly addressLine1?: string | null;
+  readonly addressLine2?: string | null;
+  readonly city?: string | null;
+  readonly stateRegion?: string | null;
+  readonly postalCode?: string | null;
+  readonly countryCode?: string | null;
+  readonly ownerUserId?: string | null;
+  readonly source?: ClientSource | null;
+  readonly externalReferenceId?: string | null;
+  readonly becameClientAt?: Date | null;
+}
+
+export interface RestoreClientCommand {
+  readonly targetStatus?: ClientStatus;
+}
+
+export interface GetClientOptions {
+  readonly includeArchived?: boolean;
+}
+
+export interface ListClientsQuery {
+  readonly skip?: number;
+  readonly take?: number;
+  readonly status?: ClientStatus;
+  readonly includeArchived?: boolean;
+}
+
+export type { ClientRecord, ClientScope, ListClientsResult };

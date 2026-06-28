@@ -1,0 +1,49 @@
+{
+  "name": "agencyos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Enterprise Operating System for Digital Marketing Agencies",
+  "scripts": {
+    "dev": "pnpm run --parallel dev:frontend dev:backend",
+    "dev:frontend": "pnpm --filter @agencyos/frontend dev",
+    "dev:backend": "pnpm --filter @agencyos/backend dev",
+    "build": "pnpm run --filter @agencyos/shared build && pnpm run --filter @agencyos/backend build && pnpm run --filter @agencyos/frontend build",
+    "lint": "pnpm run -r lint",
+    "lint:fix": "pnpm run -r lint:fix",
+    "format": "prettier --write \"{frontend,backend,shared}/**/*.{ts,tsx,js,jsx,json}\" \".github/**/*.{yml,yaml}\" \"*.{json,yml,yaml,mjs}\" \"docker-compose.yml\"",
+    "format:check": "prettier --check \"{frontend,backend,shared}/**/*.{ts,tsx,js,jsx,json}\" \".github/**/*.{yml,yaml}\" \"*.{json,yml,yaml,mjs}\" \"docker-compose.yml\"",
+    "typecheck": "pnpm run -r typecheck",
+    "test": "pnpm run -r test",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "globals": "^16.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.9"
+}

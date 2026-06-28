@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agencyos
+          POSTGRES_PASSWORD: agencyos_dev
+          POSTGRES_DB: agencyos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agencyos -d agencyos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://agencyos:agencyos_dev@localhost:5432/agencyos?schema=public
+      KEYCLOAK_ISSUER_URL: http://localhost:8080/realms/agencyos
+      KEYCLOAK_JWKS_URI: http://localhost:8080/realms/agencyos/protocol/openid-connect/certs
+      KEYCLOAK_AUDIENCE: agencyos-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @agencyos/backend prisma:generate
+
+      - name: Apply database migrations
+        run: pnpm --filter @agencyos/backend exec prisma migrate deploy
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build shared
+        run: pnpm --filter @agencyos/shared build
+
+      - name: Build backend
+        run: pnpm --filter @agencyos/backend build
+
+      - name: Build frontend
+        run: pnpm --filter @agencyos/frontend build
+
+      - name: Backend unit tests
+        run: pnpm --filter @agencyos/backend test
+
+      - name: Backend e2e tests
+        run: pnpm --filter @agencyos/backend test:e2e
