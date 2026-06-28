@@ -59,6 +59,11 @@ export interface ListClientsParams {
   readonly skip?: number;
   readonly take?: number;
   readonly status?: ClientStatus;
+  readonly includeArchived?: boolean;
+}
+
+export interface RestoreClientPayload {
+  readonly targetStatus?: ClientStatus;
 }
 
 export interface ListClientsResult {

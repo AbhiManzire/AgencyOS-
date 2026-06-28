@@ -5,6 +5,7 @@ import type {
   CreateClientPayload,
   ListClientsParams,
   ListClientsResult,
+  RestoreClientPayload,
   UpdateClientPayload,
 } from '@/features/clients/api/client.types';
 
@@ -43,6 +44,27 @@ export async function updateClient(
 ): Promise<ClientRecord> {
   const response = await apiClient.patch<ApiSuccessResponse<ClientRecord>>(
     `/clients/${id}`,
+    payload,
+  );
+  return response.data.data;
+}
+
+/** Archives a client in the active workspace. */
+export async function archiveClient(id: string): Promise<ClientRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<ClientRecord>>(
+    `/clients/${id}/archive`,
+    {},
+  );
+  return response.data.data;
+}
+
+/** Restores an archived client in the active workspace. */
+export async function restoreClient(
+  id: string,
+  payload: RestoreClientPayload = {},
+): Promise<ClientRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<ClientRecord>>(
+    `/clients/${id}/restore`,
     payload,
   );
   return response.data.data;

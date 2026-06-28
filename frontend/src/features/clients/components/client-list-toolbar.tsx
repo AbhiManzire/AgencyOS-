@@ -65,10 +65,11 @@ export function ClientListToolbar({
           }}
           className="min-w-[140px]"
         >
-          <option value="all">All statuses</option>
-          <option value="PROSPECT">Prospect</option>
+          <option value="all">All</option>
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
+          <option value="PROSPECT">Prospect</option>
+          <option value="archived">Archived</option>
         </NativeSelect>
 
         <NativeSelect

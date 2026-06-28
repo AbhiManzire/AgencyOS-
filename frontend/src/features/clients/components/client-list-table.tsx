@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ClientRowActions } from '@/features/clients/components/client-row-actions';
+import { ClientArchivedBadge } from '@/features/clients/components/client-archived-badge';
 import { ClientStatusBadge } from '@/features/clients/components/client-status-badge';
 import { SortIndicator } from '@/features/clients/components/client-list-toolbar';
 import type { ClientListItem, ClientSortField, SortDirection } from '@/features/clients/types';
@@ -25,6 +26,8 @@ interface ClientListTableProps {
   onToggleRow: (id: string, checked: boolean) => void;
   onToggleAll: (checked: boolean) => void;
   onEditClient: (clientId: string) => void;
+  onArchiveClient: (clientId: string) => void;
+  onRestoreClient: (clientId: string) => void;
 }
 
 interface SortableHeaderProps {
@@ -79,6 +82,8 @@ export function ClientListTable({
   onToggleRow,
   onToggleAll,
   onEditClient,
+  onArchiveClient,
+  onRestoreClient,
 }: ClientListTableProps) {
   const allSelected = clients.length > 0 && clients.every((client) => selectedIds.has(client.id));
   const someSelected = clients.some((client) => selectedIds.has(client.id));
@@ -153,7 +158,11 @@ export function ClientListTable({
               const isSelected = selectedIds.has(client.id);
 
               return (
-                <TableRow key={client.id} data-state={isSelected ? 'selected' : undefined}>
+                <TableRow
+                  key={client.id}
+                  data-state={isSelected ? 'selected' : undefined}
+                  className={client.isArchived ? 'text-muted-foreground' : undefined}
+                >
                   <TableCell>
                     <Checkbox
                       checked={isSelected}
@@ -167,7 +176,14 @@ export function ClientListTable({
                     <div className="flex items-center gap-3">
                       <Avatar initials={client.displayName.slice(0, 2)} size="sm" />
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground">{client.displayName}</p>
+                        <p
+                          className={cn(
+                            'truncate font-medium',
+                            client.isArchived ? 'text-muted-foreground' : 'text-foreground',
+                          )}
+                        >
+                          {client.displayName}
+                        </p>
                         <p className="truncate text-xs text-muted-foreground md:hidden">
                           {client.company}
                         </p>
@@ -178,7 +194,10 @@ export function ClientListTable({
                     {client.company}
                   </TableCell>
                   <TableCell>
-                    <ClientStatusBadge status={client.status} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ClientStatusBadge status={client.status} />
+                      {client.isArchived ? <ClientArchivedBadge /> : null}
+                    </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">{client.owner}</TableCell>
                   <TableCell className="hidden max-w-[220px] truncate xl:table-cell">
@@ -192,7 +211,10 @@ export function ClientListTable({
                     <ClientRowActions
                       clientId={client.id}
                       clientName={client.displayName}
+                      isArchived={client.isArchived}
                       onEdit={onEditClient}
+                      onArchive={onArchiveClient}
+                      onRestore={onRestoreClient}
                     />
                   </TableCell>
                 </TableRow>
@@ -211,7 +233,12 @@ export function ClientListMobileCards({
   selectedIds,
   onToggleRow,
   onEditClient,
-}: Pick<ClientListTableProps, 'clients' | 'selectedIds' | 'onToggleRow' | 'onEditClient'>) {
+  onArchiveClient,
+  onRestoreClient,
+}: Pick<
+  ClientListTableProps,
+  'clients' | 'selectedIds' | 'onToggleRow' | 'onEditClient' | 'onArchiveClient' | 'onRestoreClient'
+>) {
   return (
     <div className="space-y-3 md:hidden">
       {clients.map((client) => (
@@ -219,6 +246,7 @@ export function ClientListMobileCards({
           key={client.id}
           className={cn(
             'rounded-lg border border-border bg-card p-4',
+            client.isArchived && 'text-muted-foreground',
             selectedIds.has(client.id) && 'ring-2 ring-primary/20',
           )}
         >
@@ -233,10 +261,15 @@ export function ClientListMobileCards({
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium">{client.displayName}</p>
+                  <p className={cn('font-medium', client.isArchived && 'text-muted-foreground')}>
+                    {client.displayName}
+                  </p>
                   <p className="text-sm text-muted-foreground">{client.company}</p>
                 </div>
-                <ClientStatusBadge status={client.status} />
+                <div className="flex flex-col items-end gap-2">
+                  <ClientStatusBadge status={client.status} />
+                  {client.isArchived ? <ClientArchivedBadge /> : null}
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">{client.owner}</p>
               <p className="truncate text-sm">{client.email}</p>
@@ -244,7 +277,10 @@ export function ClientListMobileCards({
             <ClientRowActions
               clientId={client.id}
               clientName={client.displayName}
+              isArchived={client.isArchived}
               onEdit={onEditClient}
+              onArchive={onArchiveClient}
+              onRestore={onRestoreClient}
             />
           </div>
         </div>

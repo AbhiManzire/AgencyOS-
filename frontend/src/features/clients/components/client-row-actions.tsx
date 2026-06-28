@@ -1,4 +1,4 @@
-import { Archive, MoreHorizontal, Pencil, Eye } from 'lucide-react';
+import { Archive, MoreHorizontal, Pencil, RotateCcw, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,10 +10,20 @@ import {
 interface ClientRowActionsProps {
   readonly clientId: string;
   readonly clientName: string;
+  readonly isArchived: boolean;
   readonly onEdit: (clientId: string) => void;
+  readonly onArchive: (clientId: string) => void;
+  readonly onRestore: (clientId: string) => void;
 }
 
-export function ClientRowActions({ clientId, clientName, onEdit }: ClientRowActionsProps) {
+export function ClientRowActions({
+  clientId,
+  clientName,
+  isArchived,
+  onEdit,
+  onArchive,
+  onRestore,
+}: ClientRowActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -32,6 +42,7 @@ export function ClientRowActions({ clientId, clientName, onEdit }: ClientRowActi
           View
         </DropdownMenuItem>
         <DropdownMenuItem
+          disabled={isArchived}
           className="gap-2"
           onSelect={() => {
             onEdit(clientId);
@@ -40,10 +51,27 @@ export function ClientRowActions({ clientId, clientName, onEdit }: ClientRowActi
           <Pencil className="size-4" />
           Edit
         </DropdownMenuItem>
-        <DropdownMenuItem disabled className="gap-2 text-danger focus:text-danger">
-          <Archive className="size-4" />
-          Archive
-        </DropdownMenuItem>
+        {isArchived ? (
+          <DropdownMenuItem
+            className="gap-2"
+            onSelect={() => {
+              onRestore(clientId);
+            }}
+          >
+            <RotateCcw className="size-4" />
+            Restore
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            className="gap-2 text-danger focus:text-danger"
+            onSelect={() => {
+              onArchive(clientId);
+            }}
+          >
+            <Archive className="size-4" />
+            Archive
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

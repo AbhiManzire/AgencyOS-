@@ -12,5 +12,6 @@ export function mapClientRecordToListItem(record: ClientRecord): ClientListItem 
     email: record.email ?? '—',
     phone: record.phone ?? '—',
     createdAt: record.createdAt,
+    isArchived: record.deletedAt !== null,
   };
 }

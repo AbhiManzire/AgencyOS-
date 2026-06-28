@@ -1,25 +1,34 @@
 'use client';
 
 import { Activity, FileText, FolderOpen } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ErrorState, LoadingState, PageContainer } from '@/design-system';
+import { ErrorState, LoadingState, PageContainer, useToast } from '@/design-system';
+import { ArchiveClientDialog } from '@/features/clients/components/archive-client-dialog';
 import { ClientDetailAddressCard } from '@/features/clients/components/client-detail-address-card';
 import { ClientDetailHeader } from '@/features/clients/components/client-detail-header';
 import { ClientDetailSectionPlaceholder } from '@/features/clients/components/client-detail-section-placeholder';
 import { ClientDetailSummaryCard } from '@/features/clients/components/client-detail-summary-card';
 import { ClientNotFoundState } from '@/features/clients/components/client-not-found-state';
 import { CreateClientDrawer } from '@/features/clients/components/create-client-drawer';
+import { useArchiveClient } from '@/features/clients/hooks/use-archive-client';
 import { useClient } from '@/features/clients/hooks/use-client';
+import { useRestoreClient } from '@/features/clients/hooks/use-restore-client';
 import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-api-error';
+import { isClientArchived } from '@/features/clients/utils/list-clients-query';
 
 export default function ClientDetailPage() {
+  const router = useRouter();
+  const { showToast } = useToast();
   const params = useParams<{ id: string }>();
   const clientId = params.id;
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
   const { data: client, isLoading, error, refetch } = useClient(clientId);
+  const { mutateAsync: archiveClient, isPending: isArchiving } = useArchiveClient();
+  const { mutateAsync: restoreClient, isPending: isRestoring } = useRestoreClient();
 
   if (isLoading) {
     return (
@@ -52,6 +61,29 @@ export default function ClientDetailPage() {
     return <ClientNotFoundState />;
   }
 
+  const archived = isClientArchived(client);
+
+  const handleConfirmArchive = async (): Promise<void> => {
+    try {
+      await archiveClient(clientId);
+      showToast('Client archived successfully');
+      setArchiveDialogOpen(false);
+      router.push('/clients');
+    } catch (archiveError) {
+      showToast(extractApiErrorMessage(archiveError), 'error');
+    }
+  };
+
+  const handleRestore = async (): Promise<void> => {
+    try {
+      await restoreClient({ id: clientId });
+      showToast('Client restored successfully');
+      await refetch();
+    } catch (restoreError) {
+      showToast(extractApiErrorMessage(restoreError), 'error');
+    }
+  };
+
   return (
     <PageContainer size="lg">
       <ClientDetailHeader
@@ -59,6 +91,13 @@ export default function ClientDetailPage() {
         onEdit={() => {
           setEditDrawerOpen(true);
         }}
+        onArchive={() => {
+          setArchiveDialogOpen(true);
+        }}
+        onRestore={() => {
+          void handleRestore();
+        }}
+        isRestorePending={isRestoring}
       />
 
       <CreateClientDrawer
@@ -68,27 +107,40 @@ export default function ClientDetailPage() {
         onOpenChange={setEditDrawerOpen}
       />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <ClientDetailSummaryCard client={client} />
-        <ClientDetailAddressCard client={client} />
-      </div>
+      <ArchiveClientDialog
+        open={archiveDialogOpen}
+        isPending={isArchiving}
+        onCancel={() => {
+          setArchiveDialogOpen(false);
+        }}
+        onConfirm={() => {
+          void handleConfirmArchive();
+        }}
+      />
 
-      <div className="mt-6 space-y-6">
-        <ClientDetailSectionPlaceholder
-          title="Notes"
-          description="Internal notes for this client will appear here."
-          icon={FileText}
-        />
-        <ClientDetailSectionPlaceholder
-          title="Activity"
-          description="Client activity timeline will appear here."
-          icon={Activity}
-        />
-        <ClientDetailSectionPlaceholder
-          title="Documents"
-          description="Uploaded documents will appear here."
-          icon={FolderOpen}
-        />
+      <div className={archived ? 'mt-6 text-muted-foreground' : 'mt-6'}>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ClientDetailSummaryCard client={client} />
+          <ClientDetailAddressCard client={client} />
+        </div>
+
+        <div className="mt-6 space-y-6">
+          <ClientDetailSectionPlaceholder
+            title="Notes"
+            description="Internal notes for this client will appear here."
+            icon={FileText}
+          />
+          <ClientDetailSectionPlaceholder
+            title="Activity"
+            description="Client activity timeline will appear here."
+            icon={Activity}
+          />
+          <ClientDetailSectionPlaceholder
+            title="Documents"
+            description="Uploaded documents will appear here."
+            icon={FolderOpen}
+          />
+        </div>
       </div>
     </PageContainer>
   );

@@ -7,6 +7,8 @@ export type ClientSortField =
 
 export type SortDirection = 'asc' | 'desc';
 
+export type ClientListStatusFilter = 'all' | ClientStatus | 'archived';
+
 export interface ClientListItem {
   readonly id: string;
   readonly displayName: string;
@@ -16,4 +18,5 @@ export interface ClientListItem {
   readonly email: string;
   readonly phone: string;
   readonly createdAt: string;
+  readonly isArchived: boolean;
 }
