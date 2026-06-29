@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
 import { REQUIRED_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import type { RbacConfiguration } from '../rbac.configuration';
 import { RBAC_CONFIGURATION } from '../rbac.configuration';
@@ -30,17 +29,16 @@ export class PermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-
-    const requiredPermissions = this.reflector.getAllAndOverride<readonly string[]>(
+    const requiredPermissions = this.reflector.getAllAndOverride<readonly string[] | undefined>(
       REQUIRED_PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
     );
 
-    if (requiredPermissions.length === 0) {
+    if (requiredPermissions === undefined || requiredPermissions.length === 0) {
+      return true;
+    }
+
+    if (!this.rbacConfiguration.enforced) {
       return true;
     }
 
@@ -50,10 +48,6 @@ export class PermissionGuard implements CanActivate {
       (await this.permissionService.resolvePermissionContext(this.resolveScope(request)));
 
     request[PERMISSION_CONTEXT_REQUEST_KEY] = permissionContext;
-
-    if (isPublic && !this.rbacConfiguration.enforced) {
-      return true;
-    }
 
     if (!this.permissionService.hasAllPermissions(permissionContext, requiredPermissions)) {
       throw new ForbiddenException('You do not have permission to perform this action.');
