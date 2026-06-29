@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { AUTH_CONFIG } from '@/lib/auth/config';
+import { dispatchSessionTimeout } from '@/lib/auth/session-timeout';
 
 const DEV_TENANT_HEADER = 'x-tenant-id';
 const DEV_WORKSPACE_HEADER = 'x-workspace-id';
@@ -20,3 +21,18 @@ apiClient.interceptors.request.use((config) => {
 
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      dispatchSessionTimeout();
+    }
+
+    if (error instanceof Error) {
+      return Promise.reject(error);
+    }
+
+    return Promise.reject(new Error('Request failed'));
+  },
+);

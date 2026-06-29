@@ -79,6 +79,19 @@ export async function seedWorkspaceFixture(app: INestApplication): Promise<Works
     },
   });
 
+  await prisma.employee.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      workspaceId,
+      userId,
+      status: 'ACTIVE',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+
   return { agencyId, tenantId, workspaceId, userId };
 }
 
@@ -89,6 +102,12 @@ export async function cleanupWorkspaceFixture(
 ): Promise<void> {
   const prisma = app.get(PrismaService);
 
+  await prisma.clientContact.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.task.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.projectMilestone.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.projectMember.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.employee.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.project.deleteMany({ where: { tenantId: fixture.tenantId } });
   await prisma.client.deleteMany({ where: { tenantId: fixture.tenantId } });
   await prisma.workspace.deleteMany({ where: { id: fixture.workspaceId } });
   await prisma.tenant.deleteMany({ where: { id: fixture.tenantId } });

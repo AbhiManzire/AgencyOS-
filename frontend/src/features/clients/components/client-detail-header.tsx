@@ -1,3 +1,5 @@
+'use client';
+
 import { Archive, Pencil, RotateCcw } from 'lucide-react';
 import { Avatar, Body, Caption } from '@/design-system';
 import { Button } from '@/components/ui/button';
@@ -6,6 +8,7 @@ import { ClientArchivedBadge } from '@/features/clients/components/client-archiv
 import { ClientStatusBadge } from '@/features/clients/components/client-status-badge';
 import { displayClientField } from '@/features/clients/utils/client-display';
 import { isClientArchived } from '@/features/clients/utils/list-clients-query';
+import { Can } from '@/lib/rbac';
 
 interface ClientDetailHeaderProps {
   readonly client: ClientRecord;
@@ -52,32 +55,43 @@ export function ClientDetailHeader({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={archived}
-          className="gap-2"
-          onClick={onEdit}
-        >
-          <Pencil className="size-4" />
-          Edit
-        </Button>
-        {archived ? (
+        <Can permission="clients.update" mode="disable">
           <Button
             type="button"
             variant="outline"
+            disabled={archived}
             className="gap-2"
-            disabled={isRestorePending}
-            onClick={onRestore}
+            onClick={onEdit}
           >
-            <RotateCcw className="size-4" />
-            Restore
+            <Pencil className="size-4" />
+            Edit
           </Button>
+        </Can>
+        {archived ? (
+          <Can permission="clients.restore" mode="disable">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={isRestorePending}
+              onClick={onRestore}
+            >
+              <RotateCcw className="size-4" />
+              Restore
+            </Button>
+          </Can>
         ) : (
-          <Button type="button" variant="outline" className="gap-2 text-danger" onClick={onArchive}>
-            <Archive className="size-4" />
-            Archive
-          </Button>
+          <Can permission="clients.archive" mode="disable">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 text-danger"
+              onClick={onArchive}
+            >
+              <Archive className="size-4" />
+              Archive
+            </Button>
+          </Can>
         )}
       </div>
     </div>

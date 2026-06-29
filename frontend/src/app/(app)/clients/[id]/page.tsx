@@ -12,10 +12,12 @@ import { ClientDetailSectionPlaceholder } from '@/features/clients/components/cl
 import { ClientDetailSummaryCard } from '@/features/clients/components/client-detail-summary-card';
 import { ClientNotFoundState } from '@/features/clients/components/client-not-found-state';
 import { CreateClientDrawer } from '@/features/clients/components/create-client-drawer';
+import { ClientContactsTab, ClientDetailTabs } from '@/features/clients/contacts/components';
 import { useArchiveClient } from '@/features/clients/hooks/use-archive-client';
 import { useClient } from '@/features/clients/hooks/use-client';
 import { useRestoreClient } from '@/features/clients/hooks/use-restore-client';
 import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-api-error';
+import { usePermission } from '@/lib/rbac';
 import { isClientArchived } from '@/features/clients/utils/list-clients-query';
 
 export default function ClientDetailPage() {
@@ -29,6 +31,7 @@ export default function ClientDetailPage() {
   const { data: client, isLoading, error, refetch } = useClient(clientId);
   const { mutateAsync: archiveClient, isPending: isArchiving } = useArchiveClient();
   const { mutateAsync: restoreClient, isPending: isRestoring } = useRestoreClient();
+  const { allowed: canManageContacts } = usePermission('clients.contacts.manage');
 
   if (isLoading) {
     return (
@@ -118,29 +121,38 @@ export default function ClientDetailPage() {
         }}
       />
 
-      <div className={archived ? 'mt-6 text-muted-foreground' : 'mt-6'}>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <ClientDetailSummaryCard client={client} />
-          <ClientDetailAddressCard client={client} />
-        </div>
+      <div className={archived ? 'text-muted-foreground' : undefined}>
+        <ClientDetailTabs
+          overview={
+            <>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <ClientDetailSummaryCard client={client} />
+                <ClientDetailAddressCard client={client} />
+              </div>
 
-        <div className="mt-6 space-y-6">
-          <ClientDetailSectionPlaceholder
-            title="Notes"
-            description="Internal notes for this client will appear here."
-            icon={FileText}
-          />
-          <ClientDetailSectionPlaceholder
-            title="Activity"
-            description="Client activity timeline will appear here."
-            icon={Activity}
-          />
-          <ClientDetailSectionPlaceholder
-            title="Documents"
-            description="Uploaded documents will appear here."
-            icon={FolderOpen}
-          />
-        </div>
+              <div className="mt-6 space-y-6">
+                <ClientDetailSectionPlaceholder
+                  title="Notes"
+                  description="Internal notes for this client will appear here."
+                  icon={FileText}
+                />
+                <ClientDetailSectionPlaceholder
+                  title="Activity"
+                  description="Client activity timeline will appear here."
+                  icon={Activity}
+                />
+                <ClientDetailSectionPlaceholder
+                  title="Documents"
+                  description="Uploaded documents will appear here."
+                  icon={FolderOpen}
+                />
+              </div>
+            </>
+          }
+          contacts={
+            <ClientContactsTab clientId={clientId} readOnly={archived || !canManageContacts} />
+          }
+        />
       </div>
     </PageContainer>
   );

@@ -1,0 +1,9 @@
+export { ClientContactsTab } from './client-contacts-tab';
+export { ClientContactsTable } from './client-contacts-table';
+export { ClientDetailTabs } from './client-detail-tabs';
+export { ContactFormDrawer } from './contact-form-drawer';
+export { ContactFormField } from './contact-form-field';
+export { ContactPrimaryIndicator } from './contact-primary-indicator';
+export { ContactRowActions } from './contact-row-actions';
+export { ContactStatusBadge } from './contact-status-badge';
+export { DeleteContactDialog } from './delete-contact-dialog';

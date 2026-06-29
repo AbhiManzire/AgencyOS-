@@ -1,0 +1,27 @@
+export const INVOICE_DOMAIN_ERROR_CODES = {
+  INVOICE_NOT_FOUND: 'INVOICE_NOT_FOUND',
+  INVOICE_ARCHIVED: 'INVOICE_ARCHIVED',
+  INVOICE_NUMBER_REQUIRED: 'INVOICE_NUMBER_REQUIRED',
+  INVOICE_NUMBER_NOT_UNIQUE: 'INVOICE_NUMBER_NOT_UNIQUE',
+  INVALID_STATUS: 'INVALID_STATUS',
+  INVALID_DATES: 'INVALID_DATES',
+  CLIENT_NOT_FOUND: 'CLIENT_NOT_FOUND',
+  PROJECT_NOT_FOUND: 'PROJECT_NOT_FOUND',
+  PROJECT_ARCHIVED: 'PROJECT_ARCHIVED',
+  PROJECT_CLIENT_MISMATCH: 'PROJECT_CLIENT_MISMATCH',
+  QUOTE_NOT_FOUND: 'QUOTE_NOT_FOUND',
+  QUOTE_CLIENT_MISMATCH: 'QUOTE_CLIENT_MISMATCH',
+} as const;
+
+export type InvoiceDomainErrorCode =
+  (typeof INVOICE_DOMAIN_ERROR_CODES)[keyof typeof INVOICE_DOMAIN_ERROR_CODES];
+
+export class InvoiceDomainError extends Error {
+  readonly code: InvoiceDomainErrorCode;
+
+  constructor(code: InvoiceDomainErrorCode, message: string) {
+    super(message);
+    this.name = 'InvoiceDomainError';
+    this.code = code;
+  }
+}

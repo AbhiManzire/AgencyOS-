@@ -1,0 +1,16 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { updateTask } from '@/features/tasks/api/tasks.api';
+import type { UpdateTaskPayload } from '@/features/tasks/api/task-payload.types';
+import { tasksQueryKeys } from '@/features/tasks/hooks/use-tasks';
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ taskId, payload }: { taskId: string; payload: UpdateTaskPayload }) =>
+      updateTask(taskId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: tasksQueryKeys.all });
+    },
+  });
+}

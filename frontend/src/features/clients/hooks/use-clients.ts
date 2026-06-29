@@ -9,9 +9,10 @@ export const clientsQueryKeys = {
 };
 
 /** TanStack Query hook for GET /clients with pagination and status filter. */
-export function useClients(params: ListClientsParams) {
+export function useClients(params: ListClientsParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: clientsQueryKeys.list(params),
     queryFn: () => listClients(params),
+    enabled: options?.enabled ?? true,
   });
 }

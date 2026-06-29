@@ -26,6 +26,24 @@ describe('Health (e2e)', () => {
       });
   });
 
+  it('GET /api/health/live returns liveness status', () => {
+    return request(app.getHttpServer())
+      .get('/api/health/live')
+      .expect(200)
+      .expect((response: { body: { status: string } }) => {
+        expect(response.body.status).toBe('ok');
+      });
+  });
+
+  it('GET /api/health/ready returns readiness status', () => {
+    return request(app.getHttpServer())
+      .get('/api/health/ready')
+      .expect(200)
+      .expect((response: { body: { checks: { database: string } } }) => {
+        expect(['ok', 'error']).toContain(response.body.checks.database);
+      });
+  });
+
   it('GET /api/auth/me requires authentication', () => {
     return request(app.getHttpServer()).get('/api/auth/me').expect(401);
   });

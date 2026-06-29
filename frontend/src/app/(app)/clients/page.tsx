@@ -29,6 +29,7 @@ import type {
   SortDirection,
 } from '@/features/clients/types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
+import { Can } from '@/lib/rbac';
 import { resolveListClientsQuery } from '@/features/clients/utils/list-clients-query';
 
 function compareClients(
@@ -228,16 +229,18 @@ export default function ClientsPage() {
         title="Clients"
         description="Manage all client organizations"
         actions={
-          <Button
-            type="button"
-            className="gap-2"
-            onClick={() => {
-              setCreateDrawerOpen(true);
-            }}
-          >
-            <Plus className="size-4" />
-            New Client
-          </Button>
+          <Can permission="clients.create">
+            <Button
+              type="button"
+              className="gap-2"
+              onClick={() => {
+                setCreateDrawerOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              New Client
+            </Button>
+          </Can>
         }
       />
 

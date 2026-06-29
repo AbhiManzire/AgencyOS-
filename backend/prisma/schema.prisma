@@ -42,18 +42,38 @@ model Tenant {
 
   roles     Role[]
   userRoles UserRole[]
+  rolePermissions RolePermission[]
   workspace Workspace?
   departments Department[]
   teams       Team[]
   employees   Employee[]
-  clients     Client[]
-  contacts    Contact[]
+  clients        Client[]
+  clientContacts ClientContact[]
   clientNotes ClientNote[]
   clientActivities ClientActivity[]
   clientTags  Tag[]
   clientTagAssignments ClientTag[]
   clientDocuments ClientDocument[]
   clientCustomFieldValues ClientCustomFieldValue[]
+  activities              Activity[]
+  comments                Comment[]
+  files                   File[]
+  timeEntries             TimeEntry[]
+  deals                   Deal[]
+  dealFollowUps           DealFollowUp[]
+  quotes                  Quote[]
+  quoteLineItems          QuoteLineItem[]
+  proposals               Proposal[]
+  proposalVersions        ProposalVersion[]
+  invoices                Invoice[]
+  invoiceLineItems        InvoiceLineItem[]
+  projects                Project[]
+  projectMembers          ProjectMember[]
+  projectMilestones       ProjectMilestone[]
+  tasks                   Task[]
+  workflows               Workflow[]
+  workflowTriggers        WorkflowTrigger[]
+  workflowActions         WorkflowAction[]
 
   @@index([status], map: "idx_platform_tenants_status")
   @@index([deletedAt], map: "idx_platform_tenants_deleted_at")
@@ -117,9 +137,9 @@ model User {
   clientsCreated   Client[]     @relation("ClientCreatedBy")
   clientsUpdated   Client[]     @relation("ClientUpdatedBy")
   clientsDeleted   Client[]     @relation("ClientDeletedBy")
-  contactsCreated  Contact[]    @relation("ContactCreatedBy")
-  contactsUpdated  Contact[]    @relation("ContactUpdatedBy")
-  contactsDeleted  Contact[]    @relation("ContactDeletedBy")
+  clientContactsCreated ClientContact[] @relation("ClientContactCreatedBy")
+  clientContactsUpdated ClientContact[] @relation("ClientContactUpdatedBy")
+  clientContactsDeleted ClientContact[] @relation("ClientContactDeletedBy")
   clientNotesCreated ClientNote[] @relation("ClientNoteCreatedBy")
   clientNotesUpdated ClientNote[] @relation("ClientNoteUpdatedBy")
   clientActivitiesActed ClientActivity[] @relation("ClientActivityActor")
@@ -130,6 +150,59 @@ model User {
   clientDocumentsDeleted  ClientDocument[] @relation("ClientDocumentDeletedBy")
   clientCustomFieldValuesCreated ClientCustomFieldValue[] @relation("ClientCustomFieldValueCreatedBy")
   clientCustomFieldValuesUpdated ClientCustomFieldValue[] @relation("ClientCustomFieldValueUpdatedBy")
+  activitiesActed                Activity[]               @relation("ActivityActor")
+  commentsAuthored               Comment[]                @relation("CommentAuthor")
+  commentsCreated                Comment[]                @relation("CommentCreatedBy")
+  commentsUpdated                Comment[]                @relation("CommentUpdatedBy")
+  commentsDeleted                Comment[]                @relation("CommentDeletedBy")
+  filesUploaded                  File[]                   @relation("FileUploadedBy")
+  projectsManaged                Project[]                @relation("ProjectManager")
+  projectsCreated                Project[]                @relation("ProjectCreatedBy")
+  projectsUpdated                Project[]                @relation("ProjectUpdatedBy")
+  projectsDeleted                Project[]                @relation("ProjectDeletedBy")
+  projectMemberships             ProjectMember[]
+  projectMembersCreated          ProjectMember[] @relation("ProjectMemberCreatedBy")
+  projectMembersUpdated          ProjectMember[] @relation("ProjectMemberUpdatedBy")
+  projectMembersDeleted          ProjectMember[] @relation("ProjectMemberDeletedBy")
+  projectMilestonesOwned         ProjectMilestone[] @relation("ProjectMilestoneOwner")
+  projectMilestonesCreated       ProjectMilestone[] @relation("ProjectMilestoneCreatedBy")
+  projectMilestonesUpdated       ProjectMilestone[] @relation("ProjectMilestoneUpdatedBy")
+  projectMilestonesDeleted       ProjectMilestone[] @relation("ProjectMilestoneDeletedBy")
+  tasksAssigned                  Task[]             @relation("TaskAssignee")
+  tasksCreated                   Task[]             @relation("TaskCreatedBy")
+  tasksUpdated                   Task[]             @relation("TaskUpdatedBy")
+  tasksDeleted                   Task[]             @relation("TaskDeletedBy")
+  timeEntries                    TimeEntry[]        @relation("TimeEntryUser")
+  timeEntriesCreated             TimeEntry[]        @relation("TimeEntryCreatedBy")
+  timeEntriesUpdated             TimeEntry[]        @relation("TimeEntryUpdatedBy")
+  timeEntriesDeleted             TimeEntry[]        @relation("TimeEntryDeletedBy")
+  dealsOwned                     Deal[]             @relation("DealOwner")
+  dealsCreated                   Deal[]             @relation("DealCreatedBy")
+  dealsUpdated                   Deal[]             @relation("DealUpdatedBy")
+  dealsDeleted                   Deal[]             @relation("DealDeletedBy")
+  dealFollowUpsOwned             DealFollowUp[]     @relation("DealFollowUpOwner")
+  dealFollowUpsCreated           DealFollowUp[]     @relation("DealFollowUpCreatedBy")
+  dealFollowUpsUpdated           DealFollowUp[]     @relation("DealFollowUpUpdatedBy")
+  dealFollowUpsDeleted           DealFollowUp[]     @relation("DealFollowUpDeletedBy")
+  quotesCreated                  Quote[]            @relation("QuoteCreatedBy")
+  quotesUpdated                  Quote[]            @relation("QuoteUpdatedBy")
+  quotesDeleted                  Quote[]            @relation("QuoteDeletedBy")
+  quoteLineItemsCreated          QuoteLineItem[]    @relation("QuoteLineItemCreatedBy")
+  quoteLineItemsUpdated          QuoteLineItem[]    @relation("QuoteLineItemUpdatedBy")
+  quoteLineItemsDeleted          QuoteLineItem[]    @relation("QuoteLineItemDeletedBy")
+  proposalsCreated               Proposal[]         @relation("ProposalCreatedBy")
+  proposalsUpdated               Proposal[]         @relation("ProposalUpdatedBy")
+  proposalsDeleted               Proposal[]         @relation("ProposalDeletedBy")
+  proposalVersionsCreated        ProposalVersion[]  @relation("ProposalVersionCreatedBy")
+  invoicesCreated                Invoice[]          @relation("InvoiceCreatedBy")
+  invoicesUpdated                Invoice[]          @relation("InvoiceUpdatedBy")
+  invoicesDeleted                Invoice[]          @relation("InvoiceDeletedBy")
+  invoiceLineItemsCreated        InvoiceLineItem[]  @relation("InvoiceLineItemCreatedBy")
+  invoiceLineItemsUpdated        InvoiceLineItem[]  @relation("InvoiceLineItemUpdatedBy")
+  invoiceLineItemsDeleted        InvoiceLineItem[]  @relation("InvoiceLineItemDeletedBy")
+  workflowsCreated               Workflow[]         @relation("WorkflowCreatedBy")
+  workflowsUpdated               Workflow[]         @relation("WorkflowUpdatedBy")
+  workflowsDeleted               Workflow[]         @relation("WorkflowDeletedBy")
 
   @@index([deletedAt], map: "idx_users_deleted_at")
   @@map("users")
@@ -153,6 +226,7 @@ model Permission {
   createdByUser User? @relation("PermissionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   updatedByUser User? @relation("PermissionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   deletedByUser User? @relation("PermissionDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  rolePermissions RolePermission[]
 
   @@index([module], map: "idx_permissions_module")
   @@index([deletedAt], map: "idx_permissions_deleted_at")
@@ -180,6 +254,7 @@ model Role {
   updatedByUser User?        @relation("RoleUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   deletedByUser User?        @relation("RoleDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
   userRoles     UserRole[]
+  rolePermissions RolePermission[]
 
   @@unique([tenantId, slug], map: "uq_roles_tenant_id_slug")
   @@index([tenantId], map: "idx_roles_tenant_id")
@@ -214,6 +289,25 @@ model UserRole {
   @@index([tenantId, roleId], map: "idx_user_roles_tenant_id_role_id")
   @@index([tenantId, deletedAt], map: "idx_user_roles_tenant_id_deleted_at")
   @@map("user_roles")
+}
+
+/// Tenant-scoped role-to-permission assignment.
+model RolePermission {
+  id           String @id @db.Uuid
+  tenantId     String @map("tenant_id") @db.Uuid
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, roleId, permissionId], map: "uq_role_permissions_tenant_id_role_id_permission_id")
+  @@index([tenantId], map: "idx_role_permissions_tenant_id")
+  @@index([tenantId, roleId], map: "idx_role_permissions_tenant_id_role_id")
+  @@map("role_permissions")
 }
 
 // ---------------------------------------------------------------------------
@@ -279,8 +373,28 @@ model Workspace {
   deletedByUser User?        @relation("WorkspaceDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
   departments   Department[]
   employees     Employee[]
-  clients       Client[]
-  tags          Tag[]
+  clients        Client[]
+  clientContacts ClientContact[]
+  tags           Tag[]
+  activities     Activity[]
+  comments       Comment[]
+  files          File[]
+  timeEntries    TimeEntry[]
+  deals          Deal[]
+  dealFollowUps  DealFollowUp[]
+  quotes         Quote[]
+  quoteLineItems QuoteLineItem[]
+  proposals      Proposal[]
+  proposalVersions ProposalVersion[]
+  invoices       Invoice[]
+  invoiceLineItems InvoiceLineItem[]
+  projects       Project[]
+  projectMembers ProjectMember[]
+  projectMilestones ProjectMilestone[]
+  tasks             Task[]
+  workflows         Workflow[]
+  workflowTriggers  WorkflowTrigger[]
+  workflowActions   WorkflowAction[]
 
   @@unique([agencyId, slug], map: "uq_workspaces_agency_id_slug")
   @@index([tenantId], map: "idx_workspaces_tenant_id")
@@ -476,12 +590,16 @@ model Client {
   createdByUser User?     @relation("ClientCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   updatedByUser User?     @relation("ClientUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   deletedByUser User?     @relation("ClientDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
-  contacts      Contact[]
-  notes         ClientNote[]
+  clientContacts ClientContact[]
+  notes          ClientNote[]
   activities    ClientActivity[]
   tags          ClientTag[]
   documents     ClientDocument[]
   customFields  ClientCustomFieldValue[]
+  projects      Project[]
+  deals         Deal[]
+  quotes        Quote[]
+  invoices      Invoice[]
 
   @@unique([tenantId, workspaceId, displayName], map: "uq_clients_tenant_id_workspace_id_display_name")
   @@unique([tenantId, workspaceId, slug], map: "uq_clients_tenant_id_workspace_id_slug")
@@ -493,19 +611,29 @@ model Client {
   @@map("clients")
 }
 
+enum ClientContactStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("client_contact_status")
+}
+
 /// Tenant-scoped person associated with a client account.
-model Contact {
-  id               String  @id @db.Uuid
-  tenantId         String  @map("tenant_id") @db.Uuid
-  clientId         String  @map("client_id") @db.Uuid
-  firstName        String  @map("first_name")
-  lastName         String? @map("last_name")
-  jobTitle         String? @map("job_title")
-  email            String?
-  phone            String?
-  isPrimary        Boolean @default(false) @map("is_primary")
-  isBillingContact Boolean @default(false) @map("is_billing_contact")
-  notes            String?
+model ClientContact {
+  id              String              @id @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  workspaceId     String              @map("workspace_id") @db.Uuid
+  clientId        String              @map("client_id") @db.Uuid
+  firstName       String              @map("first_name")
+  lastName        String?             @map("last_name")
+  jobTitle        String?             @map("job_title")
+  department      String?
+  email           String?
+  mobile          String?
+  phone           String?
+  isPrimary       Boolean             @default(false) @map("is_primary")
+  isDecisionMaker Boolean             @default(false) @map("is_decision_maker")
+  status          ClientContactStatus @default(ACTIVE)
 
   createdAt        DateTime  @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @map("updated_at") @db.Timestamptz
@@ -514,16 +642,18 @@ model Contact {
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
   deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
 
-  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  client        Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  createdByUser User?  @relation("ContactCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedByUser User?  @relation("ContactUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  deletedByUser User?  @relation("ContactDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("ClientContactCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("ClientContactUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("ClientContactDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  deals         Deal[]
 
-  @@index([tenantId], map: "idx_contacts_tenant_id")
-  @@index([tenantId, clientId], map: "idx_contacts_tenant_id_client_id")
-  @@index([tenantId, deletedAt], map: "idx_contacts_tenant_id_deleted_at")
-  @@map("contacts")
+  @@index([tenantId], map: "idx_client_contacts_tenant_id")
+  @@index([tenantId, workspaceId, clientId], map: "idx_client_contacts_tenant_id_workspace_id_client_id")
+  @@index([tenantId, deletedAt], map: "idx_client_contacts_tenant_id_deleted_at")
+  @@map("client_contacts")
 }
 
 /// Tenant-scoped internal note on a client account.
@@ -675,4 +805,787 @@ model ClientCustomFieldValue {
   @@index([tenantId], map: "idx_client_custom_field_values_tenant_id")
   @@index([tenantId, clientId], map: "idx_client_custom_field_values_tenant_id_client_id")
   @@map("client_custom_field_values")
+}
+
+/// Append-only tenant-scoped activity entry attachable to any entity.
+model Activity {
+  id          String  @id @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  workspaceId String  @map("workspace_id") @db.Uuid
+  entityType  String  @map("entity_type")
+  entityId    String  @map("entity_id") @db.Uuid
+  userId      String? @map("user_id") @db.Uuid
+  type        String
+  title       String
+  description String?
+  metadata    Json?
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user      User?     @relation("ActivityActor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId], map: "idx_activities_tenant_id")
+  @@index([tenantId, workspaceId], map: "idx_activities_tenant_id_workspace_id")
+  @@index([tenantId, workspaceId, entityType, entityId], map: "idx_activities_tenant_id_workspace_id_entity")
+  @@index([tenantId, workspaceId, createdAt], map: "idx_activities_tenant_id_workspace_id_created_at")
+  @@map("activities")
+}
+
+/// Polymorphic comment attachable to any entity in the workspace.
+model Comment {
+  id              String  @id @db.Uuid
+  tenantId        String  @map("tenant_id") @db.Uuid
+  workspaceId     String  @map("workspace_id") @db.Uuid
+  entityType      String  @map("entity_type")
+  entityId        String  @map("entity_id") @db.Uuid
+  parentCommentId String? @map("parent_comment_id") @db.Uuid
+  message         String
+  authorUserId    String  @map("author_user_id") @db.Uuid
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  authorUser    User      @relation("CommentAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  parentComment Comment?  @relation("CommentThread", fields: [parentCommentId], references: [id], onDelete: Restrict)
+  replies       Comment[] @relation("CommentThread")
+  createdByUser User?     @relation("CommentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("CommentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("CommentDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId], map: "idx_comments_tenant_id")
+  @@index([tenantId, workspaceId, entityType, entityId, deletedAt], map: "idx_comments_scope_entity_deleted")
+  @@map("comments")
+}
+
+/// Polymorphic file metadata attachable to any entity in the workspace.
+model File {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  workspaceId      String   @map("workspace_id") @db.Uuid
+  entityType       String   @map("entity_type")
+  entityId         String   @map("entity_id") @db.Uuid
+  fileName         String   @map("file_name")
+  originalName     String   @map("original_name")
+  mimeType         String   @map("mime_type")
+  extension        String
+  size             BigInt
+  storageKey       String   @map("storage_key")
+  uploadedByUserId String   @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime @map("created_at") @db.Timestamptz
+
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  uploadedByUser User      @relation("FileUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId], map: "idx_files_tenant_id")
+  @@index([tenantId, workspaceId, entityType, entityId], map: "idx_files_scope_entity")
+  @@map("files")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  INVOICE_READY
+  CANCELLED
+
+  @@map("project_status")
+}
+
+enum ProjectPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("project_priority")
+}
+
+/// Tenant-scoped client delivery engagement.
+model Project {
+  id                    String          @id @db.Uuid
+  tenantId              String          @map("tenant_id") @db.Uuid
+  workspaceId           String          @map("workspace_id") @db.Uuid
+  clientId              String          @map("client_id") @db.Uuid
+  name                  String
+  code                  String?
+  description           String?
+  status                ProjectStatus   @default(PLANNING)
+  projectManagerUserId  String?         @map("project_manager_user_id") @db.Uuid
+  priority              ProjectPriority @default(NORMAL)
+  startDate             DateTime?       @map("start_date") @db.Date
+  targetEndDate         DateTime?       @map("target_end_date") @db.Date
+  completedAt           DateTime?       @map("completed_at") @db.Timestamptz
+  invoiceReadyAt        DateTime?       @map("invoice_ready_at") @db.Timestamptz
+  isBillable            Boolean         @default(true) @map("is_billable")
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  client              Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  projectManagerUser  User?     @relation("ProjectManager", fields: [projectManagerUserId], references: [id], onDelete: SetNull)
+  createdByUser       User?     @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser       User?     @relation("ProjectUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser       User?     @relation("ProjectDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  members             ProjectMember[]
+  milestones          ProjectMilestone[]
+  tasks               Task[]
+  invoices            Invoice[]
+
+  @@unique([tenantId, workspaceId, code], map: "uq_projects_tenant_id_workspace_id_code")
+  @@index([tenantId], map: "idx_projects_tenant_id")
+  @@index([tenantId, workspaceId], map: "idx_projects_tenant_id_workspace_id")
+  @@index([tenantId, workspaceId, clientId], map: "idx_projects_tenant_id_workspace_id_client_id")
+  @@index([tenantId, workspaceId, status], map: "idx_projects_tenant_id_workspace_id_status")
+  @@index([tenantId, workspaceId, projectManagerUserId], map: "idx_projects_tenant_id_workspace_id_project_manager_user_id")
+  @@index([tenantId, workspaceId, deletedAt], map: "idx_projects_tenant_id_workspace_id_deleted_at")
+  @@index([tenantId, workspaceId, updatedAt], map: "idx_projects_tenant_id_workspace_id_updated_at")
+  @@map("projects")
+}
+
+enum ProjectMemberRole {
+  LEAD
+  MEMBER
+  VIEWER
+
+  @@map("project_member_role")
+}
+
+enum ProjectMemberStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("project_member_status")
+}
+
+/// Internal user assignment to a project delivery team.
+model ProjectMember {
+  id                String              @id @db.Uuid
+  tenantId          String              @map("tenant_id") @db.Uuid
+  workspaceId       String              @map("workspace_id") @db.Uuid
+  projectId         String              @map("project_id") @db.Uuid
+  userId            String              @map("user_id") @db.Uuid
+  role              ProjectMemberRole   @default(MEMBER)
+  allocationPercent Int?                @map("allocation_percent")
+  startDate         DateTime?           @map("start_date") @db.Date
+  status            ProjectMemberStatus @default(ACTIVE)
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("ProjectMemberCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("ProjectMemberUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("ProjectMemberDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId], map: "idx_project_members_tenant_id")
+  @@index([tenantId, workspaceId, projectId], map: "idx_project_members_tenant_id_workspace_id_project_id")
+  @@index([tenantId, workspaceId, userId], map: "idx_project_members_tenant_id_workspace_id_user_id")
+  @@index([projectId, userId], map: "idx_project_members_project_id_user_id")
+  @@map("project_members")
+}
+
+enum ProjectMilestoneStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+
+  @@map("project_milestone_status")
+}
+
+/// Delivery checkpoint within a project.
+model ProjectMilestone {
+  id            String                 @id @db.Uuid
+  tenantId      String                 @map("tenant_id") @db.Uuid
+  workspaceId   String                 @map("workspace_id") @db.Uuid
+  projectId     String                 @map("project_id") @db.Uuid
+  name          String
+  description   String?
+  status        ProjectMilestoneStatus @default(PLANNED)
+  startDate     DateTime?              @map("start_date") @db.Date
+  dueDate       DateTime?              @map("due_date") @db.Date
+  ownerUserId   String?                @map("owner_user_id") @db.Uuid
+  sortOrder     Int                    @default(0) @map("sort_order")
+  completedAt   DateTime?              @map("completed_at") @db.Timestamptz
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  ownerUser     User?     @relation("ProjectMilestoneOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User?     @relation("ProjectMilestoneCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("ProjectMilestoneUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("ProjectMilestoneDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  tasks         Task[]
+
+  @@index([tenantId], map: "idx_project_milestones_tenant_id")
+  @@index([tenantId, workspaceId, projectId, sortOrder], map: "idx_proj_milestones_scope_project_sort")
+  @@index([tenantId, workspaceId, projectId, status, deletedAt], map: "idx_proj_milestones_scope_status_del")
+  @@map("project_milestones")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+
+  @@map("task_status")
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("task_priority")
+}
+
+/// Work item linked to a project and optionally a milestone.
+model Task {
+  id              String       @id @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+  workspaceId     String       @map("workspace_id") @db.Uuid
+  projectId       String       @map("project_id") @db.Uuid
+  milestoneId     String?      @map("milestone_id") @db.Uuid
+  parentTaskId    String?      @map("parent_task_id") @db.Uuid
+  title           String
+  description     String?
+  status          TaskStatus   @default(TODO)
+  priority        TaskPriority @default(NORMAL)
+  assigneeUserId  String?      @map("assignee_user_id") @db.Uuid
+  startDate       DateTime?    @map("start_date") @db.Date
+  dueDate         DateTime?    @map("due_date") @db.Date
+  estimatedHours  Decimal?     @map("estimated_hours") @db.Decimal(10, 2)
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  milestone     ProjectMilestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  parentTask    Task?            @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Restrict)
+  subtasks      Task[]           @relation("TaskSubtasks")
+  assigneeUser  User?            @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  createdByUser User?            @relation("TaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?            @relation("TaskUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?            @relation("TaskDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  timeEntries   TimeEntry[]
+
+  @@index([tenantId], map: "idx_tasks_tenant_id")
+  @@index([tenantId, workspaceId, deletedAt, updatedAt], map: "idx_tasks_scope_deleted_updated")
+  @@index([tenantId, workspaceId, projectId, deletedAt], map: "idx_tasks_scope_project_deleted")
+  @@index([tenantId, workspaceId, milestoneId, deletedAt], map: "idx_tasks_scope_milestone_deleted")
+  @@index([tenantId, workspaceId, assigneeUserId, deletedAt], map: "idx_tasks_scope_assignee_deleted")
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_tasks_scope_status_deleted")
+  @@index([tenantId, workspaceId, parentTaskId, deletedAt], map: "idx_tasks_scope_parent_deleted")
+  @@map("tasks")
+}
+
+/// Logged work time against a task.
+model TimeEntry {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  workspaceId     String   @map("workspace_id") @db.Uuid
+  taskId          String   @map("task_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  startTime       DateTime  @map("start_time") @db.Timestamptz
+  endTime         DateTime? @map("end_time") @db.Timestamptz
+  durationMinutes Int?      @map("duration_minutes")
+  isRunning       Boolean   @default(false) @map("is_running")
+  billable        Boolean   @default(true)
+  notes           String?
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  user          User      @relation("TimeEntryUser", fields: [userId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("TimeEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("TimeEntryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("TimeEntryDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId], map: "idx_time_entries_tenant_id")
+  @@index([tenantId, workspaceId, taskId, deletedAt], map: "idx_time_entries_scope_task_deleted")
+  @@index([tenantId, workspaceId, userId, deletedAt], map: "idx_time_entries_scope_user_deleted")
+  @@index([tenantId, workspaceId, userId, isRunning, deletedAt], map: "idx_time_entries_scope_user_running")
+  @@map("time_entries")
+}
+
+enum DealStage {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+
+  @@map("deal_stage")
+}
+
+/// Tenant-scoped sales opportunity in the pipeline.
+model Deal {
+  id                String    @id @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  workspaceId       String    @map("workspace_id") @db.Uuid
+  clientId          String    @map("client_id") @db.Uuid
+  contactId         String?   @map("contact_id") @db.Uuid
+  title             String
+  value             Decimal   @db.Decimal(14, 2)
+  currency          String    @default("USD") @db.Char(3)
+  expectedCloseDate DateTime? @map("expected_close_date") @db.Date
+  ownerUserId       String?   @map("owner_user_id") @db.Uuid
+  stage             DealStage @default(NEW)
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  contact       ClientContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  ownerUser     User?         @relation("DealOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User?         @relation("DealCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?         @relation("DealUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?         @relation("DealDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  followUps     DealFollowUp[]
+  quotes        Quote[]
+  proposals     Proposal[]
+
+  @@index([tenantId], map: "idx_deals_tenant_id")
+  @@index([tenantId, workspaceId, stage, deletedAt], map: "idx_deals_scope_stage_deleted")
+  @@index([tenantId, workspaceId, ownerUserId, deletedAt], map: "idx_deals_scope_owner_deleted")
+  @@index([tenantId, workspaceId, clientId, deletedAt], map: "idx_deals_scope_client_deleted")
+  @@map("deals")
+}
+
+enum DealFollowUpType {
+  CALL
+  MEETING
+  EMAIL
+  WHATSAPP
+
+  @@map("deal_follow_up_type")
+}
+
+enum DealFollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+
+  @@map("deal_follow_up_status")
+}
+
+/// Scheduled follow-up activity on a sales deal.
+model DealFollowUp {
+  id           String             @id @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  workspaceId  String             @map("workspace_id") @db.Uuid
+  dealId       String             @map("deal_id") @db.Uuid
+  subject      String
+  type         DealFollowUpType
+  scheduledAt  DateTime           @map("scheduled_at") @db.Timestamptz
+  notes        String?
+  reminderAt   DateTime?          @map("reminder_at") @db.Timestamptz
+  ownerUserId  String?            @map("owner_user_id") @db.Uuid
+  status       DealFollowUpStatus @default(PENDING)
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  deal          Deal      @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  ownerUser     User?     @relation("DealFollowUpOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUser User?     @relation("DealFollowUpCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("DealFollowUpUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("DealFollowUpDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, dealId, deletedAt], map: "idx_deal_followups_scope_deal_deleted")
+  @@index([tenantId, workspaceId, scheduledAt, deletedAt], map: "idx_deal_followups_scope_scheduled_deleted")
+  @@map("deal_followups")
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+  EXPIRED
+
+  @@map("quote_status")
+}
+
+/// Tenant-scoped sales quote linked to a deal and client.
+model Quote {
+  id           String      @id @db.Uuid
+  tenantId     String      @map("tenant_id") @db.Uuid
+  workspaceId  String      @map("workspace_id") @db.Uuid
+  dealId       String      @map("deal_id") @db.Uuid
+  clientId     String      @map("client_id") @db.Uuid
+  quoteNumber  String      @map("quote_number")
+  title        String
+  status       QuoteStatus @default(DRAFT)
+  validUntil   DateTime?   @map("valid_until") @db.Date
+  currency     String      @default("USD") @db.Char(3)
+  totalAmount  Decimal     @map("total_amount") @db.Decimal(14, 2)
+  notes        String?
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  deal          Deal      @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("QuoteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("QuoteUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("QuoteDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  lineItems     QuoteLineItem[]
+  proposals     Proposal[]
+  invoices      Invoice[]
+
+  @@unique([tenantId, workspaceId, quoteNumber], map: "uq_quotes_scope_quote_number")
+  @@index([tenantId, workspaceId, dealId, deletedAt], map: "idx_quotes_scope_deal_deleted")
+  @@index([tenantId, workspaceId, clientId, deletedAt], map: "idx_quotes_scope_client_deleted")
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_quotes_scope_status_deleted")
+  @@map("quotes")
+}
+
+/// Line item on a sales quote with pricing fields.
+model QuoteLineItem {
+  id           String  @id @db.Uuid
+  tenantId     String  @map("tenant_id") @db.Uuid
+  workspaceId  String  @map("workspace_id") @db.Uuid
+  quoteId      String  @map("quote_id") @db.Uuid
+  name         String
+  description  String?
+  quantity     Decimal @db.Decimal(12, 4)
+  unit         String?
+  unitPrice    Decimal @map("unit_price") @db.Decimal(14, 2)
+  discount     Decimal @default(0) @db.Decimal(14, 2)
+  tax          Decimal @default(0) @db.Decimal(14, 2)
+  total        Decimal @db.Decimal(14, 2)
+  sortOrder    Int     @map("sort_order")
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  quote         Quote     @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("QuoteLineItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("QuoteLineItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("QuoteLineItemDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, quoteId, deletedAt, sortOrder], map: "idx_quote_line_items_scope_quote_sort")
+  @@map("quote_line_items")
+}
+
+enum ProposalStatus {
+  DRAFT
+  REVIEW
+  SENT
+  ACCEPTED
+  DECLINED
+
+  @@map("proposal_status")
+}
+
+/// Tenant-scoped sales proposal linked to a deal and optional quote.
+model Proposal {
+  id          String         @id @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  workspaceId String         @map("workspace_id") @db.Uuid
+  dealId      String         @map("deal_id") @db.Uuid
+  quoteId     String?        @map("quote_id") @db.Uuid
+  title       String
+  version     Int            @default(1)
+  status      ProposalStatus @default(DRAFT)
+  sections    Json
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  deal          Deal              @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  quote         Quote?            @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  createdByUser User?             @relation("ProposalCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?             @relation("ProposalUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?             @relation("ProposalDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  versions      ProposalVersion[]
+
+  @@index([tenantId, workspaceId, dealId, deletedAt], map: "idx_proposals_scope_deal_deleted")
+  @@index([tenantId, workspaceId, quoteId, deletedAt], map: "idx_proposals_scope_quote_deleted")
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_proposals_scope_status_deleted")
+  @@map("proposals")
+}
+
+/// Immutable snapshot of a proposal at a specific version.
+model ProposalVersion {
+  id          String         @id @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  workspaceId String         @map("workspace_id") @db.Uuid
+  proposalId  String         @map("proposal_id") @db.Uuid
+  version     Int
+  title       String
+  status      ProposalStatus
+  sections    Json
+
+  createdAt       DateTime @map("created_at") @db.Timestamptz
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  proposal      Proposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  createdByUser User?    @relation("ProposalVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([proposalId, version], map: "uq_proposal_versions_proposal_version")
+  @@index([tenantId, workspaceId, proposalId], map: "idx_proposal_versions_scope_proposal")
+  @@map("proposal_versions")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+
+  @@map("invoice_status")
+}
+
+/// Tenant-scoped invoice linked to a client, project, and optional quote.
+model Invoice {
+  id            String        @id @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  workspaceId   String        @map("workspace_id") @db.Uuid
+  clientId      String        @map("client_id") @db.Uuid
+  projectId     String        @map("project_id") @db.Uuid
+  quoteId       String?       @map("quote_id") @db.Uuid
+  invoiceNumber String        @map("invoice_number")
+  status        InvoiceStatus @default(DRAFT)
+  issueDate     DateTime      @map("issue_date") @db.Date
+  dueDate       DateTime      @map("due_date") @db.Date
+  currency      String        @default("USD") @db.Char(3)
+  notes         String?
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  quote         Quote?    @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  createdByUser User?     @relation("InvoiceCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("InvoiceUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("InvoiceDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  lineItems     InvoiceLineItem[]
+
+  @@unique([tenantId, workspaceId, invoiceNumber], map: "uq_invoices_scope_invoice_number")
+  @@index([tenantId, workspaceId, clientId, deletedAt], map: "idx_invoices_scope_client_deleted")
+  @@index([tenantId, workspaceId, projectId, deletedAt], map: "idx_invoices_scope_project_deleted")
+  @@index([tenantId, workspaceId, quoteId, deletedAt], map: "idx_invoices_scope_quote_deleted")
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_invoices_scope_status_deleted")
+  @@map("invoices")
+}
+
+/// Line item on an invoice with pricing fields (mirrors QuoteLineItem).
+model InvoiceLineItem {
+  id           String  @id @db.Uuid
+  tenantId     String  @map("tenant_id") @db.Uuid
+  workspaceId  String  @map("workspace_id") @db.Uuid
+  invoiceId    String  @map("invoice_id") @db.Uuid
+  name         String
+  description  String?
+  quantity     Decimal @db.Decimal(12, 4)
+  unit         String?
+  unitPrice    Decimal @map("unit_price") @db.Decimal(14, 2)
+  discount     Decimal @default(0) @db.Decimal(14, 2)
+  tax          Decimal @default(0) @db.Decimal(14, 2)
+  total        Decimal @db.Decimal(14, 2)
+  sortOrder    Int     @map("sort_order")
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("InvoiceLineItemCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("InvoiceLineItemUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("InvoiceLineItemDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, invoiceId, deletedAt, sortOrder], map: "idx_invoice_line_items_scope_invoice_sort")
+  @@map("invoice_line_items")
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("workflow_status")
+}
+
+enum WorkflowTriggerType {
+  CLIENT_CREATED
+  DEAL_WON
+  PROJECT_CREATED
+  TASK_COMPLETED
+  INVOICE_PAID
+
+  @@map("workflow_trigger_type")
+}
+
+enum WorkflowActionType {
+  CREATE_TASK
+  SEND_EMAIL
+  SEND_NOTIFICATION
+  UPDATE_STATUS
+  CREATE_ACTIVITY
+
+  @@map("workflow_action_type")
+}
+
+/// Reusable automation workflow definition scoped to a workspace.
+model Workflow {
+  id          String         @id @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  workspaceId String         @map("workspace_id") @db.Uuid
+  name        String
+  description String?
+  status      WorkflowStatus @default(ACTIVE)
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("WorkflowCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("WorkflowUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("WorkflowDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  triggers      WorkflowTrigger[]
+  actions       WorkflowAction[]
+
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_workflows_scope_status_deleted")
+  @@map("workflows")
+}
+
+/// Trigger that starts a workflow when a domain event occurs.
+model WorkflowTrigger {
+  id          String              @id @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  workspaceId String              @map("workspace_id") @db.Uuid
+  workflowId  String              @map("workflow_id") @db.Uuid
+  type        WorkflowTriggerType
+  sortOrder   Int                 @default(0) @map("sort_order")
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  workflow  Workflow  @relation(fields: [workflowId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, workspaceId, workflowId, sortOrder], map: "idx_workflow_triggers_scope_workflow_sort")
+  @@index([tenantId, workspaceId, type], map: "idx_workflow_triggers_scope_type")
+  @@map("workflow_triggers")
+}
+
+/// Action executed when a workflow runs.
+model WorkflowAction {
+  id          String             @id @db.Uuid
+  tenantId    String             @map("tenant_id") @db.Uuid
+  workspaceId String             @map("workspace_id") @db.Uuid
+  workflowId  String             @map("workflow_id") @db.Uuid
+  type        WorkflowActionType
+  config      Json               @default("{}")
+  sortOrder   Int                @default(0) @map("sort_order")
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  workflow  Workflow  @relation(fields: [workflowId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, workspaceId, workflowId, sortOrder], map: "idx_workflow_actions_scope_workflow_sort")
+  @@map("workflow_actions")
 }

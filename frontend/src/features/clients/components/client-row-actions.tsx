@@ -1,3 +1,5 @@
+'use client';
+
 import { Archive, MoreHorizontal, Pencil, RotateCcw, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -6,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Can } from '@/lib/rbac';
 
 interface ClientRowActionsProps {
   readonly clientId: string;
@@ -37,40 +40,48 @@ export function ClientRowActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem disabled className="gap-2">
-          <Eye className="size-4" />
-          View
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={isArchived}
-          className="gap-2"
-          onSelect={() => {
-            onEdit(clientId);
-          }}
-        >
-          <Pencil className="size-4" />
-          Edit
-        </DropdownMenuItem>
-        {isArchived ? (
+        <Can permission="clients.read">
+          <DropdownMenuItem disabled className="gap-2">
+            <Eye className="size-4" />
+            View
+          </DropdownMenuItem>
+        </Can>
+        <Can permission="clients.update" mode="disable">
           <DropdownMenuItem
+            disabled={isArchived}
             className="gap-2"
             onSelect={() => {
-              onRestore(clientId);
+              onEdit(clientId);
             }}
           >
-            <RotateCcw className="size-4" />
-            Restore
+            <Pencil className="size-4" />
+            Edit
           </DropdownMenuItem>
+        </Can>
+        {isArchived ? (
+          <Can permission="clients.restore" mode="disable">
+            <DropdownMenuItem
+              className="gap-2"
+              onSelect={() => {
+                onRestore(clientId);
+              }}
+            >
+              <RotateCcw className="size-4" />
+              Restore
+            </DropdownMenuItem>
+          </Can>
         ) : (
-          <DropdownMenuItem
-            className="gap-2 text-danger focus:text-danger"
-            onSelect={() => {
-              onArchive(clientId);
-            }}
-          >
-            <Archive className="size-4" />
-            Archive
-          </DropdownMenuItem>
+          <Can permission="clients.archive" mode="disable">
+            <DropdownMenuItem
+              className="gap-2 text-danger focus:text-danger"
+              onSelect={() => {
+                onArchive(clientId);
+              }}
+            >
+              <Archive className="size-4" />
+              Archive
+            </DropdownMenuItem>
+          </Can>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

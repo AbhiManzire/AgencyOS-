@@ -1,0 +1,26 @@
+export const PROJECT_DOMAIN_ERROR_CODES = {
+  PROJECT_NAME_REQUIRED: 'PROJECT_NAME_REQUIRED',
+  PROJECT_CODE_NOT_UNIQUE: 'PROJECT_CODE_NOT_UNIQUE',
+  INVALID_STATUS: 'INVALID_STATUS',
+  INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
+  INVALID_DATE_RANGE: 'INVALID_DATE_RANGE',
+  CLIENT_NOT_FOUND: 'CLIENT_NOT_FOUND',
+  CLIENT_ARCHIVED: 'CLIENT_ARCHIVED',
+  WORKSPACE_OWNERSHIP_MISMATCH: 'WORKSPACE_OWNERSHIP_MISMATCH',
+  PROJECT_NOT_FOUND: 'PROJECT_NOT_FOUND',
+  PROJECT_ARCHIVED: 'PROJECT_ARCHIVED',
+  TENANT_SCOPE_MISMATCH: 'TENANT_SCOPE_MISMATCH',
+} as const;
+
+export type ProjectDomainErrorCode =
+  (typeof PROJECT_DOMAIN_ERROR_CODES)[keyof typeof PROJECT_DOMAIN_ERROR_CODES];
+
+export class ProjectDomainError extends Error {
+  readonly code: ProjectDomainErrorCode;
+
+  constructor(code: ProjectDomainErrorCode, message: string) {
+    super(message);
+    this.name = 'ProjectDomainError';
+    this.code = code;
+  }
+}

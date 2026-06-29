@@ -12,6 +12,7 @@ import {
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
 import { Public } from '../../../common/decorators/public.decorator';
+import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { ArchiveClientDto } from '../dto/archive-client.dto';
 import { CreateClientDto } from '../dto/create-client.dto';
 import { ListClientsQueryDto } from '../dto/list-clients-query.dto';
@@ -32,6 +33,7 @@ export class ClientsController {
   constructor(private readonly clientService: ClientService) {}
 
   @Post()
+  @RequirePermissions('clients.create')
   async create(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() dto: CreateClientDto,
@@ -45,6 +47,7 @@ export class ClientsController {
   }
 
   @Get()
+  @RequirePermissions('clients.read')
   async list(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Query() queryDto: ListClientsQueryDto,
@@ -61,6 +64,7 @@ export class ClientsController {
   }
 
   @Get(':id')
+  @RequirePermissions('clients.read')
   async getById(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Param('id', ParseUUIDPipe) id: string,
@@ -72,6 +76,7 @@ export class ClientsController {
   }
 
   @Patch(':id')
+  @RequirePermissions('clients.update')
   async update(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Param('id', ParseUUIDPipe) id: string,
@@ -86,6 +91,7 @@ export class ClientsController {
   }
 
   @Post(':id/archive')
+  @RequirePermissions('clients.archive')
   async archive(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Param('id', ParseUUIDPipe) id: string,
@@ -100,6 +106,7 @@ export class ClientsController {
   }
 
   @Post(':id/restore')
+  @RequirePermissions('clients.restore')
   async restore(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Param('id', ParseUUIDPipe) id: string,

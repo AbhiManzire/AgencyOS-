@@ -35,4 +35,11 @@ describe('HealthService', () => {
     expect(result.status).toBe('degraded');
     expect(result.checks.database).toBe('error');
   });
+
+  it('returns ok for liveness without database', () => {
+    const result = service.liveness();
+
+    expect(result.status).toBe('ok');
+    expect(result.service).toBe('agencyos-api');
+  });
 });

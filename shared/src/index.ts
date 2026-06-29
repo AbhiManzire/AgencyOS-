@@ -13,3 +13,18 @@ export interface HealthCheckResponse {
     database: HealthStatus;
   };
 }
+
+export interface LivenessResponse {
+  readonly status: 'ok';
+  readonly timestamp: string;
+  readonly service: string;
+}
+
+export interface ReadinessResponse {
+  readonly status: HealthStatus;
+  readonly timestamp: string;
+  readonly service: string;
+  readonly checks: {
+    readonly database: HealthStatus;
+  };
+}
