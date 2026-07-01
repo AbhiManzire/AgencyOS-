@@ -1,6 +1,7 @@
 'use client';
 
 import type { LucideIcon } from 'lucide-react';
+import { FileText, Mail, MailX } from 'lucide-react';
 import { Avatar } from '@/design-system';
 import { Body, Caption, CardTitle } from '@/design-system/typography';
 import type { ActivityTimelineEntry } from '@/features/activity/types';
@@ -10,6 +11,12 @@ interface ActivityCardProps {
   readonly entry: ActivityTimelineEntry;
   readonly className?: string;
 }
+
+const ACTIVITY_ICON_BY_TYPE: Record<string, LucideIcon> = {
+  'invoice.pdf.generated': FileText,
+  'invoice.email.sent': Mail,
+  'invoice.email.failed': MailX,
+};
 
 function formatActivityTimestamp(timestamp: string | Date): string {
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
@@ -31,11 +38,12 @@ function ActivityIcon({ icon: Icon }: { readonly icon: LucideIcon }) {
 /** Single activity entry card for use inside ActivityTimeline. */
 export function ActivityCard({ entry, className }: ActivityCardProps) {
   const initials = entry.actor.initials ?? entry.actor.name.slice(0, 2);
+  const icon = ACTIVITY_ICON_BY_TYPE[entry.activityType ?? ''] ?? FileText;
 
   return (
     <article className={cn('min-w-0', className)}>
       <div className="flex gap-3">
-        <ActivityIcon icon={entry.icon} />
+        <ActivityIcon icon={icon} />
 
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-2">

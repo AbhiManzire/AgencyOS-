@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { activityRecordToTimelineEntry } from '@/features/activity/api/activity.mapper';
-import { listActivitiesByEntity } from '@/features/activity/api/activities.api';
+import { listActivities, listActivitiesByEntity } from '@/features/activity/api/activities.api';
 
 export const activitiesQueryKeys = {
   all: ['activities'] as const,
+  list: (take: number) => [...activitiesQueryKeys.all, 'list', take] as const,
   entity: (entityType: string, entityId: string) =>
     [...activitiesQueryKeys.all, entityType, entityId] as const,
 };
@@ -20,5 +21,15 @@ export function useActivities(
       return result.items.map(activityRecordToTimelineEntry);
     },
     enabled: (options?.enabled ?? true) && entityType.length > 0 && entityId.length > 0,
+  });
+}
+
+export function useRecentActivities(take = 10) {
+  return useQuery({
+    queryKey: activitiesQueryKeys.list(take),
+    queryFn: async () => {
+      const result = await listActivities({ take });
+      return result.items.map(activityRecordToTimelineEntry);
+    },
   });
 }

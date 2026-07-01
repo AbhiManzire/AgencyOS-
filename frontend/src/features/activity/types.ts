@@ -9,7 +9,8 @@ export interface ActivityActor {
 /** Display model for a single activity timeline entry. */
 export interface ActivityTimelineEntry {
   readonly id: string;
-  readonly icon: LucideIcon;
+  readonly activityType?: string;
+  readonly icon?: LucideIcon;
   readonly timestamp: string | Date;
   readonly actor: ActivityActor;
   readonly title: string;

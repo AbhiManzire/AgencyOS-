@@ -1,4 +1,8 @@
-import type { CreateInvoicePayload } from '@/features/finance/invoices/api/invoice.types';
+import type {
+  CreateInvoicePayload,
+  InvoiceRecord,
+  UpdateInvoicePayload,
+} from '@/features/finance/invoices/api/invoice.types';
 import type { InvoiceFormErrors, InvoiceFormValues } from '@/features/finance/invoices/types';
 
 export const INVOICE_STATUS_LABELS = {
@@ -79,7 +83,33 @@ export function validateInvoiceForm(values: InvoiceFormValues): InvoiceFormError
   return errors;
 }
 
+export function invoiceRecordToFormValues(record: InvoiceRecord): InvoiceFormValues {
+  return {
+    clientId: record.clientId,
+    projectId: record.projectId,
+    quoteId: record.quoteId ?? '',
+    issueDate: record.issueDate.slice(0, 10),
+    dueDate: record.dueDate.slice(0, 10),
+    currency: record.currency,
+    notes: record.notes ?? '',
+    status: record.status,
+  };
+}
+
 export function toCreateInvoicePayload(values: InvoiceFormValues): CreateInvoicePayload {
+  return {
+    clientId: values.clientId,
+    projectId: values.projectId,
+    quoteId: values.quoteId.trim().length > 0 ? values.quoteId : null,
+    issueDate: values.issueDate,
+    dueDate: values.dueDate,
+    currency: values.currency,
+    status: values.status,
+    notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
+  };
+}
+
+export function toUpdateInvoicePayload(values: InvoiceFormValues): UpdateInvoicePayload {
   return {
     clientId: values.clientId,
     projectId: values.projectId,

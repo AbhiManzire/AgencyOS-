@@ -16,6 +16,7 @@ interface TaskDetailOverviewCardProps {
   readonly dueDate: string | null;
   readonly estimatedHours: number | null;
   readonly createdByUserId: string | null;
+  readonly createdByDisplayName: string | null;
 }
 
 interface OverviewFieldProps {
@@ -50,7 +51,10 @@ export function TaskDetailOverviewCard({
   dueDate,
   estimatedHours,
   createdByUserId,
+  createdByDisplayName,
 }: TaskDetailOverviewCardProps) {
+  const createdByLabel = displayTaskField(createdByDisplayName ?? createdByUserId);
+
   return (
     <Card>
       <CardHeader>
@@ -70,7 +74,7 @@ export function TaskDetailOverviewCard({
           <OverviewField label="Start Date" value={formatTaskDate(startDate)} />
           <OverviewField label="Due Date" value={formatTaskDate(dueDate)} />
           <OverviewField label="Estimated Hours" value={formatTaskEstimatedHours(estimatedHours)} />
-          <OverviewField label="Created By" value={displayTaskField(createdByUserId)} />
+          <OverviewField label="Created By" value={createdByLabel} />
         </div>
       </CardContent>
     </Card>

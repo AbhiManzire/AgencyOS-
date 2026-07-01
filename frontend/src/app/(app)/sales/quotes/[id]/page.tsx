@@ -1,8 +1,10 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, LoadingState, PageContainer } from '@/design-system';
+import { CreateQuoteDrawer } from '@/features/sales/quotes/components/create-quote-drawer';
 import { QuoteDetailHeader } from '@/features/sales/quotes/components/quote-detail-header';
 import { QuoteDetailOverviewCard } from '@/features/sales/quotes/components/quote-detail-overview-card';
 import { QuoteDetailTabs } from '@/features/sales/quotes/components/quote-detail-tabs';
@@ -14,6 +16,7 @@ import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-ap
 export default function QuoteDetailPage() {
   const params = useParams<{ id: string }>();
   const quoteId = params.id;
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
 
   const { data: quote, isLoading, error, refetch } = useQuote(quoteId);
 
@@ -50,7 +53,19 @@ export default function QuoteDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <QuoteDetailHeader quote={quote} />
+      <QuoteDetailHeader
+        quote={quote}
+        onEdit={() => {
+          setEditDrawerOpen(true);
+        }}
+      />
+
+      <CreateQuoteDrawer
+        open={editDrawerOpen}
+        mode="edit"
+        quoteId={quoteId}
+        onOpenChange={setEditDrawerOpen}
+      />
 
       <QuoteDetailTabs
         lineItems={<QuoteLineItemsTab quoteId={quoteId} currency={quote.currency} />}

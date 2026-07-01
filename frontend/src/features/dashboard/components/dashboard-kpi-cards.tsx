@@ -1,18 +1,42 @@
 'use client';
 
-import { DataCard, LoadingState } from '@/design-system';
+import { Button } from '@/components/ui/button';
+import { DataCard, ErrorState, LoadingState } from '@/design-system';
 import type { DashboardClientStats } from '@/features/dashboard/hooks/use-dashboard-stats';
+import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 
 interface DashboardKpiCardsProps {
   readonly stats: DashboardClientStats;
   readonly isLoading: boolean;
+  readonly isError: boolean;
+  readonly error: unknown;
+  readonly onRetry: () => void;
 }
 
 const PLACEHOLDER = '—';
 
-export function DashboardKpiCards({ stats, isLoading }: DashboardKpiCardsProps) {
+export function DashboardKpiCards({
+  stats,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+}: DashboardKpiCardsProps) {
   if (isLoading) {
     return <LoadingState label="Loading metrics..." />;
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        message={extractApiErrorMessage(error)}
+        action={
+          <Button variant="outline" onClick={onRetry}>
+            Try again
+          </Button>
+        }
+      />
+    );
   }
 
   return (

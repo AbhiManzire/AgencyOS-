@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Pencil } from 'lucide-react';
 import { Body, Caption } from '@/design-system/typography';
 import { Button } from '@/components/ui/button';
 import type { QuoteRecord } from '@/features/sales/quotes/api/quote.types';
@@ -10,12 +10,14 @@ import {
   formatQuoteAmount,
   formatQuoteDate,
 } from '@/features/sales/quotes/forms/quote-form.validation';
+import { Can } from '@/lib/rbac';
 
 interface QuoteDetailHeaderProps {
   readonly quote: QuoteRecord;
+  readonly onEdit: () => void;
 }
 
-export function QuoteDetailHeader({ quote }: QuoteDetailHeaderProps) {
+export function QuoteDetailHeader({ quote, onEdit }: QuoteDetailHeaderProps) {
   return (
     <div className="flex flex-col gap-4 border-b border-border pb-6">
       <Button variant="ghost" size="sm" className="w-fit gap-2 px-0" asChild>
@@ -57,6 +59,12 @@ export function QuoteDetailHeader({ quote }: QuoteDetailHeaderProps) {
           <p className="mt-1 text-2xl font-semibold">
             {formatQuoteAmount(quote.totalAmount, quote.currency)}
           </p>
+          <Can permission="quotes.update" mode="disable">
+            <Button type="button" variant="outline" className="mt-4 gap-2" onClick={onEdit}>
+              <Pencil className="size-4" />
+              Edit
+            </Button>
+          </Can>
         </div>
       </div>
     </div>

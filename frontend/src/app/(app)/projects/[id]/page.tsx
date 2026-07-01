@@ -2,6 +2,7 @@
 
 import { FolderOpen } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,6 +16,7 @@ import { CardTitle } from '@/design-system/typography';
 import { ActivityTimeline } from '@/features/activity';
 import { ClientDetailSectionPlaceholder } from '@/features/clients/components/client-detail-section-placeholder';
 import { useClient } from '@/features/clients/hooks/use-client';
+import { CreateProjectDrawer } from '@/features/projects/components/create-project-drawer';
 import { ProjectDetailHeader } from '@/features/projects/components/project-detail-header';
 import { ProjectDetailOverviewCard } from '@/features/projects/components/project-detail-overview-card';
 import { ProjectDetailProgressCard } from '@/features/projects/components/project-detail-progress-card';
@@ -29,6 +31,7 @@ import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-ap
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
 
   const { data: project, isLoading, error, refetch } = useProject(projectId);
   const { data: client } = useClient(project?.clientId ?? '', {
@@ -70,7 +73,20 @@ export default function ProjectDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <ProjectDetailHeader project={project} clientName={clientName} />
+      <ProjectDetailHeader
+        project={project}
+        clientName={clientName}
+        onEdit={() => {
+          setEditDrawerOpen(true);
+        }}
+      />
+
+      <CreateProjectDrawer
+        open={editDrawerOpen}
+        mode="edit"
+        projectId={projectId}
+        onOpenChange={setEditDrawerOpen}
+      />
 
       <div className="mt-6 space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">

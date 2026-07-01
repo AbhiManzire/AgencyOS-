@@ -17,7 +17,7 @@ import { PermissionRoute } from '@/lib/rbac';
 
 export default function DashboardPage() {
   const [createClientOpen, setCreateClientOpen] = useState(false);
-  const { stats, isLoading } = useDashboardStats();
+  const { stats, isLoading, isError, error, refetch } = useDashboardStats();
 
   return (
     <PermissionRoute permission="dashboard.read">
@@ -28,7 +28,13 @@ export default function DashboardPage() {
         />
 
         <div className="space-y-6">
-          <DashboardKpiCards stats={stats} isLoading={isLoading} />
+          <DashboardKpiCards
+            stats={stats}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+            onRetry={refetch}
+          />
 
           <div className="grid gap-6 xl:grid-cols-3">
             <div className="space-y-6 xl:col-span-2">
@@ -52,7 +58,13 @@ export default function DashboardPage() {
                 title="Client Health"
                 description="Distribution of client lifecycle stages."
               >
-                <DashboardClientHealth stats={stats} isLoading={isLoading} />
+                <DashboardClientHealth
+                  stats={stats}
+                  isLoading={isLoading}
+                  isError={isError}
+                  error={error}
+                  onRetry={refetch}
+                />
               </DashboardSection>
 
               <DashboardSection title="Upcoming" description="Schedule and task previews.">

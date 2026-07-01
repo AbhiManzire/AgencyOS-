@@ -1,4 +1,8 @@
-import type { CreateProjectPayload } from '@/features/projects/api/project.types';
+import type {
+  CreateProjectPayload,
+  ProjectRecord,
+  UpdateProjectPayload,
+} from '@/features/projects/api/project.types';
 import type { ProjectStatus } from '@/features/projects/types';
 
 export interface CreateProjectFormValues {
@@ -110,6 +114,47 @@ export function areProjectFormValuesEqual(
     left.isBillable === right.isBillable &&
     left.description === right.description
   );
+}
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  PLANNING: 'Planning',
+  ACTIVE: 'Active',
+  ON_HOLD: 'On Hold',
+  COMPLETED: 'Completed',
+  INVOICE_READY: 'Invoice Ready',
+  CANCELLED: 'Cancelled',
+};
+
+/** Maps a project record to editable form values. */
+export function projectRecordToFormValues(record: ProjectRecord): CreateProjectFormValues {
+  return {
+    name: record.name,
+    clientId: record.clientId,
+    status: record.status,
+    startDate: record.startDate !== null ? record.startDate.slice(0, 10) : '',
+    endDate: record.targetEndDate !== null ? record.targetEndDate.slice(0, 10) : '',
+    projectManagerUserId: record.projectManagerUserId ?? '',
+    isBillable: record.isBillable ? 'yes' : 'no',
+    description: record.description ?? '',
+  };
+}
+
+/** Maps validated form values to the PATCH /projects/:id request body. */
+export function toUpdateProjectPayload(values: CreateProjectFormValues): UpdateProjectPayload {
+  const description = values.description.trim();
+  const projectManagerUserId = values.projectManagerUserId.trim();
+  const startDate = values.startDate.trim();
+  const endDate = values.endDate.trim();
+
+  return {
+    name: values.name.trim(),
+    status: values.status,
+    isBillable: values.isBillable === 'yes',
+    description: description.length > 0 ? description : null,
+    projectManagerUserId: projectManagerUserId.length > 0 ? projectManagerUserId : null,
+    startDate: startDate.length > 0 ? startDate : null,
+    targetEndDate: endDate.length > 0 ? endDate : null,
+  };
 }
 
 /** Maps validated form values to the POST /projects request body. */

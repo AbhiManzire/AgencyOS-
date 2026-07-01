@@ -9,8 +9,11 @@ export function useUpdateTask() {
   return useMutation({
     mutationFn: ({ taskId, payload }: { taskId: string; payload: UpdateTaskPayload }) =>
       updateTask(taskId, payload),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: tasksQueryKeys.all });
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tasksQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: tasksQueryKeys.detail(variables.taskId) }),
+      ]);
     },
   });
 }

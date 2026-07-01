@@ -11,6 +11,8 @@ import { useInvoices } from '@/features/finance/invoices/hooks/use-invoices';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { Can } from '@/lib/rbac';
 
+const LIST_FETCH_TAKE = 100;
+
 export default function InvoicesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -19,15 +21,15 @@ export default function InvoicesPage() {
 
   const listParams = useMemo(
     () => ({
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      skip: 0,
+      take: LIST_FETCH_TAKE,
     }),
-    [page],
+    [],
   );
 
   const { data, isLoading, error, refetch, isFetching } = useInvoices(listParams);
 
-  const filteredInvoices = useMemo(() => {
+  const matchingInvoices = useMemo(() => {
     if (!data) {
       return [];
     }
@@ -46,7 +48,12 @@ export default function InvoicesPage() {
     );
   }, [data, search]);
 
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1;
+  const filteredInvoices = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return matchingInvoices.slice(start, start + pageSize);
+  }, [matchingInvoices, page, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(matchingInvoices.length / pageSize));
   const hasActiveFilters = search.trim().length > 0;
 
   return (
@@ -135,7 +142,7 @@ export default function InvoicesPage() {
         ) : (
           <>
             <InvoiceListTable invoices={filteredInvoices} />
-            {search.trim().length === 0 && data && data.total > pageSize ? (
+            {matchingInvoices.length > pageSize ? (
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
                   Page {page} of {totalPages}

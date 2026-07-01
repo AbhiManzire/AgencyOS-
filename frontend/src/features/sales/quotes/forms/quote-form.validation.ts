@@ -1,4 +1,8 @@
-import type { CreateQuotePayload } from '@/features/sales/quotes/api/quote.types';
+import type {
+  CreateQuotePayload,
+  QuoteRecord,
+  UpdateQuotePayload,
+} from '@/features/sales/quotes/api/quote.types';
 import type { QuoteFormValues, QuoteStatus } from '@/features/sales/quotes/types';
 
 export interface QuoteFormErrors {
@@ -70,6 +74,34 @@ export function areQuoteFormValuesEqual(left: QuoteFormValues, right: QuoteFormV
     left.notes === right.notes &&
     left.status === right.status
   );
+}
+
+/** Maps a quote record to editable form values. */
+export function quoteRecordToFormValues(record: QuoteRecord): QuoteFormValues {
+  return {
+    dealId: record.dealId,
+    clientId: record.clientId,
+    title: record.title,
+    validUntil: record.validUntil !== null ? record.validUntil.slice(0, 10) : '',
+    currency: record.currency,
+    totalAmount: String(record.totalAmount),
+    notes: record.notes ?? '',
+    status: record.status,
+  };
+}
+
+/** Maps validated form values to update quote API payload. */
+export function toUpdateQuotePayload(values: QuoteFormValues): UpdateQuotePayload {
+  return {
+    dealId: values.dealId,
+    clientId: values.clientId,
+    title: values.title.trim(),
+    status: values.status,
+    validUntil: values.validUntil.trim().length > 0 ? values.validUntil : null,
+    currency: values.currency,
+    totalAmount: Number(values.totalAmount.trim()),
+    notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
+  };
 }
 
 export function toCreateQuotePayload(values: QuoteFormValues): CreateQuotePayload {

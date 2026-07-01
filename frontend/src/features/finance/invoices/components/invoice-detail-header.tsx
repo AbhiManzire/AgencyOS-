@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Pencil } from 'lucide-react';
 import { Body, Caption } from '@/design-system/typography';
 import { Button } from '@/components/ui/button';
 import type { InvoiceRecord } from '@/features/finance/invoices/api/invoice.types';
@@ -14,13 +14,15 @@ import {
 } from '@/features/finance/invoices/forms/invoice-form.validation';
 import { calculateQuotePricingSummary } from '@/features/sales/pricing/pricing-engine';
 import type { InvoiceLineItemListItem } from '@/features/finance/invoice-line-items/types';
+import { Can } from '@/lib/rbac';
 
 interface InvoiceDetailHeaderProps {
   readonly invoice: InvoiceRecord;
   readonly lineItems?: readonly InvoiceLineItemListItem[];
+  readonly onEdit: () => void;
 }
 
-export function InvoiceDetailHeader({ invoice, lineItems = [] }: InvoiceDetailHeaderProps) {
+export function InvoiceDetailHeader({ invoice, lineItems = [], onEdit }: InvoiceDetailHeaderProps) {
   const summary = calculateQuotePricingSummary(lineItems);
 
   return (
@@ -70,6 +72,12 @@ export function InvoiceDetailHeader({ invoice, lineItems = [] }: InvoiceDetailHe
           <p className="mt-1 text-2xl font-semibold">
             {formatInvoiceAmount(summary.grandTotal, invoice.currency)}
           </p>
+          <Can permission="invoices.update" mode="disable">
+            <Button type="button" variant="outline" className="mt-4 gap-2" onClick={onEdit}>
+              <Pencil className="size-4" />
+              Edit
+            </Button>
+          </Can>
         </div>
       </div>
     </div>

@@ -1,8 +1,10 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, LoadingState, PageContainer } from '@/design-system';
+import { CreateInvoiceDrawer } from '@/features/finance/invoices/components/create-invoice-drawer';
 import { InvoiceDetailHeader } from '@/features/finance/invoices/components/invoice-detail-header';
 import { InvoiceDetailOverviewCard } from '@/features/finance/invoices/components/invoice-detail-overview-card';
 import { InvoiceDetailTabs } from '@/features/finance/invoices/components/invoice-detail-tabs';
@@ -16,6 +18,7 @@ import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-ap
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const invoiceId = params.id;
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
 
   const { data: invoice, isLoading, error, refetch } = useInvoice(invoiceId);
   const { data: lineItems = [] } = useInvoiceLineItems(invoiceId, {
@@ -55,7 +58,20 @@ export default function InvoiceDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <InvoiceDetailHeader invoice={invoice} lineItems={lineItems} />
+      <InvoiceDetailHeader
+        invoice={invoice}
+        lineItems={lineItems}
+        onEdit={() => {
+          setEditDrawerOpen(true);
+        }}
+      />
+
+      <CreateInvoiceDrawer
+        open={editDrawerOpen}
+        mode="edit"
+        invoiceId={invoiceId}
+        onOpenChange={setEditDrawerOpen}
+      />
 
       <InvoiceDetailTabs
         lineItems={<InvoiceLineItemsTab invoiceId={invoiceId} currency={invoice.currency} />}

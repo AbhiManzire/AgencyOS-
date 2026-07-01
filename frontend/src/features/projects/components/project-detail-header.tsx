@@ -12,9 +12,10 @@ import { Can } from '@/lib/rbac';
 interface ProjectDetailHeaderProps {
   readonly project: ProjectRecord;
   readonly clientName: string;
+  readonly onEdit: () => void;
 }
 
-export function ProjectDetailHeader({ project, clientName }: ProjectDetailHeaderProps) {
+export function ProjectDetailHeader({ project, clientName, onEdit }: ProjectDetailHeaderProps) {
   const managerLabel = displayProjectField(project.projectManagerUserId);
 
   return (
@@ -48,7 +49,7 @@ export function ProjectDetailHeader({ project, clientName }: ProjectDetailHeader
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Can permission="projects.update" mode="disable">
-          <Button type="button" variant="outline" disabled className="gap-2">
+          <Button type="button" variant="outline" className="gap-2" onClick={onEdit}>
             <Pencil className="size-4" />
             Edit
           </Button>

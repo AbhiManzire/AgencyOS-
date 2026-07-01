@@ -51,7 +51,11 @@ export default function ProjectsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
 
-  const { params: listParams } = resolveListProjectsQuery(statusFilter, page, pageSize);
+  const { params: listParams, usesClientSideListProcessing } = resolveListProjectsQuery(
+    statusFilter,
+    page,
+    pageSize,
+  );
 
   const { data, isLoading, isFetching, error, refetch } = useProjects(listParams);
   const { data: clientsData } = useClients({ take: 100 });
@@ -69,7 +73,7 @@ export default function ProjectsPage() {
     return map;
   }, [clientsData]);
 
-  const filteredProjects = useMemo(() => {
+  const matchingProjects = useMemo(() => {
     if (!data) {
       return [];
     }
@@ -92,7 +96,16 @@ export default function ProjectsPage() {
       .sort((a, b) => compareProjects(a, b, sortField, sortDirection));
   }, [clientNamesById, data, search, sortDirection, sortField]);
 
-  const totalItems = data?.total ?? 0;
+  const filteredProjects = useMemo(() => {
+    if (!usesClientSideListProcessing) {
+      return matchingProjects;
+    }
+
+    const start = (page - 1) * pageSize;
+    return matchingProjects.slice(start, start + pageSize);
+  }, [matchingProjects, page, pageSize, usesClientSideListProcessing]);
+
+  const totalItems = matchingProjects.length;
   const hasActiveFilters = search.trim().length > 0 || statusFilter !== 'all';
   const errorMessage = error ? extractApiErrorMessage(error) : null;
 

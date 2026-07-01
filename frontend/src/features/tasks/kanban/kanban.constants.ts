@@ -36,7 +36,7 @@ export interface KanbanTaskCard {
 }
 
 export const KANBAN_LIST_PARAMS = {
-  take: 200,
+  take: 100,
   skip: 0,
 } as const;
 

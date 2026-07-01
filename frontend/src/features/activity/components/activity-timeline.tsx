@@ -1,11 +1,13 @@
 'use client';
 
 import type { LucideIcon } from 'lucide-react';
-import { Activity } from 'lucide-react';
-import { EmptyState } from '@/design-system';
+import { Activity as ActivityIconLucide } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { EmptyState, ErrorState, LoadingState } from '@/design-system';
 import { ActivityCard } from '@/features/activity/components/activity-card';
-import { getMockActivityTimeline } from '@/features/activity/mock/activity.mock';
+import { useActivities } from '@/features/activity/hooks/use-activities';
 import type { ActivityTimelineEntry } from '@/features/activity/types';
+import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
 
 interface ActivityTimelineProps {
@@ -17,7 +19,7 @@ interface ActivityTimelineProps {
   readonly className?: string;
 }
 
-/** Reusable vertical activity timeline attachable to any entity. Uses mock data by default. */
+/** Reusable vertical activity timeline attachable to any entity. */
 export function ActivityTimeline({
   entityType,
   entityId,
@@ -26,11 +28,39 @@ export function ActivityTimeline({
   emptyDescription = 'Activity for this record will appear here.',
   className,
 }: ActivityTimelineProps) {
-  const timelineEntries = entries ?? getMockActivityTimeline(entityType, entityId);
+  const shouldFetchEntries = entries === undefined;
+  const {
+    data: fetchedEntries = [],
+    isLoading,
+    error,
+    refetch,
+  } = useActivities(entityType, entityId, { enabled: shouldFetchEntries });
+  const timelineEntries = entries ?? fetchedEntries;
+
+  if (shouldFetchEntries && isLoading) {
+    return <LoadingState label="Loading activity..." />;
+  }
+
+  if (shouldFetchEntries && error) {
+    return (
+      <ErrorState
+        message={extractApiErrorMessage(error)}
+        action={
+          <Button variant="outline" onClick={() => void refetch()}>
+            Try again
+          </Button>
+        }
+      />
+    );
+  }
 
   if (timelineEntries.length === 0) {
     return (
-      <EmptyState icon={Activity as LucideIcon} title={emptyTitle} description={emptyDescription} />
+      <EmptyState
+        icon={ActivityIconLucide as LucideIcon}
+        title={emptyTitle}
+        description={emptyDescription}
+      />
     );
   }
 

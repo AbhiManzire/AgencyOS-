@@ -1,13 +1,18 @@
 'use client';
 
-import { Card, CardContent, LoadingState } from '@/design-system';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, ErrorState, LoadingState } from '@/design-system';
 import { Caption, CardTitle } from '@/design-system/typography';
 import type { DashboardClientStats } from '@/features/dashboard/hooks/use-dashboard-stats';
+import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
 
 interface DashboardClientHealthProps {
   readonly stats: DashboardClientStats;
   readonly isLoading: boolean;
+  readonly isError: boolean;
+  readonly error: unknown;
+  readonly onRetry: () => void;
 }
 
 interface HealthSegment {
@@ -50,9 +55,28 @@ function HealthProgressCard({
   );
 }
 
-export function DashboardClientHealth({ stats, isLoading }: DashboardClientHealthProps) {
+export function DashboardClientHealth({
+  stats,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+}: DashboardClientHealthProps) {
   if (isLoading) {
     return <LoadingState label="Loading client health..." />;
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        message={extractApiErrorMessage(error)}
+        action={
+          <Button variant="outline" onClick={onRetry}>
+            Try again
+          </Button>
+        }
+      />
+    );
   }
 
   const totalForHealth = stats.activeClients + stats.prospectClients + stats.archivedClients;

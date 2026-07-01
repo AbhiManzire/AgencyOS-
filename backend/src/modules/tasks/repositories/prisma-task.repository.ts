@@ -13,8 +13,9 @@ import type {
   UpdateTaskData,
 } from './task.repository.interface';
 
-type TaskWithAssignee = Task & {
+type TaskWithRelations = Task & {
   assigneeUser: Pick<User, 'displayName' | 'email' | 'firstName' | 'lastName'> | null;
+  createdByUser: Pick<User, 'displayName' | 'email' | 'firstName' | 'lastName'> | null;
   _count?: {
     subtasks: number;
   };
@@ -33,7 +34,7 @@ export class PrismaTaskRepository implements TaskRepository {
             ? null
             : new Prisma.Decimal(data.estimatedHours),
       },
-      include: assigneeInclude,
+      include: taskRelationsInclude,
     });
 
     return toTaskRecord(task);
@@ -90,7 +91,7 @@ export class PrismaTaskRepository implements TaskRepository {
         workspaceId: scope.workspaceId,
         ...(options?.includeArchived ? {} : { deletedAt: null }),
       },
-      include: assigneeInclude,
+      include: detailInclude,
     });
 
     return task ? toTaskRecord(task) : null;
@@ -155,25 +156,39 @@ export class PrismaTaskRepository implements TaskRepository {
   }
 }
 
-const assigneeInclude = {
+const userSelect = {
+  displayName: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+} as const;
+
+const taskRelationsInclude = {
   assigneeUser: {
-    select: {
-      displayName: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-    },
+    select: userSelect,
+  },
+  createdByUser: {
+    select: userSelect,
+  },
+} as const;
+
+const subtaskCountSelect = {
+  subtasks: {
+    where: { deletedAt: null },
   },
 } as const;
 
 const listInclude = {
-  ...assigneeInclude,
+  ...taskRelationsInclude,
   _count: {
-    select: {
-      subtasks: {
-        where: { deletedAt: null },
-      },
-    },
+    select: subtaskCountSelect,
+  },
+} as const;
+
+const detailInclude = {
+  ...taskRelationsInclude,
+  _count: {
+    select: subtaskCountSelect,
   },
 } as const;
 
@@ -205,7 +220,7 @@ function toEstimatedHours(value: Prisma.Decimal | null): number | null {
   return value.toNumber();
 }
 
-function toTaskRecord(task: TaskWithAssignee): TaskRecord {
+function toTaskRecord(task: TaskWithRelations): TaskRecord {
   return {
     id: task.id,
     tenantId: task.tenantId,
@@ -227,6 +242,8 @@ function toTaskRecord(task: TaskWithAssignee): TaskRecord {
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     createdByUserId: task.createdByUserId,
+    createdByDisplayName:
+      task.createdByUser === null ? null : resolveUserDisplayName(task.createdByUser),
     updatedByUserId: task.updatedByUserId,
     deletedAt: task.deletedAt,
     deletedByUserId: task.deletedByUserId,

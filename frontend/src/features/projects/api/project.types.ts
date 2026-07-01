@@ -51,3 +51,14 @@ export interface CreateProjectPayload {
   readonly targetEndDate?: string;
   readonly isBillable?: boolean;
 }
+
+/** Request body for PATCH /projects/:id — mirrors backend UpdateProjectDto. */
+export interface UpdateProjectPayload {
+  readonly name?: string;
+  readonly description?: string | null;
+  readonly status?: ProjectStatus;
+  readonly projectManagerUserId?: string | null;
+  readonly startDate?: string | null;
+  readonly targetEndDate?: string | null;
+  readonly isBillable?: boolean;
+}

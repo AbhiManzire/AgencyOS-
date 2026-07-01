@@ -1,4 +1,8 @@
-import type { CreateDealPayload } from '@/features/sales/api/deal.types';
+import type {
+  CreateDealPayload,
+  DealRecord,
+  UpdateDealPayload,
+} from '@/features/sales/api/deal.types';
 
 export interface DealFormValues {
   clientId: string;
@@ -60,6 +64,31 @@ export function areDealFormValuesEqual(left: DealFormValues, right: DealFormValu
     left.value === right.value &&
     left.expectedCloseDate === right.expectedCloseDate
   );
+}
+
+/** Maps a deal record to editable form values. */
+export function dealRecordToFormValues(record: DealRecord): DealFormValues {
+  return {
+    clientId: record.clientId,
+    contactId: record.contactId ?? '',
+    title: record.title,
+    value: String(record.value),
+    expectedCloseDate:
+      record.expectedCloseDate !== null ? record.expectedCloseDate.slice(0, 10) : '',
+  };
+}
+
+/** Maps validated form values to update deal API payload. */
+export function toUpdateDealPayload(values: DealFormValues): UpdateDealPayload {
+  const contactId = values.contactId.trim();
+
+  return {
+    clientId: values.clientId,
+    contactId: contactId.length > 0 ? contactId : null,
+    title: values.title.trim(),
+    value: Number(values.value.trim()),
+    expectedCloseDate: values.expectedCloseDate.trim().length > 0 ? values.expectedCloseDate : null,
+  };
 }
 
 /** Maps validated form values to create deal API payload. */

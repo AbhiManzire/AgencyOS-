@@ -13,12 +13,17 @@ import {
   areProjectFormValuesEqual,
   DEFAULT_CREATE_PROJECT_FORM_VALUES,
   mapApiFieldToFormField,
+  PROJECT_STATUS_LABELS,
+  projectRecordToFormValues,
   toCreateProjectPayload,
+  toUpdateProjectPayload,
   validateCreateProjectForm,
   type CreateProjectFormErrors,
   type CreateProjectFormValues,
 } from '@/features/projects/forms/create-project.validation';
 import { useCreateProject } from '@/features/projects/hooks/use-create-project';
+import { useProject } from '@/features/projects/hooks/use-project';
+import { useUpdateProject } from '@/features/projects/hooks/use-update-project';
 import type { ProjectStatus } from '@/features/projects/types';
 import { extractApiErrorMessage, extractApiValidationErrors } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
@@ -26,6 +31,8 @@ import { cn } from '@/lib/utils';
 interface CreateProjectDrawerProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  readonly mode?: 'create' | 'edit';
+  readonly projectId?: string;
 }
 
 interface FormFieldProps {
@@ -53,6 +60,7 @@ function ProjectFormFields({
   values,
   errors,
   isPending,
+  isEditMode,
   isLoadingClients,
   clientsError,
   clientOptions,
@@ -62,6 +70,7 @@ function ProjectFormFields({
   readonly values: CreateProjectFormValues;
   readonly errors: CreateProjectFormErrors;
   readonly isPending: boolean;
+  readonly isEditMode: boolean;
   readonly isLoadingClients: boolean;
   readonly clientsError: unknown;
   readonly clientOptions: readonly { id: string; label: string }[];
@@ -110,7 +119,7 @@ function ProjectFormFields({
             id="clientId"
             label="Client"
             value={values.clientId}
-            disabled={isPending || clientOptions.length === 0}
+            disabled={isPending || isEditMode || clientOptions.length === 0}
             onChange={(event) => {
               updateField('clientId', event.target.value);
             }}
@@ -136,8 +145,11 @@ function ProjectFormFields({
               updateField('status', event.target.value as ProjectStatus);
             }}
           >
-            <option value="PLANNING">Planning</option>
-            <option value="ACTIVE">Active</option>
+            {(Object.keys(PROJECT_STATUS_LABELS) as ProjectStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {PROJECT_STATUS_LABELS[status]}
+              </option>
+            ))}
           </NativeSelect>
         </FormField>
 
@@ -223,9 +235,22 @@ function ProjectFormFields({
   );
 }
 
-export function CreateProjectDrawer({ open, onOpenChange }: CreateProjectDrawerProps) {
+export function CreateProjectDrawer({
+  open,
+  onOpenChange,
+  mode = 'create',
+  projectId,
+}: CreateProjectDrawerProps) {
+  const isEditMode = mode === 'edit' && projectId !== undefined && projectId.length > 0;
   const { showToast } = useToast();
-  const { mutateAsync: createProject, isPending } = useCreateProject();
+  const { mutateAsync: createProject, isPending: isCreating } = useCreateProject();
+  const { mutateAsync: updateProject, isPending: isUpdating } = useUpdateProject();
+  const {
+    data: project,
+    isLoading: isLoadingProject,
+    error: loadError,
+    refetch: refetchProject,
+  } = useProject(projectId ?? '', { enabled: open && isEditMode });
   const {
     data: clientsData,
     isLoading: isLoadingClients,
@@ -265,10 +290,27 @@ export function CreateProjectDrawer({ open, onOpenChange }: CreateProjectDrawerP
       return;
     }
 
+    if (isEditMode) {
+      return;
+    }
+
     setValues(DEFAULT_CREATE_PROJECT_FORM_VALUES);
     setInitialValues(DEFAULT_CREATE_PROJECT_FORM_VALUES);
     setErrors({});
-  }, [open]);
+  }, [isEditMode, open]);
+
+  useEffect(() => {
+    if (!open || !isEditMode || project === undefined) {
+      return;
+    }
+
+    const formValues = projectRecordToFormValues(project);
+    setValues(formValues);
+    setInitialValues(formValues);
+    setErrors({});
+  }, [isEditMode, open, project]);
+
+  const isPending = isCreating || isUpdating;
 
   const updateField = <K extends keyof CreateProjectFormValues>(
     field: K,
@@ -320,8 +362,14 @@ export function CreateProjectDrawer({ open, onOpenChange }: CreateProjectDrawerP
     }
 
     try {
-      await createProject(toCreateProjectPayload(values));
-      showToast('Project created successfully');
+      if (isEditMode) {
+        await updateProject({ id: projectId, payload: toUpdateProjectPayload(values) });
+        showToast('Project updated successfully');
+      } else {
+        await createProject(toCreateProjectPayload(values));
+        showToast('Project created successfully');
+      }
+
       closeDrawer();
     } catch (error) {
       const apiFieldErrors = extractApiValidationErrors(error);
@@ -344,35 +392,53 @@ export function CreateProjectDrawer({ open, onOpenChange }: CreateProjectDrawerP
     }
   };
 
-  const isFormDisabled = isPending || isLoadingClients;
+  const drawerTitle = isEditMode ? 'Edit Project' : 'Create Project';
+  const submitLabel = isEditMode ? 'Save Changes' : 'Save Project';
+  const isFormDisabled = isPending || isLoadingClients || (isEditMode && isLoadingProject);
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="relative w-full max-w-md gap-0 p-0 sm:max-w-lg">
         <form className="flex h-full flex-col" onSubmit={(event) => void handleSubmit(event)}>
           <header className="border-b border-border px-6 py-4 pr-12">
-            <SectionTitle>Create Project</SectionTitle>
+            <SectionTitle>{drawerTitle}</SectionTitle>
           </header>
 
           <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-            <ProjectFormFields
-              values={values}
-              errors={errors}
-              isPending={isFormDisabled}
-              isLoadingClients={isLoadingClients}
-              clientsError={clientsError}
-              clientOptions={clientOptions}
-              onRetryClients={() => {
-                void refetchClients();
-              }}
-              updateField={updateField}
-            />
+            {isEditMode && isLoadingProject ? (
+              <LoadingState label="Loading project..." />
+            ) : isEditMode && loadError ? (
+              <ErrorState
+                message={extractApiErrorMessage(loadError)}
+                action={
+                  <Button variant="outline" onClick={() => void refetchProject()}>
+                    Try again
+                  </Button>
+                }
+              />
+            ) : (
+              <>
+                <ProjectFormFields
+                  values={values}
+                  errors={errors}
+                  isPending={isFormDisabled}
+                  isEditMode={isEditMode}
+                  isLoadingClients={isLoadingClients}
+                  clientsError={clientsError}
+                  clientOptions={clientOptions}
+                  onRetryClients={() => {
+                    void refetchClients();
+                  }}
+                  updateField={updateField}
+                />
 
-            {errors.form ? (
-              <p className="rounded-md border border-danger/30 bg-danger-muted px-3 py-2 text-sm text-danger-foreground">
-                {errors.form}
-              </p>
-            ) : null}
+                {errors.form ? (
+                  <p className="rounded-md border border-danger/30 bg-danger-muted px-3 py-2 text-sm text-danger-foreground">
+                    {errors.form}
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
 
           <footer className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
@@ -381,11 +447,15 @@ export function CreateProjectDrawer({ open, onOpenChange }: CreateProjectDrawerP
             </Button>
             <Button
               type="submit"
-              disabled={isFormDisabled || clientOptions.length === 0}
+              disabled={
+                isFormDisabled ||
+                (!isEditMode && clientOptions.length === 0) ||
+                (isEditMode && !isDirty)
+              }
               className="gap-2"
             >
               {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-              Save Project
+              {submitLabel}
             </Button>
           </footer>
         </form>

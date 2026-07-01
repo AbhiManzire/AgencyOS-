@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -19,6 +19,7 @@ import { useProject } from '@/features/projects/hooks/use-project';
 import { useProjectMilestones } from '@/features/projects/milestones/hooks/use-project-milestones';
 import { displayProjectField } from '@/features/projects/utils/project-display';
 import { TaskDetailHeader } from '@/features/tasks/components/task-detail-header';
+import { TaskFormDrawer } from '@/features/tasks/components/task-form-drawer';
 import { TaskDetailOverviewCard } from '@/features/tasks/components/task-detail-overview-card';
 import { TaskDetailProgressCard } from '@/features/tasks/components/task-detail-progress-card';
 import { TaskDetailTabs } from '@/features/tasks/components/task-detail-tabs';
@@ -32,12 +33,14 @@ import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-ap
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
   const taskId = params.id;
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
 
   const { data: task, isLoading, error, refetch } = useTask(taskId);
   const { data: project } = useProject(task?.projectId ?? '', {
     enabled: task !== undefined,
   });
-  const { data: milestonesData } = useProjectMilestones(task?.projectId ?? '');
+  const projectId = task?.projectId;
+  const { data: milestonesData } = useProjectMilestones(projectId ?? '');
 
   const projectName = project?.name ?? displayProjectField(task?.projectId);
   const milestoneName = useMemo(() => {
@@ -82,7 +85,19 @@ export default function TaskDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <TaskDetailHeader task={task} />
+      <TaskDetailHeader
+        task={task}
+        onEdit={() => {
+          setEditDrawerOpen(true);
+        }}
+      />
+
+      <TaskFormDrawer
+        open={editDrawerOpen}
+        mode="edit"
+        task={task}
+        onOpenChange={setEditDrawerOpen}
+      />
 
       <div className="mt-6 space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
@@ -95,8 +110,9 @@ export default function TaskDetailPage() {
             dueDate={task.dueDate}
             estimatedHours={task.estimatedHours}
             createdByUserId={task.createdByUserId}
+            createdByDisplayName={task.createdByDisplayName}
           />
-          <TaskDetailProgressCard status={task.status} />
+          <TaskDetailProgressCard status={task.status} subtaskCount={task.subtaskCount} />
         </div>
 
         <Card>

@@ -19,6 +19,11 @@ export interface ListActivitiesParams {
   readonly take?: number;
 }
 
+export interface ListWorkspaceActivitiesParams {
+  readonly skip?: number;
+  readonly take?: number;
+}
+
 export interface ListActivitiesResult {
   readonly items: readonly ActivityRecord[];
   readonly total: number;

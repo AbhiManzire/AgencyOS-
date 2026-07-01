@@ -5,6 +5,7 @@ import type {
   ListProjectsParams,
   ListProjectsResult,
   ProjectRecord,
+  UpdateProjectPayload,
 } from '@/features/projects/api/project.types';
 
 /** Fetches a paginated list of projects for the active workspace. */
@@ -26,6 +27,18 @@ export async function listProjects(params: ListProjectsParams): Promise<ListProj
 /** Creates a new project in the active workspace. */
 export async function createProject(payload: CreateProjectPayload): Promise<ProjectRecord> {
   const response = await apiClient.post<ApiSuccessResponse<ProjectRecord>>('/projects', payload);
+  return response.data.data;
+}
+
+/** Updates an existing project in the active workspace. */
+export async function updateProject(
+  id: string,
+  payload: UpdateProjectPayload,
+): Promise<ProjectRecord> {
+  const response = await apiClient.patch<ApiSuccessResponse<ProjectRecord>>(
+    `/projects/${id}`,
+    payload,
+  );
   return response.data.data;
 }
 

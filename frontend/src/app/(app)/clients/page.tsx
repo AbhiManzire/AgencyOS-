@@ -61,7 +61,7 @@ export default function ClientsPage() {
   const [editClientId, setEditClientId] = useState<string | null>(null);
   const [archiveClientId, setArchiveClientId] = useState<string | null>(null);
 
-  const { params: listParams, usesArchivedClientSideFilter } = resolveListClientsQuery(
+  const { params: listParams, usesClientSideListProcessing } = resolveListClientsQuery(
     statusFilter,
     page,
     pageSize,
@@ -85,16 +85,16 @@ export default function ClientsPage() {
     ].sort();
   }, [data]);
 
-  const filteredClients = useMemo(() => {
+  const matchingClients = useMemo(() => {
     if (!data) {
       return [];
     }
 
     const query = search.trim().toLowerCase();
 
-    const mapped = data.items
+    return data.items
       .map(mapClientRecordToListItem)
-      .filter((client) => !usesArchivedClientSideFilter || client.isArchived)
+      .filter((client) => statusFilter !== 'archived' || client.isArchived)
       .filter((client) => {
         const matchesSearch =
           query.length === 0 ||
@@ -108,51 +108,18 @@ export default function ClientsPage() {
         return matchesSearch && matchesOwner;
       })
       .sort((a, b) => compareClients(a, b, sortField, sortDirection));
+  }, [data, ownerFilter, search, sortDirection, sortField, statusFilter]);
 
-    if (!usesArchivedClientSideFilter) {
-      return mapped;
+  const filteredClients = useMemo(() => {
+    if (!usesClientSideListProcessing) {
+      return matchingClients;
     }
 
     const start = (page - 1) * pageSize;
-    return mapped.slice(start, start + pageSize);
-  }, [
-    data,
-    ownerFilter,
-    page,
-    pageSize,
-    search,
-    sortDirection,
-    sortField,
-    usesArchivedClientSideFilter,
-  ]);
+    return matchingClients.slice(start, start + pageSize);
+  }, [matchingClients, page, pageSize, usesClientSideListProcessing]);
 
-  const totalItems = useMemo(() => {
-    if (!data) {
-      return 0;
-    }
-
-    if (!usesArchivedClientSideFilter) {
-      return data.total;
-    }
-
-    const query = search.trim().toLowerCase();
-
-    return data.items
-      .map(mapClientRecordToListItem)
-      .filter((client) => client.isArchived)
-      .filter((client) => {
-        const matchesSearch =
-          query.length === 0 ||
-          client.displayName.toLowerCase().includes(query) ||
-          client.company.toLowerCase().includes(query) ||
-          client.email.toLowerCase().includes(query) ||
-          client.owner.toLowerCase().includes(query);
-
-        const matchesOwner = ownerFilter === 'all' || client.owner === ownerFilter;
-
-        return matchesSearch && matchesOwner;
-      }).length;
-  }, [data, ownerFilter, search, usesArchivedClientSideFilter]);
+  const totalItems = matchingClients.length;
 
   const hasActiveFilters =
     search.trim().length > 0 || statusFilter !== 'all' || ownerFilter !== 'all';

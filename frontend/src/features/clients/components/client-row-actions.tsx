@@ -1,6 +1,7 @@
 'use client';
 
 import { Archive, MoreHorizontal, Pencil, RotateCcw, Eye } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -41,9 +42,11 @@ export function ClientRowActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <Can permission="clients.read">
-          <DropdownMenuItem disabled className="gap-2">
-            <Eye className="size-4" />
-            View
+          <DropdownMenuItem asChild>
+            <Link href={`/clients/${clientId}`} className="gap-2">
+              <Eye className="size-4" />
+              View
+            </Link>
           </DropdownMenuItem>
         </Can>
         <Can permission="clients.update" mode="disable">

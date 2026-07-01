@@ -10,9 +10,10 @@ import { Can } from '@/lib/rbac';
 
 interface DealDetailHeaderProps {
   readonly deal: DealRecord;
+  readonly onEdit: () => void;
 }
 
-export function DealDetailHeader({ deal }: DealDetailHeaderProps) {
+export function DealDetailHeader({ deal, onEdit }: DealDetailHeaderProps) {
   const ownerLabel = formatDealOwner(deal.ownerDisplayName, deal.ownerEmail, deal.ownerUserId);
 
   return (
@@ -39,7 +40,7 @@ export function DealDetailHeader({ deal }: DealDetailHeaderProps) {
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Can permission="sales.update" mode="disable">
-          <Button type="button" variant="outline" disabled className="gap-2">
+          <Button type="button" variant="outline" className="gap-2" onClick={onEdit}>
             <Pencil className="size-4" />
             Edit
           </Button>

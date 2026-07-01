@@ -39,7 +39,7 @@ export default function TasksPage() {
   const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create');
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
-  const { params: listParams } = resolveListTasksQuery(
+  const { params: listParams, usesClientSideListProcessing } = resolveListTasksQuery(
     statusFilter,
     assigneeFilter,
     page,
@@ -122,7 +122,7 @@ export default function TasksPage() {
       );
   }, [data]);
 
-  const filteredTasks = useMemo((): TaskListItem[] => {
+  const matchingTasks = useMemo((): TaskListItem[] => {
     if (!data) {
       return [];
     }
@@ -133,6 +133,14 @@ export default function TasksPage() {
       .map((record) => mapTaskRecordToListItem(record, { projectNamesById, milestoneNamesById }))
       .filter((task) => {
         if (assigneeFilter === 'unassigned' && task.assigneeUserId !== null) {
+          return false;
+        }
+
+        if (
+          assigneeFilter !== 'all' &&
+          assigneeFilter !== 'unassigned' &&
+          task.assigneeUserId !== assigneeFilter
+        ) {
           return false;
         }
 
@@ -153,7 +161,16 @@ export default function TasksPage() {
       });
   }, [assigneeFilter, data, milestoneNamesById, priorityFilter, projectNamesById, search]);
 
-  const totalItems = data?.total ?? 0;
+  const filteredTasks = useMemo((): TaskListItem[] => {
+    if (!usesClientSideListProcessing) {
+      return matchingTasks;
+    }
+
+    const start = (page - 1) * pageSize;
+    return matchingTasks.slice(start, start + pageSize);
+  }, [matchingTasks, page, pageSize, usesClientSideListProcessing]);
+
+  const totalItems = matchingTasks.length;
   const hasActiveFilters =
     search.trim().length > 0 ||
     statusFilter !== 'all' ||

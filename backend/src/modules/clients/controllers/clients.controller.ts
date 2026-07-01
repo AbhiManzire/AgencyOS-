@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,6 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
 import { Public } from '../../../common/decorators/public.decorator';
@@ -121,10 +123,18 @@ export class ClientsController {
   }
 
   private resolveScope(headers: Record<string, string | string[] | undefined>): ClientScope {
-    return {
-      tenantId: this.readHeader(headers, TENANT_HEADER),
-      workspaceId: this.readHeader(headers, WORKSPACE_HEADER),
-    };
+    const tenantId = this.readHeader(headers, TENANT_HEADER);
+    const workspaceId = this.readHeader(headers, WORKSPACE_HEADER);
+
+    if (!isUUID(tenantId)) {
+      throw new BadRequestException(`Header "${TENANT_HEADER}" must be a valid UUID.`);
+    }
+
+    if (!isUUID(workspaceId)) {
+      throw new BadRequestException(`Header "${WORKSPACE_HEADER}" must be a valid UUID.`);
+    }
+
+    return { tenantId, workspaceId };
   }
 
   private resolveContext(

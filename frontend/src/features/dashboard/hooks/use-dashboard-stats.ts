@@ -13,6 +13,8 @@ interface UseDashboardStatsResult {
   readonly stats: DashboardClientStats;
   readonly isLoading: boolean;
   readonly isError: boolean;
+  readonly error: unknown;
+  readonly refetch: () => void;
 }
 
 /** Aggregates client counts for dashboard KPI and health sections. */
@@ -55,5 +57,12 @@ export function useDashboardStats(): UseDashboardStatsResult {
       archivedQuery.isLoading,
     isError:
       totalQuery.isError || activeQuery.isError || prospectQuery.isError || archivedQuery.isError,
+    error: totalQuery.error ?? activeQuery.error ?? prospectQuery.error ?? archivedQuery.error,
+    refetch: () => {
+      void totalQuery.refetch();
+      void activeQuery.refetch();
+      void prospectQuery.refetch();
+      void archivedQuery.refetch();
+    },
   };
 }

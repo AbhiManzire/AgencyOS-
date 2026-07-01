@@ -12,18 +12,26 @@ import { useClientContacts } from '@/features/clients/contacts/hooks/use-client-
 import { useClients } from '@/features/clients/hooks/use-clients';
 import {
   areDealFormValuesEqual,
+  dealRecordToFormValues,
   DEFAULT_DEAL_FORM_VALUES,
   toCreateDealPayload,
+  toUpdateDealPayload,
   validateDealForm,
   type DealFormErrors,
   type DealFormValues,
 } from '@/features/sales/forms/deal-form.validation';
 import { useCreateDeal } from '@/features/sales/hooks/use-create-deal';
+import { useDeal } from '@/features/sales/hooks/use-deal';
+import { useUpdateDeal } from '@/features/sales/hooks/use-update-deal';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
+
+export type DealDrawerMode = 'create' | 'edit';
 
 interface DealFormDrawerProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  readonly mode?: DealDrawerMode;
+  readonly dealId?: string;
 }
 
 interface FormFieldProps {
@@ -47,9 +55,22 @@ function FormField({ label, htmlFor, required = false, error, children }: FormFi
   );
 }
 
-export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
+export function DealFormDrawer({
+  open,
+  onOpenChange,
+  mode = 'create',
+  dealId,
+}: DealFormDrawerProps) {
+  const isEditMode = mode === 'edit' && dealId !== undefined && dealId.length > 0;
   const { showToast } = useToast();
   const { mutateAsync: createDeal, isPending: isCreating } = useCreateDeal();
+  const { mutateAsync: updateDeal, isPending: isUpdating } = useUpdateDeal();
+  const {
+    data: deal,
+    isLoading: isLoadingDeal,
+    error: loadError,
+    refetch: refetchDeal,
+  } = useDeal(dealId ?? '', { enabled: open && isEditMode });
 
   const [values, setValues] = useState<DealFormValues>(DEFAULT_DEAL_FORM_VALUES);
   const [initialValues, setInitialValues] = useState<DealFormValues>(DEFAULT_DEAL_FORM_VALUES);
@@ -72,13 +93,29 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
 
   useEffect(() => {
     if (!open) {
+      setShowDiscardConfirm(false);
+      return;
+    }
+
+    if (isEditMode) {
       return;
     }
 
     setValues(DEFAULT_DEAL_FORM_VALUES);
     setInitialValues(DEFAULT_DEAL_FORM_VALUES);
     setErrors({});
-  }, [open]);
+  }, [isEditMode, open]);
+
+  useEffect(() => {
+    if (!open || !isEditMode || deal === undefined) {
+      return;
+    }
+
+    const formValues = dealRecordToFormValues(deal);
+    setValues(formValues);
+    setInitialValues(formValues);
+    setErrors({});
+  }, [deal, isEditMode, open]);
 
   useEffect(() => {
     if (values.clientId.length === 0) {
@@ -87,7 +124,7 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
   }, [values.clientId]);
 
   const isDirty = !areDealFormValuesEqual(values, initialValues);
-  const isSaving = isCreating;
+  const isSaving = isCreating || isUpdating;
   const clientsErrorMessage = clientsError ? extractApiErrorMessage(clientsError) : null;
   const contactsErrorMessage = contactsError ? extractApiErrorMessage(contactsError) : null;
 
@@ -118,24 +155,50 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
     }
 
     try {
-      await createDeal(toCreateDealPayload(values));
-      showToast('Deal created', 'success');
+      if (isEditMode) {
+        await updateDeal({ id: dealId, payload: toUpdateDealPayload(values) });
+        showToast('Deal updated', 'success');
+      } else {
+        await createDeal(toCreateDealPayload(values));
+        showToast('Deal created', 'success');
+      }
+
       onOpenChange(false);
     } catch (error) {
       setErrors({ form: extractApiErrorMessage(error) });
     }
   };
 
+  const drawerTitle = isEditMode ? 'Edit Deal' : 'Create Deal';
+  const drawerDescription = isEditMode
+    ? 'Update deal details for this opportunity.'
+    : 'Add a new opportunity to the pipeline.';
+  const submitLabel = isEditMode ? 'Save Changes' : 'Create Deal';
+  const isFormDisabled = isSaving || (isEditMode && isLoadingDeal);
+
   return (
     <>
       <Sheet open={open} onOpenChange={handleCloseRequest}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
           <header className="border-b border-border px-6 py-4">
-            <h2 className="text-lg font-semibold text-foreground">Create Deal</h2>
-            <p className="text-sm text-muted-foreground">Add a new opportunity to the pipeline.</p>
+            <h2 className="text-lg font-semibold text-foreground">{drawerTitle}</h2>
+            <p className="text-sm text-muted-foreground">{drawerDescription}</p>
           </header>
 
-          {clientsErrorMessage ? (
+          {isEditMode && isLoadingDeal ? (
+            <LoadingState label="Loading deal..." className="p-6" />
+          ) : isEditMode && loadError ? (
+            <div className="p-6">
+              <ErrorState
+                message={extractApiErrorMessage(loadError)}
+                action={
+                  <Button variant="outline" onClick={() => void refetchDeal()}>
+                    Try again
+                  </Button>
+                }
+              />
+            </div>
+          ) : clientsErrorMessage ? (
             <div className="p-6">
               <ErrorState
                 message={clientsErrorMessage}
@@ -168,7 +231,7 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
                       id="clientId"
                       label="Client"
                       value={values.clientId}
-                      disabled={isSaving}
+                      disabled={isFormDisabled}
                       onChange={(event) => {
                         updateField('clientId', event.target.value);
                         updateField('contactId', '');
@@ -204,7 +267,7 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
                         id="contactId"
                         label="Contact"
                         value={values.contactId}
-                        disabled={isSaving || values.clientId.length === 0}
+                        disabled={isFormDisabled || values.clientId.length === 0}
                         onChange={(event) => {
                           updateField('contactId', event.target.value);
                         }}
@@ -229,7 +292,7 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
                         updateField('title', event.target.value);
                       }}
                       placeholder="Website redesign"
-                      disabled={isSaving}
+                      disabled={isFormDisabled}
                     />
                   </FormField>
 
@@ -244,7 +307,7 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
                         updateField('value', event.target.value);
                       }}
                       placeholder="10000"
-                      disabled={isSaving}
+                      disabled={isFormDisabled}
                     />
                   </FormField>
 
@@ -256,7 +319,7 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
                       onChange={(event) => {
                         updateField('expectedCloseDate', event.target.value);
                       }}
-                      disabled={isSaving}
+                      disabled={isFormDisabled}
                     />
                   </FormField>
                 </section>
@@ -273,9 +336,13 @@ export function DealFormDrawer({ open, onOpenChange }: DealFormDrawerProps) {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSaving} className="gap-2">
+                <Button
+                  type="submit"
+                  disabled={isFormDisabled || (isEditMode && !isDirty)}
+                  className="gap-2"
+                >
                   {isSaving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                  Create Deal
+                  {submitLabel}
                 </Button>
               </footer>
             </form>

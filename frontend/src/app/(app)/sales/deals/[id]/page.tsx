@@ -2,6 +2,7 @@
 
 import { FileText, FileType } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -19,6 +20,7 @@ import { DealDetailHeader } from '@/features/sales/components/deal-detail-header
 import { DealDetailOverviewCard } from '@/features/sales/components/deal-detail-overview-card';
 import { DealDetailSummaryCard } from '@/features/sales/components/deal-detail-summary-card';
 import { DealDetailTabs } from '@/features/sales/components/deal-detail-tabs';
+import { DealFormDrawer } from '@/features/sales/components/deal-form-drawer';
 import { DealNotFoundState } from '@/features/sales/components/deal-not-found-state';
 import { DealFollowUpsTab } from '@/features/sales/follow-ups/components/deal-follow-ups-tab';
 import { DealProposalTab } from '@/features/sales/proposals/components/deal-proposal-tab';
@@ -28,6 +30,7 @@ import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-ap
 export default function DealDetailPage() {
   const params = useParams<{ id: string }>();
   const dealId = params.id;
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
 
   const { data: deal, isLoading, error, refetch } = useDeal(dealId);
 
@@ -64,7 +67,19 @@ export default function DealDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <DealDetailHeader deal={deal} />
+      <DealDetailHeader
+        deal={deal}
+        onEdit={() => {
+          setEditDrawerOpen(true);
+        }}
+      />
+
+      <DealFormDrawer
+        open={editDrawerOpen}
+        mode="edit"
+        dealId={dealId}
+        onOpenChange={setEditDrawerOpen}
+      />
 
       <div className="mt-6 space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">

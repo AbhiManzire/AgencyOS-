@@ -13,23 +13,44 @@ import {
   areQuoteFormValuesEqual,
   DEFAULT_QUOTE_FORM_VALUES,
   QUOTE_STATUS_LABELS,
+  quoteRecordToFormValues,
   toCreateQuotePayload,
+  toUpdateQuotePayload,
   validateQuoteForm,
   type QuoteFormErrors,
 } from '@/features/sales/quotes/forms/quote-form.validation';
 import { useCreateQuote } from '@/features/sales/quotes/hooks/use-create-quote';
+import { useQuote } from '@/features/sales/quotes/hooks/use-quote';
+import { useUpdateQuote } from '@/features/sales/quotes/hooks/use-update-quote';
 import { useDeals } from '@/features/sales/hooks/use-deals';
 import type { QuoteFormValues, QuoteStatus } from '@/features/sales/quotes/types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 
+export type QuoteDrawerMode = 'create' | 'edit';
+
 interface CreateQuoteDrawerProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  readonly mode?: QuoteDrawerMode;
+  readonly quoteId?: string;
 }
 
-export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps) {
+export function CreateQuoteDrawer({
+  open,
+  onOpenChange,
+  mode = 'create',
+  quoteId,
+}: CreateQuoteDrawerProps) {
+  const isEditMode = mode === 'edit' && quoteId !== undefined && quoteId.length > 0;
   const { showToast } = useToast();
   const { mutateAsync: createQuote, isPending: isCreating } = useCreateQuote();
+  const { mutateAsync: updateQuote, isPending: isUpdating } = useUpdateQuote();
+  const {
+    data: quote,
+    isLoading: isLoadingQuote,
+    error: loadError,
+    refetch: refetchQuote,
+  } = useQuote(quoteId ?? '', { enabled: open && isEditMode });
 
   const [values, setValues] = useState<QuoteFormValues>(DEFAULT_QUOTE_FORM_VALUES);
   const [initialValues, setInitialValues] = useState<QuoteFormValues>(DEFAULT_QUOTE_FORM_VALUES);
@@ -59,13 +80,29 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
 
   useEffect(() => {
     if (!open) {
+      setShowDiscardConfirm(false);
+      return;
+    }
+
+    if (isEditMode) {
       return;
     }
 
     setValues(DEFAULT_QUOTE_FORM_VALUES);
     setInitialValues(DEFAULT_QUOTE_FORM_VALUES);
     setErrors({});
-  }, [open]);
+  }, [isEditMode, open]);
+
+  useEffect(() => {
+    if (!open || !isEditMode || quote === undefined) {
+      return;
+    }
+
+    const formValues = quoteRecordToFormValues(quote);
+    setValues(formValues);
+    setInitialValues(formValues);
+    setErrors({});
+  }, [isEditMode, open, quote]);
 
   useEffect(() => {
     if (values.dealId.length === 0) {
@@ -86,8 +123,10 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
   };
 
+  const isSaving = isCreating || isUpdating;
+
   const handleCloseRequest = (nextOpen: boolean): void => {
-    if (!nextOpen && isDirty && !isCreating) {
+    if (!nextOpen && isDirty && !isSaving) {
       setShowDiscardConfirm(true);
       return;
     }
@@ -105,14 +144,26 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
     }
 
     try {
-      await createQuote(toCreateQuotePayload(values));
-      showToast('Quote created', 'success');
+      if (isEditMode) {
+        await updateQuote({ id: quoteId, payload: toUpdateQuotePayload(values) });
+        showToast('Quote updated', 'success');
+      } else {
+        await createQuote(toCreateQuotePayload(values));
+        showToast('Quote created', 'success');
+      }
+
       onOpenChange(false);
     } catch (error) {
       setErrors({ form: extractApiErrorMessage(error) });
     }
   };
 
+  const drawerTitle = isEditMode ? 'Edit Quote' : 'Create Quote';
+  const drawerDescription = isEditMode
+    ? 'Update quote details and status.'
+    : 'Start a new quote for a deal and client.';
+  const submitLabel = isEditMode ? 'Save Changes' : 'Create Quote';
+  const isFormDisabled = isSaving || (isEditMode && isLoadingQuote);
   const clientsErrorMessage = clientsError ? extractApiErrorMessage(clientsError) : null;
   const dealsErrorMessage = dealsError ? extractApiErrorMessage(dealsError) : null;
 
@@ -121,13 +172,24 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
       <Sheet open={open} onOpenChange={handleCloseRequest}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
           <header className="border-b border-border px-6 py-4">
-            <h2 className="text-lg font-semibold text-foreground">Create Quote</h2>
-            <p className="text-sm text-muted-foreground">
-              Start a new quote for a deal and client.
-            </p>
+            <h2 className="text-lg font-semibold text-foreground">{drawerTitle}</h2>
+            <p className="text-sm text-muted-foreground">{drawerDescription}</p>
           </header>
 
-          {clientsErrorMessage || dealsErrorMessage ? (
+          {isEditMode && isLoadingQuote ? (
+            <LoadingState label="Loading quote..." className="p-6" />
+          ) : isEditMode && loadError ? (
+            <div className="p-6">
+              <ErrorState
+                message={extractApiErrorMessage(loadError)}
+                action={
+                  <Button variant="outline" onClick={() => void refetchQuote()}>
+                    Try again
+                  </Button>
+                }
+              />
+            </div>
+          ) : clientsErrorMessage || dealsErrorMessage ? (
             <div className="p-6">
               <ErrorState
                 message={clientsErrorMessage ?? dealsErrorMessage ?? 'Unable to load form data.'}
@@ -169,7 +231,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                       id="dealId"
                       label="Deal"
                       value={values.dealId}
-                      disabled={isCreating}
+                      disabled={isFormDisabled}
                       onChange={(event) => {
                         updateField('dealId', event.target.value);
                       }}
@@ -192,7 +254,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                       id="clientId"
                       label="Client"
                       value={values.clientId}
-                      disabled={isCreating}
+                      disabled={isFormDisabled}
                       onChange={(event) => {
                         updateField('clientId', event.target.value);
                       }}
@@ -216,7 +278,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                     <Input
                       id="title"
                       value={values.title}
-                      disabled={isCreating}
+                      disabled={isFormDisabled}
                       onChange={(event) => {
                         updateField('title', event.target.value);
                       }}
@@ -233,7 +295,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                       id="status"
                       label="Status"
                       value={values.status}
-                      disabled={isCreating}
+                      disabled={isFormDisabled}
                       onChange={(event) => {
                         updateField('status', event.target.value as QuoteStatus);
                       }}
@@ -257,7 +319,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                         min={0}
                         step="0.01"
                         value={values.totalAmount}
-                        disabled={isCreating}
+                        disabled={isFormDisabled}
                         onChange={(event) => {
                           updateField('totalAmount', event.target.value);
                         }}
@@ -275,7 +337,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                         id="currency"
                         value={values.currency}
                         maxLength={3}
-                        disabled={isCreating}
+                        disabled={isFormDisabled}
                         onChange={(event) => {
                           updateField('currency', event.target.value.toUpperCase());
                         }}
@@ -291,7 +353,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                       id="validUntil"
                       type="date"
                       value={values.validUntil}
-                      disabled={isCreating}
+                      disabled={isFormDisabled}
                       onChange={(event) => {
                         updateField('validUntil', event.target.value);
                       }}
@@ -305,7 +367,7 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                     <textarea
                       id="notes"
                       value={values.notes}
-                      disabled={isCreating}
+                      disabled={isFormDisabled}
                       rows={4}
                       onChange={(event) => {
                         updateField('notes', event.target.value);
@@ -321,18 +383,20 @@ export function CreateQuoteDrawer({ open, onOpenChange }: CreateQuoteDrawerProps
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={isCreating}
+                  disabled={isSaving}
                   onClick={() => {
                     handleCloseRequest(false);
                   }}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isCreating} className="gap-2">
-                  {isCreating ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  ) : null}
-                  Create Quote
+                <Button
+                  type="submit"
+                  disabled={isFormDisabled || (isEditMode && !isDirty)}
+                  className="gap-2"
+                >
+                  {isSaving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                  {submitLabel}
                 </Button>
               </footer>
             </form>

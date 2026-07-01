@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Caption } from '@/design-system/typography';
 import type { PipelineDealCard as PipelineDealCardModel } from '@/features/sales/pipeline/pipeline.constants';
 import { DEAL_DRAG_TYPE } from '@/features/sales/pipeline/pipeline.constants';
@@ -14,6 +15,7 @@ interface PipelineDealCardProps {
 }
 
 export function PipelineDealCard({ deal, isDragging = false }: PipelineDealCardProps) {
+  const router = useRouter();
   const { allowed: canDrag } = usePermission('sales.update');
   const didDragRef = useRef(false);
 
@@ -30,8 +32,25 @@ export function PipelineDealCard({ deal, isDragging = false }: PipelineDealCardP
           didDragRef.current = false;
         }, 0);
       }}
+      onClick={() => {
+        if (didDragRef.current) {
+          return;
+        }
+
+        router.push(`/sales/deals/${deal.id}`);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          router.push(`/sales/deals/${deal.id}`);
+        }
+      }}
+      role="link"
+      tabIndex={0}
+      aria-label={`View deal ${deal.title}`}
       className={cn(
-        'cursor-grab rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow active:cursor-grabbing',
+        'cursor-pointer rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow',
+        canDrag && 'cursor-grab active:cursor-grabbing',
         'hover:border-primary/40 hover:shadow-md',
         isDragging && 'opacity-50',
       )}

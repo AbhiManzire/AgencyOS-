@@ -5,6 +5,7 @@ import { getTaskCompletionPercent } from '@/features/tasks/utils/task-display';
 
 interface TaskDetailProgressCardProps {
   readonly status: TaskStatus;
+  readonly subtaskCount: number;
 }
 
 interface ProgressMetricProps {
@@ -23,7 +24,7 @@ function ProgressMetric({ label, value, hint }: ProgressMetricProps) {
   );
 }
 
-export function TaskDetailProgressCard({ status }: TaskDetailProgressCardProps) {
+export function TaskDetailProgressCard({ status, subtaskCount }: TaskDetailProgressCardProps) {
   const completionPercent = getTaskCompletionPercent(status);
 
   return (
@@ -48,7 +49,11 @@ export function TaskDetailProgressCard({ status }: TaskDetailProgressCardProps) 
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <ProgressMetric label="Subtasks" value="—" hint="Subtask tracking coming soon" />
+          <ProgressMetric
+            label="Subtasks"
+            value={String(subtaskCount)}
+            hint={subtaskCount === 1 ? '1 subtask' : `${String(subtaskCount)} subtasks`}
+          />
           <ProgressMetric label="Time Logged" value="—" hint="Time entries coming soon" />
         </div>
       </CardContent>

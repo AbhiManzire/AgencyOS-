@@ -11,9 +11,10 @@ import { Can } from '@/lib/rbac';
 
 interface TaskDetailHeaderProps {
   readonly task: TaskRecord;
+  readonly onEdit: () => void;
 }
 
-export function TaskDetailHeader({ task }: TaskDetailHeaderProps) {
+export function TaskDetailHeader({ task, onEdit }: TaskDetailHeaderProps) {
   const assigneeLabel = formatTaskAssignee(
     task.assigneeDisplayName,
     task.assigneeEmail,
@@ -39,7 +40,7 @@ export function TaskDetailHeader({ task }: TaskDetailHeaderProps) {
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Can permission="tasks.update" mode="disable">
-          <Button type="button" variant="outline" disabled className="gap-2">
+          <Button type="button" variant="outline" className="gap-2" onClick={onEdit}>
             <Pencil className="size-4" />
             Edit
           </Button>

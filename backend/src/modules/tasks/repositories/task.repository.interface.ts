@@ -27,6 +27,7 @@ export interface TaskRecord {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId: string | null;
+  readonly createdByDisplayName: string | null;
   readonly updatedByUserId: string | null;
   readonly deletedAt: Date | null;
   readonly deletedByUserId: string | null;
