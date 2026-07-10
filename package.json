@@ -8,11 +8,11 @@
     "dev:frontend": "pnpm --filter @agencyos/frontend dev",
     "dev:backend": "pnpm --filter @agencyos/backend dev",
     "build": "pnpm run --filter @agencyos/shared build && pnpm run --filter @agencyos/backend build && pnpm run --filter @agencyos/frontend build",
-    "lint": "pnpm run -r lint",
+    "lint": "pnpm --filter @agencyos/shared build && pnpm run -r lint",
     "lint:fix": "pnpm run -r lint:fix",
     "format": "prettier --write \"{frontend,backend,shared}/**/*.{ts,tsx,js,jsx,json}\" \".github/**/*.{yml,yaml}\" \"*.{json,yml,yaml,mjs}\" \"docker-compose.yml\"",
     "format:check": "prettier --check \"{frontend,backend,shared}/**/*.{ts,tsx,js,jsx,json}\" \".github/**/*.{yml,yaml}\" \"*.{json,yml,yaml,mjs}\" \"docker-compose.yml\"",
-    "typecheck": "pnpm run -r typecheck",
+    "typecheck": "pnpm --filter @agencyos/shared build && pnpm run -r typecheck",
     "test": "pnpm run -r test",
     "prepare": "husky"
   },

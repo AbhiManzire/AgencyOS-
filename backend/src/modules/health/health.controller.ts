@@ -1,6 +1,7 @@
 import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { HealthCheckResponse, LivenessResponse, ReadinessResponse } from '@agencyos/shared';
 import { Public } from '../../common/decorators/public.decorator';
 import { HealthService } from './health.service';
 
@@ -13,7 +14,7 @@ export class HealthController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Combined health check' })
-  check() {
+  check(): Promise<HealthCheckResponse> {
     return this.healthService.check();
   }
 
@@ -21,14 +22,14 @@ export class HealthController {
   @Get('live')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Liveness probe — process is running' })
-  live() {
+  live(): LivenessResponse {
     return this.healthService.liveness();
   }
 
   @Public()
   @Get('ready')
   @ApiOperation({ summary: 'Readiness probe — dependencies are available' })
-  async ready() {
+  ready(): Promise<ReadinessResponse> {
     return this.healthService.readiness();
   }
 }

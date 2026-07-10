@@ -57,6 +57,9 @@ jobs:
       - name: Apply database migrations
         run: pnpm --filter @agencyos/backend exec prisma migrate deploy
 
+      - name: Build shared
+        run: pnpm --filter @agencyos/shared build
+
       - name: Lint
         run: pnpm lint
 
@@ -65,9 +68,6 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
-
-      - name: Build shared
-        run: pnpm --filter @agencyos/shared build
 
       - name: Build backend
         run: pnpm --filter @agencyos/backend build
