@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { ListProjectsQueryDto } from '../dto/list-projects-query.dto';
@@ -28,7 +27,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('projects')
 export class ProjectsController {
   constructor(private readonly projectService: ProjectService) {}
@@ -87,6 +85,58 @@ export class ProjectsController {
     const context = this.resolveContext(headers);
     const command = ProjectMapper.toUpdateProjectCommand(dto);
     const project = await this.projectService.updateProject(scope, id, command, context);
+
+    return successResponse(project);
+  }
+
+  @Post(':id/complete')
+  @RequirePermissions('projects.update')
+  async complete(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<ProjectRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const project = await this.projectService.completeProject(scope, id, context);
+
+    return successResponse(project);
+  }
+
+  @Post(':id/invoice-ready')
+  @RequirePermissions('projects.update')
+  async markInvoiceReady(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<ProjectRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const project = await this.projectService.markInvoiceReady(scope, id, context);
+
+    return successResponse(project);
+  }
+
+  @Post(':id/archive')
+  @RequirePermissions('projects.update')
+  async archive(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<ProjectRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const project = await this.projectService.archiveProject(scope, id, context);
+
+    return successResponse(project);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions('projects.update')
+  async restore(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<ProjectRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const project = await this.projectService.restoreProject(scope, id, context);
 
     return successResponse(project);
   }

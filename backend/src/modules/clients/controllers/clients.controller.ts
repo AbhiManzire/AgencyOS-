@@ -13,7 +13,6 @@ import {
 import { isUUID } from 'class-validator';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { ArchiveClientDto } from '../dto/archive-client.dto';
 import { CreateClientDto } from '../dto/create-client.dto';
@@ -29,7 +28,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('clients')
 export class ClientsController {
   constructor(private readonly clientService: ClientService) {}

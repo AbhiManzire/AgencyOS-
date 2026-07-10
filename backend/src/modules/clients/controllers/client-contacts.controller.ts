@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { CreateClientContactDto } from '../dto/create-client-contact.dto';
 import { UpdateClientContactDto } from '../dto/update-client-contact.dto';
@@ -25,7 +24,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('clients/:clientId/contacts')
 export class ClientContactsController {
   constructor(private readonly clientContactService: ClientContactService) {}

@@ -2,6 +2,7 @@ import { AppShell } from '@/components/app-shell';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ToastProvider } from '@/design-system';
 import { QueryProvider } from '@/lib/api/query-provider';
+import { AuthGate } from '@/lib/auth/auth-gate';
 import { SessionTimeoutHandler } from '@/lib/auth/session-timeout';
 import { PermissionProvider } from '@/lib/rbac';
 
@@ -12,14 +13,16 @@ export default function AppShellLayout({
 }>) {
   return (
     <QueryProvider>
-      <PermissionProvider>
-        <ToastProvider>
-          <ErrorBoundary>
-            <SessionTimeoutHandler />
-            <AppShell>{children}</AppShell>
-          </ErrorBoundary>
-        </ToastProvider>
-      </PermissionProvider>
+      <AuthGate>
+        <PermissionProvider>
+          <ToastProvider>
+            <ErrorBoundary>
+              <SessionTimeoutHandler />
+              <AppShell>{children}</AppShell>
+            </ErrorBoundary>
+          </ToastProvider>
+        </PermissionProvider>
+      </AuthGate>
     </QueryProvider>
   );
 }

@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { CreateCommentDto } from '../dto/create-comment.dto';
 import { UpdateCommentDto } from '../dto/update-comment.dto';
@@ -27,7 +26,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('comments')
 export class CommentsController {
   constructor(private readonly commentService: CommentService) {}

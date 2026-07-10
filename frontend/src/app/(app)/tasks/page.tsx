@@ -10,13 +10,10 @@ import { listProjectMilestones } from '@/features/projects/milestones/api/milest
 import { projectMilestonesQueryKeys } from '@/features/projects/milestones/hooks/project-milestones-query-keys';
 import { useProjects } from '@/features/projects/hooks/use-projects';
 import { mapTaskRecordToListItem } from '@/features/tasks/api/task.mapper';
-import {
-  TaskFormDrawer,
-  TaskListMobileCards,
-  TaskListPagination,
-  TaskListTable,
-  TaskListToolbar,
-} from '@/features/tasks/components';
+import { TaskFormDrawer } from '@/features/tasks/components/task-form-drawer';
+import { TaskListMobileCards, TaskListTable } from '@/features/tasks/components/task-list-table';
+import { TaskListPagination } from '@/features/tasks/components/task-list-pagination';
+import { TaskListToolbar } from '@/features/tasks/components/task-list-toolbar';
 import { TaskViewSwitcher } from '@/features/tasks/kanban/components/task-view-switcher';
 import { useTasks } from '@/features/tasks/hooks/use-tasks';
 import type {
@@ -67,16 +64,22 @@ export default function TasksPage() {
     return map;
   }, [projectsData]);
 
-  const uniqueProjectIds = useMemo(() => {
+  const projectIdsWithMilestones = useMemo(() => {
     if (!data) {
       return [];
     }
 
-    return [...new Set(data.items.map((task) => task.projectId))];
+    const ids = new Set<string>();
+    for (const task of data.items) {
+      if (task.milestoneId) {
+        ids.add(task.projectId);
+      }
+    }
+    return [...ids];
   }, [data]);
 
   const milestoneQueries = useQueries({
-    queries: uniqueProjectIds.map((projectId) => ({
+    queries: projectIdsWithMilestones.map((projectId) => ({
       queryKey: projectMilestonesQueryKeys.list(projectId),
       queryFn: () => listProjectMilestones(projectId),
       enabled: projectId.length > 0,

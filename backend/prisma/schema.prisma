@@ -67,6 +67,7 @@ model Tenant {
   proposalVersions        ProposalVersion[]
   invoices                Invoice[]
   invoiceLineItems        InvoiceLineItem[]
+  payments                Payment[]
   projects                Project[]
   projectMembers          ProjectMember[]
   projectMilestones       ProjectMilestone[]
@@ -200,6 +201,9 @@ model User {
   invoiceLineItemsCreated        InvoiceLineItem[]  @relation("InvoiceLineItemCreatedBy")
   invoiceLineItemsUpdated        InvoiceLineItem[]  @relation("InvoiceLineItemUpdatedBy")
   invoiceLineItemsDeleted        InvoiceLineItem[]  @relation("InvoiceLineItemDeletedBy")
+  paymentsCreated                Payment[]          @relation("PaymentCreatedBy")
+  paymentsUpdated                Payment[]          @relation("PaymentUpdatedBy")
+  paymentsDeleted                Payment[]          @relation("PaymentDeletedBy")
   workflowsCreated               Workflow[]         @relation("WorkflowCreatedBy")
   workflowsUpdated               Workflow[]         @relation("WorkflowUpdatedBy")
   workflowsDeleted               Workflow[]         @relation("WorkflowDeletedBy")
@@ -388,6 +392,7 @@ model Workspace {
   proposalVersions ProposalVersion[]
   invoices       Invoice[]
   invoiceLineItems InvoiceLineItem[]
+  payments       Payment[]
   projects       Project[]
   projectMembers ProjectMember[]
   projectMilestones ProjectMilestone[]
@@ -1450,6 +1455,7 @@ model Invoice {
   updatedByUser User?     @relation("InvoiceUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   deletedByUser User?     @relation("InvoiceDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
   lineItems     InvoiceLineItem[]
+  payments      Payment[]
 
   @@unique([tenantId, workspaceId, invoiceNumber], map: "uq_invoices_scope_invoice_number")
   @@index([tenantId, workspaceId, clientId, deletedAt], map: "idx_invoices_scope_client_deleted")
@@ -1491,6 +1497,57 @@ model InvoiceLineItem {
 
   @@index([tenantId, workspaceId, invoiceId, deletedAt, sortOrder], map: "idx_invoice_line_items_scope_invoice_sort")
   @@map("invoice_line_items")
+}
+
+enum PaymentStatus {
+  COMPLETED
+  VOIDED
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CARD
+  CASH
+  CHECK
+  OTHER
+
+  @@map("payment_method")
+}
+
+/// Tenant-scoped payment recorded against an invoice.
+model Payment {
+  id          String        @id @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  invoiceId   String        @map("invoice_id") @db.Uuid
+  amount      Decimal       @db.Decimal(14, 2)
+  currency    String        @default("USD") @db.Char(3)
+  status      PaymentStatus @default(COMPLETED)
+  method      PaymentMethod
+  paidAt      DateTime      @map("paid_at") @db.Timestamptz
+  reference   String?
+  notes       String?
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  createdByUser User?   @relation("PaymentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?   @relation("PaymentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?   @relation("PaymentDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, invoiceId, deletedAt], map: "idx_payments_scope_invoice_deleted")
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_payments_scope_status_deleted")
+  @@index([tenantId, workspaceId, paidAt], map: "idx_payments_scope_paid_at")
+  @@map("payments")
 }
 
 enum WorkflowStatus {

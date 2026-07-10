@@ -1,4 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateDashboardSummary } from '@/features/dashboard/hooks/invalidate-dashboard-summary';
+import { invalidateProjectProgress } from '@/features/projects/hooks/invalidate-project-progress';
 import { updateTask } from '@/features/tasks/api/tasks.api';
 import type { ListTasksParams, ListTasksResult } from '@/features/tasks/api/task.types';
 import type { TaskStatus } from '@/features/tasks/types';
@@ -39,8 +41,18 @@ export function useUpdateTaskStatusOptimistic(listParams: ListTasksParams) {
         queryClient.setQueryData(queryKey, context.previous);
       }
     },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: tasksQueryKeys.all });
+    onSettled: async (_data, _error, variables) => {
+      const cached = queryClient.getQueryData<ListTasksResult>(queryKey);
+      const projectId =
+        cached?.items.find((task) => task.id === variables.taskId)?.projectId ??
+        listParams.projectId ??
+        '';
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tasksQueryKeys.all }),
+        invalidateProjectProgress(queryClient, projectId),
+        invalidateDashboardSummary(queryClient),
+      ]);
     },
   });
 }

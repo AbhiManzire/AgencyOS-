@@ -4,12 +4,15 @@ import type {
   UpdateQuotePayload,
 } from '@/features/sales/quotes/api/quote.types';
 import type { QuoteFormValues, QuoteStatus } from '@/features/sales/quotes/types';
+import { formatShortDate } from '@/lib/format/date';
+import { formatMoney } from '@/lib/format/money';
 
 export interface QuoteFormErrors {
   dealId?: string;
   clientId?: string;
   title?: string;
   totalAmount?: string;
+  currency?: string;
   form?: string;
 }
 
@@ -60,6 +63,10 @@ export function validateQuoteForm(values: QuoteFormValues): QuoteFormErrors {
     }
   }
 
+  if (!/^[A-Za-z]{3}$/.test(values.currency.trim())) {
+    errors.currency = 'Currency must be a 3-letter ISO code';
+  }
+
   return errors;
 }
 
@@ -98,7 +105,7 @@ export function toUpdateQuotePayload(values: QuoteFormValues): UpdateQuotePayloa
     title: values.title.trim(),
     status: values.status,
     validUntil: values.validUntil.trim().length > 0 ? values.validUntil : null,
-    currency: values.currency,
+    currency: values.currency.trim().toUpperCase(),
     totalAmount: Number(values.totalAmount.trim()),
     notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
   };
@@ -111,28 +118,16 @@ export function toCreateQuotePayload(values: QuoteFormValues): CreateQuotePayloa
     title: values.title.trim(),
     status: values.status,
     validUntil: values.validUntil.trim().length > 0 ? values.validUntil : null,
-    currency: values.currency,
+    currency: values.currency.trim().toUpperCase(),
     totalAmount: Number(values.totalAmount.trim()),
     notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
   };
 }
 
 export function formatQuoteDate(value: string | null | undefined): string {
-  if (value === null || value === undefined || value.trim().length === 0) {
-    return '—';
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
+  return formatShortDate(value);
 }
 
 export function formatQuoteAmount(value: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatMoney(value, currency, 2);
 }

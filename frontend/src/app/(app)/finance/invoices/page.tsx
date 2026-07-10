@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Receipt, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -62,18 +63,23 @@ export default function InvoicesPage() {
         title="Invoices"
         description="Manage client invoices for projects and quotes"
         actions={
-          <Can permission="invoices.create">
-            <Button
-              type="button"
-              className="gap-2"
-              onClick={() => {
-                setCreateDrawerOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              Create Invoice
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/finance/payments">Payments</Link>
             </Button>
-          </Can>
+            <Can permission="invoices.create">
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={() => {
+                  setCreateDrawerOpen(true);
+                }}
+              >
+                <Plus className="size-4" />
+                Create Invoice
+              </Button>
+            </Can>
+          </div>
         }
       />
 

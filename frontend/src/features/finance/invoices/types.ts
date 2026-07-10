@@ -32,5 +32,6 @@ export interface InvoiceFormErrors {
   projectId?: string;
   issueDate?: string;
   dueDate?: string;
+  currency?: string;
   form?: string;
 }

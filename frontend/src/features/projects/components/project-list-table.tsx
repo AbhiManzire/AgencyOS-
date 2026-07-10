@@ -157,7 +157,11 @@ export function ProjectListTable({
                   {formatDate(project.updatedAt)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <ProjectRowActions projectId={project.id} projectName={project.name} />
+                  <ProjectRowActions
+                    projectId={project.id}
+                    projectName={project.name}
+                    canArchive={project.status !== 'CANCELLED'}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -190,7 +194,11 @@ export function ProjectListMobileCards({ projects }: { projects: readonly Projec
                 Target end: {formatDate(project.targetEndDate)}
               </p>
             </div>
-            <ProjectRowActions projectId={project.id} projectName={project.name} />
+            <ProjectRowActions
+              projectId={project.id}
+              projectName={project.name}
+              canArchive={project.status !== 'CANCELLED'}
+            />
           </div>
         </div>
       ))}

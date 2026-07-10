@@ -127,6 +127,94 @@ export class ProjectService {
     });
   }
 
+  async completeProject(
+    scope: ProjectScope,
+    projectId: string,
+    context: ProjectApplicationContext,
+  ): Promise<ProjectRecord> {
+    const existing = await this.requireProject(scope, projectId);
+    this.projectDomainService.validateComplete(scope, existing);
+
+    return this.updateProject(scope, projectId, { status: 'COMPLETED' }, context);
+  }
+
+  async markInvoiceReady(
+    scope: ProjectScope,
+    projectId: string,
+    context: ProjectApplicationContext,
+  ): Promise<ProjectRecord> {
+    const existing = await this.requireProject(scope, projectId);
+    this.projectDomainService.validateInvoiceReady(scope, existing);
+
+    return this.updateProject(scope, projectId, { status: 'INVOICE_READY' }, context);
+  }
+
+  async archiveProject(
+    scope: ProjectScope,
+    projectId: string,
+    context: ProjectApplicationContext,
+  ): Promise<ProjectRecord> {
+    const existing = await this.requireProject(scope, projectId);
+    this.projectDomainService.validateArchive(scope, existing);
+
+    const now = new Date();
+
+    return this.runInTransaction(async () => {
+      const archived = await this.projectRepository.archive(scope, projectId, {
+        deletedAt: now,
+        deletedByUserId: context.actorUserId,
+        updatedAt: now,
+        updatedByUserId: context.actorUserId,
+      });
+
+      if (archived === null) {
+        throw new ProjectDomainError(
+          PROJECT_DOMAIN_ERROR_CODES.PROJECT_NOT_FOUND,
+          'Project was not found.',
+        );
+      }
+
+      return archived;
+    });
+  }
+
+  async restoreProject(
+    scope: ProjectScope,
+    projectId: string,
+    context: ProjectApplicationContext,
+  ): Promise<ProjectRecord> {
+    const existing = await this.projectRepository.findById(scope, projectId, {
+      includeArchived: true,
+    });
+
+    if (existing === null) {
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.PROJECT_NOT_FOUND,
+        'Project was not found.',
+      );
+    }
+
+    this.projectDomainService.validateRestore(scope, existing);
+
+    const now = new Date();
+
+    return this.runInTransaction(async () => {
+      const restored = await this.projectRepository.restore(scope, projectId, {
+        updatedAt: now,
+        updatedByUserId: context.actorUserId,
+      });
+
+      if (restored === null) {
+        throw new ProjectDomainError(
+          PROJECT_DOMAIN_ERROR_CODES.PROJECT_NOT_FOUND,
+          'Project was not found.',
+        );
+      }
+
+      return restored;
+    });
+  }
+
   async getProject(
     scope: ProjectScope,
     projectId: string,

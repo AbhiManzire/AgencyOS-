@@ -10,6 +10,8 @@ export interface JwtPayload {
   preferred_username?: string;
   azp?: string;
   iss?: string;
+  agencyos_tenant_id?: string;
+  agencyos_workspace_id?: string;
 }
 
 /** Validates JWT access tokens issued by Keycloak via OIDC JWKS. */

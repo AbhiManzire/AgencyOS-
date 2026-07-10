@@ -7,6 +7,7 @@ import { Avatar } from '@/design-system';
 import { Body, Caption } from '@/design-system/typography';
 import { CommentComposer } from '@/features/comments/components/comment-composer';
 import type { CommentListItem } from '@/features/comments/types';
+import { formatDateTime } from '@/lib/format/date';
 import { Can } from '@/lib/rbac';
 
 interface CommentItemProps {
@@ -20,10 +21,7 @@ interface CommentItemProps {
 }
 
 function formatCommentTimestamp(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+  return formatDateTime(value);
 }
 
 export function CommentItem({

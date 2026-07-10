@@ -10,15 +10,67 @@ import {
 } from '@/components/ui/breadcrumb';
 import { APP_NAV_ITEMS } from './nav-config';
 
-function resolveBreadcrumbLabel(pathname: string): string {
-  const match = APP_NAV_ITEMS.find((item) => item.href === pathname);
-  return match?.title ?? 'Page';
+const SEGMENT_LABELS: Record<string, string> = {
+  clients: 'Clients',
+  sales: 'Sales',
+  pipeline: 'Pipeline',
+  deals: 'Deals',
+  quotes: 'Quotes',
+  proposals: 'Proposals',
+  projects: 'Projects',
+  tasks: 'Tasks',
+  board: 'Board',
+  finance: 'Finance',
+  invoices: 'Invoices',
+  payments: 'Payments',
+  reports: 'Reports',
+  settings: 'Settings',
+  company: 'Company',
+  workspace: 'Workspace',
+  preferences: 'Preferences',
+  users: 'Users',
+  roles: 'Roles',
+  workflows: 'Workflows',
+};
+
+function resolveNavLabel(pathname: string): string | null {
+  const exact = APP_NAV_ITEMS.find((item) => item.href === pathname);
+  if (exact) {
+    return exact.title;
+  }
+
+  const prefix = APP_NAV_ITEMS.find(
+    (item) => item.href !== '/' && (pathname === item.href || pathname.startsWith(`${item.href}/`)),
+  );
+  return prefix?.title ?? null;
 }
 
-/** Placeholder breadcrumb for the application shell. */
+function resolveSegmentLabel(segment: string): string {
+  if (SEGMENT_LABELS[segment]) {
+    return SEGMENT_LABELS[segment];
+  }
+
+  if (/^[0-9a-f-]{36}$/i.test(segment)) {
+    return 'Detail';
+  }
+
+  return segment.charAt(0).toUpperCase() + segment.slice(1);
+}
+
+/** Application shell breadcrumb derived from the current route. */
 export function AppBreadcrumb() {
   const pathname = usePathname();
-  const currentLabel = resolveBreadcrumbLabel(pathname);
+  const segments = pathname.split('/').filter(Boolean);
+  const navLabel = resolveNavLabel(pathname);
+  const leafLabel =
+    segments.length === 0
+      ? 'Dashboard'
+      : resolveSegmentLabel(segments[segments.length - 1] ?? 'Page');
+
+  const currentLabel =
+    segments.length <= 1
+      ? (navLabel ?? leafLabel)
+      : `${navLabel ?? resolveSegmentLabel(segments[0] ?? '')} · ${leafLabel}`;
 
   return (
     <Breadcrumb className="hidden min-w-0 sm:block">
@@ -28,7 +80,7 @@ export function AppBreadcrumb() {
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
-          <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
+          <BreadcrumbPage className="truncate">{currentLabel}</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>

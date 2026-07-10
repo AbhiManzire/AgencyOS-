@@ -42,6 +42,18 @@ export interface UpdateProjectData {
   readonly updatedByUserId?: string | null;
 }
 
+export interface ArchiveProjectData {
+  readonly deletedAt: Date;
+  readonly deletedByUserId: string | null;
+  readonly updatedAt: Date;
+  readonly updatedByUserId?: string | null;
+}
+
+export interface RestoreProjectData {
+  readonly updatedAt: Date;
+  readonly updatedByUserId?: string | null;
+}
+
 export interface FindByIdOptions {
   readonly includeArchived?: boolean;
 }
@@ -87,6 +99,8 @@ export interface ProjectRecord {
 export interface ProjectRepository {
   create(data: CreateProjectData): Promise<ProjectRecord>;
   update(scope: ProjectScope, id: string, data: UpdateProjectData): Promise<ProjectRecord | null>;
+  archive(scope: ProjectScope, id: string, data: ArchiveProjectData): Promise<ProjectRecord | null>;
+  restore(scope: ProjectScope, id: string, data: RestoreProjectData): Promise<ProjectRecord | null>;
   findById(
     scope: ProjectScope,
     id: string,

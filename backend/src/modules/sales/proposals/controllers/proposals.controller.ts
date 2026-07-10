@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { successResponse } from '../../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../../common/http/api-response.types';
-import { Public } from '../../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../../rbac/decorators/require-permissions.decorator';
 import { CreateProposalDto } from '../dto/create-proposal.dto';
 import { UpdateProposalDto } from '../dto/update-proposal.dto';
@@ -17,7 +16,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('proposals')
 export class ProposalsController {
   constructor(private readonly proposalService: ProposalService) {}

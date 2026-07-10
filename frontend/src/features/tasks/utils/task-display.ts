@@ -1,4 +1,5 @@
 import type { TaskStatus } from '@/features/tasks/types';
+import { formatShortDate } from '@/lib/format/date';
 
 /** Returns a display string for optional task field values. */
 export function displayTaskField(value: string | null | undefined): string {
@@ -11,15 +12,7 @@ export function displayTaskField(value: string | null | undefined): string {
 
 /** Formats an ISO date string for display. */
 export function formatTaskDate(value: string | null | undefined): string {
-  if (value === null || value === undefined || value.trim().length === 0) {
-    return '—';
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
+  return formatShortDate(value);
 }
 
 /** Formats estimated hours for display. */
@@ -31,8 +24,18 @@ export function formatTaskEstimatedHours(value: number | null | undefined): stri
   return `${String(value)}h`;
 }
 
-/** Derives completion percentage from task status until subtask tracking exists. */
-export function getTaskCompletionPercent(status: TaskStatus): number {
+/**
+ * Derives completion percentage from task status and optional subtask progress.
+ * When subtasks exist, done/total drives the bar; otherwise status heuristics apply.
+ */
+export function getTaskCompletionPercent(
+  status: TaskStatus,
+  subtasks?: { readonly total: number; readonly done: number },
+): number {
+  if (subtasks !== undefined && subtasks.total > 0) {
+    return Math.round((subtasks.done / subtasks.total) * 100);
+  }
+
   switch (status) {
     case 'DONE':
       return 100;

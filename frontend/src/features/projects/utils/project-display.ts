@@ -1,3 +1,5 @@
+import { formatShortDate } from '@/lib/format/date';
+
 /** Returns a display string for optional project field values. */
 export function displayProjectField(value: string | null | undefined): string {
   if (value === null || value === undefined || value.trim().length === 0) {
@@ -9,15 +11,7 @@ export function displayProjectField(value: string | null | undefined): string {
 
 /** Formats an ISO date string for display. */
 export function formatProjectDate(value: string | null | undefined): string {
-  if (value === null || value === undefined || value.trim().length === 0) {
-    return '—';
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
+  return formatShortDate(value);
 }
 
 /** Formats billable flag for display. */

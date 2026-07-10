@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Project } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
+  ArchiveProjectData,
   CreateProjectData,
   FindByIdOptions,
   ListProjectsParams,
@@ -9,6 +10,7 @@ import type {
   ProjectRecord,
   ProjectRepository,
   ProjectScope,
+  RestoreProjectData,
   UpdateProjectData,
 } from './project.repository.interface';
 
@@ -98,6 +100,60 @@ export class PrismaProjectRepository implements ProjectRepository {
       items: items.map(toProjectRecord),
       total,
     };
+  }
+
+  async archive(
+    scope: ProjectScope,
+    id: string,
+    data: ArchiveProjectData,
+  ): Promise<ProjectRecord | null> {
+    const result = await this.prisma.project.updateMany({
+      where: {
+        id,
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: data.deletedAt,
+        deletedByUserId: data.deletedByUserId,
+        updatedAt: data.updatedAt,
+        updatedByUserId: data.updatedByUserId,
+      },
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return this.findById(scope, id, { includeArchived: true });
+  }
+
+  async restore(
+    scope: ProjectScope,
+    id: string,
+    data: RestoreProjectData,
+  ): Promise<ProjectRecord | null> {
+    const result = await this.prisma.project.updateMany({
+      where: {
+        id,
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        deletedAt: { not: null },
+      },
+      data: {
+        deletedAt: null,
+        deletedByUserId: null,
+        updatedAt: data.updatedAt,
+        updatedByUserId: data.updatedByUserId,
+      },
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return this.findById(scope, id);
   }
 }
 

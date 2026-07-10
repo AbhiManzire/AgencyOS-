@@ -1,7 +1,7 @@
 'use client';
 
-import { FolderOpen } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,32 +11,76 @@ import {
   ErrorState,
   LoadingState,
   PageContainer,
+  useToast,
 } from '@/design-system';
 import { CardTitle } from '@/design-system/typography';
-import { ActivityTimeline } from '@/features/activity';
-import { ClientDetailSectionPlaceholder } from '@/features/clients/components/client-detail-section-placeholder';
-import { useClient } from '@/features/clients/hooks/use-client';
+import { ArchiveProjectDialog } from '@/features/projects/components/archive-project-dialog';
 import { CreateProjectDrawer } from '@/features/projects/components/create-project-drawer';
 import { ProjectDetailHeader } from '@/features/projects/components/project-detail-header';
 import { ProjectDetailOverviewCard } from '@/features/projects/components/project-detail-overview-card';
 import { ProjectDetailProgressCard } from '@/features/projects/components/project-detail-progress-card';
 import { ProjectDetailTabs } from '@/features/projects/components/project-detail-tabs';
 import { ProjectNotFoundState } from '@/features/projects/components/project-not-found-state';
-import { ProjectMembersTab } from '@/features/projects/members/components/project-members-tab';
-import { ProjectMilestonesTab } from '@/features/projects/milestones/components/project-milestones-tab';
+import { useArchiveProject } from '@/features/projects/hooks/use-archive-project';
+import { useCompleteProject } from '@/features/projects/hooks/use-complete-project';
+import { useMarkProjectInvoiceReady } from '@/features/projects/hooks/use-mark-project-invoice-ready';
 import { useProject } from '@/features/projects/hooks/use-project';
+import { useProjectProgress } from '@/features/projects/hooks/use-project-progress';
+import { useRestoreProject } from '@/features/projects/hooks/use-restore-project';
+import { useClient } from '@/features/clients/hooks/use-client';
 import { displayProjectField } from '@/features/projects/utils/project-display';
 import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-api-error';
 
+const ActivityTimeline = dynamic(
+  () =>
+    import('@/features/activity/components/activity-timeline').then((mod) => ({
+      default: mod.ActivityTimeline,
+    })),
+  { loading: () => <LoadingState label="Loading activity..." /> },
+);
+
+const ProjectMembersTab = dynamic(
+  () =>
+    import('@/features/projects/members/components/project-members-tab').then((mod) => ({
+      default: mod.ProjectMembersTab,
+    })),
+  { loading: () => <LoadingState label="Loading members..." /> },
+);
+
+const ProjectMilestonesTab = dynamic(
+  () =>
+    import('@/features/projects/milestones/components/project-milestones-tab').then((mod) => ({
+      default: mod.ProjectMilestonesTab,
+    })),
+  { loading: () => <LoadingState label="Loading milestones..." /> },
+);
+
+const FilePanel = dynamic(
+  () =>
+    import('@/features/files/components/file-panel').then((mod) => ({
+      default: mod.FilePanel,
+    })),
+  { loading: () => <LoadingState label="Loading files..." /> },
+);
+
 export default function ProjectDetailPage() {
+  const router = useRouter();
+  const { showToast } = useToast();
   const params = useParams<{ id: string }>();
   const projectId = params.id;
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
   const { data: project, isLoading, error, refetch } = useProject(projectId);
   const { data: client } = useClient(project?.clientId ?? '', {
     enabled: project !== undefined,
   });
+  const { metrics, isLoading: isProgressLoading } = useProjectProgress(projectId);
+  const { mutateAsync: completeProject, isPending: isCompleting } = useCompleteProject();
+  const { mutateAsync: markInvoiceReady, isPending: isMarkingInvoiceReady } =
+    useMarkProjectInvoiceReady();
+  const { mutateAsync: archiveProject, isPending: isArchiving } = useArchiveProject();
+  const { mutateAsync: restoreProject, isPending: isRestoring } = useRestoreProject();
 
   if (isLoading) {
     return (
@@ -71,6 +115,47 @@ export default function ProjectDetailPage() {
 
   const clientName = client?.displayName ?? displayProjectField(project.clientId);
 
+  const handleComplete = async (): Promise<void> => {
+    try {
+      await completeProject(projectId);
+      showToast('Project marked complete');
+      await refetch();
+    } catch (completeError) {
+      showToast(extractApiErrorMessage(completeError), 'error');
+    }
+  };
+
+  const handleInvoiceReady = async (): Promise<void> => {
+    try {
+      await markInvoiceReady(projectId);
+      showToast('Project marked invoice ready');
+      await refetch();
+    } catch (invoiceReadyError) {
+      showToast(extractApiErrorMessage(invoiceReadyError), 'error');
+    }
+  };
+
+  const handleConfirmArchive = async (): Promise<void> => {
+    try {
+      await archiveProject(projectId);
+      showToast('Project archived successfully');
+      setArchiveDialogOpen(false);
+      router.push('/projects');
+    } catch (archiveError) {
+      showToast(extractApiErrorMessage(archiveError), 'error');
+    }
+  };
+
+  const handleRestore = async (): Promise<void> => {
+    try {
+      await restoreProject(projectId);
+      showToast('Project restored successfully');
+      await refetch();
+    } catch (restoreError) {
+      showToast(extractApiErrorMessage(restoreError), 'error');
+    }
+  };
+
   return (
     <PageContainer size="lg">
       <ProjectDetailHeader
@@ -79,6 +164,21 @@ export default function ProjectDetailPage() {
         onEdit={() => {
           setEditDrawerOpen(true);
         }}
+        onComplete={() => {
+          void handleComplete();
+        }}
+        onInvoiceReady={() => {
+          void handleInvoiceReady();
+        }}
+        onArchive={() => {
+          setArchiveDialogOpen(true);
+        }}
+        onRestore={() => {
+          void handleRestore();
+        }}
+        isCompletePending={isCompleting}
+        isInvoiceReadyPending={isMarkingInvoiceReady}
+        isRestorePending={isRestoring}
       />
 
       <CreateProjectDrawer
@@ -88,10 +188,21 @@ export default function ProjectDetailPage() {
         onOpenChange={setEditDrawerOpen}
       />
 
+      <ArchiveProjectDialog
+        open={archiveDialogOpen}
+        isPending={isArchiving}
+        onCancel={() => {
+          setArchiveDialogOpen(false);
+        }}
+        onConfirm={() => {
+          void handleConfirmArchive();
+        }}
+      />
+
       <div className="mt-6 space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
           <ProjectDetailOverviewCard project={project} />
-          <ProjectDetailProgressCard />
+          <ProjectDetailProgressCard metrics={metrics} isLoading={isProgressLoading} />
         </div>
 
         <Card>
@@ -106,13 +217,7 @@ export default function ProjectDetailPage() {
         <ProjectDetailTabs
           members={<ProjectMembersTab projectId={projectId} />}
           milestones={<ProjectMilestonesTab projectId={projectId} />}
-          files={
-            <ClientDetailSectionPlaceholder
-              title="Files"
-              description="Project files and deliverables will appear here."
-              icon={FolderOpen}
-            />
-          }
+          files={<FilePanel entityType="project" entityId={projectId} />}
         />
       </div>
     </PageContainer>

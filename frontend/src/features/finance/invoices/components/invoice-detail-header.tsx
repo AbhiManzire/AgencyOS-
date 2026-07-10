@@ -19,10 +19,18 @@ import { Can } from '@/lib/rbac';
 interface InvoiceDetailHeaderProps {
   readonly invoice: InvoiceRecord;
   readonly lineItems?: readonly InvoiceLineItemListItem[];
+  readonly amountPaid?: number;
+  readonly outstandingAmount?: number;
   readonly onEdit: () => void;
 }
 
-export function InvoiceDetailHeader({ invoice, lineItems = [], onEdit }: InvoiceDetailHeaderProps) {
+export function InvoiceDetailHeader({
+  invoice,
+  lineItems = [],
+  amountPaid,
+  outstandingAmount,
+  onEdit,
+}: InvoiceDetailHeaderProps) {
   const summary = calculateQuotePricingSummary(lineItems);
 
   return (
@@ -67,13 +75,31 @@ export function InvoiceDetailHeader({ invoice, lineItems = [], onEdit }: Invoice
           />
         </div>
 
-        <div className="rounded-lg border border-border bg-muted/20 p-4">
-          <Caption className="block uppercase tracking-wide">Total</Caption>
-          <p className="mt-1 text-2xl font-semibold">
-            {formatInvoiceAmount(summary.grandTotal, invoice.currency)}
-          </p>
+        <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+          <div>
+            <Caption className="block uppercase tracking-wide">Total</Caption>
+            <p className="mt-1 text-2xl font-semibold">
+              {formatInvoiceAmount(summary.grandTotal, invoice.currency)}
+            </p>
+          </div>
+          {amountPaid !== undefined ? (
+            <div>
+              <Caption className="block uppercase tracking-wide">Paid</Caption>
+              <p className="mt-1 text-lg font-medium">
+                {formatInvoiceAmount(amountPaid, invoice.currency)}
+              </p>
+            </div>
+          ) : null}
+          {outstandingAmount !== undefined ? (
+            <div>
+              <Caption className="block uppercase tracking-wide">Outstanding</Caption>
+              <p className="mt-1 text-lg font-medium">
+                {formatInvoiceAmount(outstandingAmount, invoice.currency)}
+              </p>
+            </div>
+          ) : null}
           <Can permission="invoices.update" mode="disable">
-            <Button type="button" variant="outline" className="mt-4 gap-2" onClick={onEdit}>
+            <Button type="button" variant="outline" className="mt-2 gap-2" onClick={onEdit}>
               <Pencil className="size-4" />
               Edit
             </Button>

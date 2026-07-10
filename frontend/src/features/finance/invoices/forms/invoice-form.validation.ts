@@ -4,6 +4,8 @@ import type {
   UpdateInvoicePayload,
 } from '@/features/finance/invoices/api/invoice.types';
 import type { InvoiceFormErrors, InvoiceFormValues } from '@/features/finance/invoices/types';
+import { formatShortDate } from '@/lib/format/date';
+import { formatMoney } from '@/lib/format/money';
 
 export const INVOICE_STATUS_LABELS = {
   DRAFT: 'Draft',
@@ -80,6 +82,10 @@ export function validateInvoiceForm(values: InvoiceFormValues): InvoiceFormError
     errors.dueDate = 'Due date cannot be before issue date';
   }
 
+  if (!/^[A-Za-z]{3}$/.test(values.currency.trim())) {
+    errors.currency = 'Currency must be a 3-letter ISO code';
+  }
+
   return errors;
 }
 
@@ -103,7 +109,7 @@ export function toCreateInvoicePayload(values: InvoiceFormValues): CreateInvoice
     quoteId: values.quoteId.trim().length > 0 ? values.quoteId : null,
     issueDate: values.issueDate,
     dueDate: values.dueDate,
-    currency: values.currency,
+    currency: values.currency.trim().toUpperCase(),
     status: values.status,
     notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
   };
@@ -116,28 +122,16 @@ export function toUpdateInvoicePayload(values: InvoiceFormValues): UpdateInvoice
     quoteId: values.quoteId.trim().length > 0 ? values.quoteId : null,
     issueDate: values.issueDate,
     dueDate: values.dueDate,
-    currency: values.currency,
+    currency: values.currency.trim().toUpperCase(),
     status: values.status,
     notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
   };
 }
 
 export function formatInvoiceDate(value: string | null | undefined): string {
-  if (value === null || value === undefined || value.trim().length === 0) {
-    return '—';
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
+  return formatShortDate(value);
 }
 
 export function formatInvoiceAmount(value: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatMoney(value, currency, 2);
 }

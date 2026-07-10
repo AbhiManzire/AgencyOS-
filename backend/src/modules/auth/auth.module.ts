@@ -5,6 +5,7 @@ import { AuthBootstrapService } from './auth-bootstrap.service';
 import { AUTH_CONFIGURATION, resolveAuthConfigurationFromEnv } from './auth.configuration';
 import { AuthController } from './auth.controller';
 import { AuthDisabledGuard } from './guards/auth-disabled.guard';
+import { BindJwtIdentityGuard } from './guards/bind-jwt-identity.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
@@ -19,13 +20,17 @@ const authProviders: Provider[] = [
   {
     provide: APP_GUARD,
     useFactory: (reflector: Reflector) =>
-      authConfiguration.enabled ? new JwtAuthGuard(reflector) : new AuthDisabledGuard(reflector),
+      authConfiguration.enabled ? new JwtAuthGuard(reflector) : new AuthDisabledGuard(),
     inject: [Reflector],
   },
 ];
 
 if (authConfiguration.enabled) {
   authProviders.push(JwtStrategy);
+  authProviders.push({
+    provide: APP_GUARD,
+    useClass: BindJwtIdentityGuard,
+  });
 }
 
 @Module({

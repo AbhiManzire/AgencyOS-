@@ -3,11 +3,12 @@
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type InvoiceDetailTab = 'lineItems' | 'overview' | 'history';
+export type InvoiceDetailTab = 'lineItems' | 'overview' | 'payments' | 'history';
 
 interface InvoiceDetailTabsProps {
   readonly lineItems: ReactNode;
   readonly overview: ReactNode;
+  readonly payments: ReactNode;
   readonly history: ReactNode;
   readonly defaultTab?: InvoiceDetailTab;
 }
@@ -15,12 +16,14 @@ interface InvoiceDetailTabsProps {
 const TAB_LABELS: Record<InvoiceDetailTab, string> = {
   lineItems: 'Line Items',
   overview: 'Overview',
+  payments: 'Payments',
   history: 'History',
 };
 
 export function InvoiceDetailTabs({
   lineItems,
   overview,
+  payments,
   history,
   defaultTab = 'lineItems',
 }: InvoiceDetailTabsProps) {
@@ -29,6 +32,7 @@ export function InvoiceDetailTabs({
   const tabContent: Record<InvoiceDetailTab, ReactNode> = {
     lineItems,
     overview,
+    payments,
     history,
   };
 

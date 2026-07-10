@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { restoreClient } from '@/features/clients/api/clients.api';
 import type { RestoreClientPayload } from '@/features/clients/api/client.types';
 import { clientsQueryKeys } from '@/features/clients/hooks/use-clients';
+import { invalidateDashboardSummary } from '@/features/dashboard/hooks/invalidate-dashboard-summary';
 
 interface RestoreClientVariables {
   readonly id: string;
@@ -18,6 +19,7 @@ export function useRestoreClient() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: clientsQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: clientsQueryKeys.detail(variables.id) }),
+        invalidateDashboardSummary(queryClient),
       ]);
     },
   });

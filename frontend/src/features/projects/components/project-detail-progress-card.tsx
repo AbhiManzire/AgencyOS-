@@ -1,4 +1,6 @@
-import { Card, CardContent, CardHeader } from '@/design-system';
+'use client';
+
+import { Card, CardContent, CardHeader, LoadingState } from '@/design-system';
 import { Body, Caption, CardTitle } from '@/design-system/typography';
 
 interface ProgressMetricProps {
@@ -17,7 +19,43 @@ function ProgressMetric({ label, value, hint }: ProgressMetricProps) {
   );
 }
 
-export function ProjectDetailProgressCard() {
+export interface ProjectProgressMetrics {
+  readonly milestonesTotal: number;
+  readonly milestonesCompleted: number;
+  readonly tasksTotal: number;
+  readonly tasksDone: number;
+  readonly completionPercent: number;
+}
+
+interface ProjectDetailProgressCardProps {
+  readonly metrics: ProjectProgressMetrics | undefined;
+  readonly isLoading?: boolean;
+}
+
+export function ProjectDetailProgressCard({
+  metrics,
+  isLoading = false,
+}: ProjectDetailProgressCardProps) {
+  if (isLoading || metrics === undefined) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LoadingState label="Loading progress..." />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const milestoneLabel =
+    metrics.milestonesTotal === 0
+      ? '0'
+      : `${String(metrics.milestonesCompleted)}/${String(metrics.milestonesTotal)}`;
+  const taskLabel =
+    metrics.tasksTotal === 0 ? '0' : `${String(metrics.tasksDone)}/${String(metrics.tasksTotal)}`;
+
   return (
     <Card>
       <CardHeader>
@@ -25,9 +63,23 @@ export function ProjectDetailProgressCard() {
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-3">
-          <ProgressMetric label="Milestones" value="—" hint="Milestone tracking coming soon" />
-          <ProgressMetric label="Tasks" value="—" hint="Task tracking coming soon" />
-          <ProgressMetric label="Completion" value="—" hint="Completion metrics coming soon" />
+          <ProgressMetric
+            label="Milestones"
+            value={milestoneLabel}
+            hint={
+              metrics.milestonesTotal === 0 ? 'No milestones yet' : 'Completed vs total milestones'
+            }
+          />
+          <ProgressMetric
+            label="Tasks"
+            value={taskLabel}
+            hint={metrics.tasksTotal === 0 ? 'No tasks yet' : 'Done vs total tasks'}
+          />
+          <ProgressMetric
+            label="Completion"
+            value={`${String(metrics.completionPercent)}%`}
+            hint="Average milestone progress"
+          />
         </div>
       </CardContent>
     </Card>

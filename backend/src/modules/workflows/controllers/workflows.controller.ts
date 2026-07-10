@@ -2,7 +2,6 @@ import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query } fro
 import { ApiTags } from '@nestjs/swagger';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { CreateWorkflowDto } from '../dto/create-workflow.dto';
 import { ListWorkflowsQueryDto } from '../dto/list-workflows-query.dto';
@@ -19,7 +18,6 @@ const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
 @ApiTags('workflows')
-@Public()
 @Controller('workflows')
 export class WorkflowsController {
   constructor(private readonly workflowService: WorkflowService) {}

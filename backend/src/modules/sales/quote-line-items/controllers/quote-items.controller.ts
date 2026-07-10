@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Headers, Param, ParseUUIDPipe, Patch } from '@nestjs/common';
 import { successResponse } from '../../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../../common/http/api-response.types';
-import { Public } from '../../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../../rbac/decorators/require-permissions.decorator';
 import { UpdateQuoteLineItemDto } from '../dto/update-quote-line-item.dto';
 import { QuoteLineItemMapper } from '../mappers/quote-line-item.mapper';
@@ -16,7 +15,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('quote-items')
 export class QuoteItemsController {
   constructor(private readonly quoteLineItemService: QuoteLineItemService) {}

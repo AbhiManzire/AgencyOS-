@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { StopTimeEntryDto } from '../dto/stop-time-entry.dto';
 import { UpdateTimeEntryDto } from '../dto/update-time-entry.dto';
@@ -27,7 +26,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('time')
 export class TimeEntriesController {
   constructor(private readonly timeEntryService: TimeEntryService) {}

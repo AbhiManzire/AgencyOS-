@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { CreateActivityDto } from '../dto/create-activity.dto';
 import { ListActivitiesQueryDto } from '../dto/list-activities-query.dto';
 import { ActivityMapper } from '../mappers/activity.mapper';
@@ -13,7 +12,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('activities')
 export class ActivitiesController {
   constructor(private readonly activityService: ActivityService) {}

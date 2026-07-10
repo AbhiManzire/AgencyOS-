@@ -1,5 +1,8 @@
 import { readTestDatabaseState } from './helpers/test-database-state';
 
+// E2E uses header-based identity; JWT auth is exercised separately in production config.
+process.env.AUTH_ENABLED = 'false';
+process.env.RBAC_ENFORCED ??= 'false';
 process.env.KEYCLOAK_ISSUER_URL ??= 'http://localhost:8080/realms/agencyos';
 process.env.KEYCLOAK_JWKS_URI ??=
   'http://localhost:8080/realms/agencyos/protocol/openid-connect/certs';

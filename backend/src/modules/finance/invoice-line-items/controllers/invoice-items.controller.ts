@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Headers, Param, ParseUUIDPipe, Patch } from '@nestjs/common';
 import { successResponse } from '../../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../../common/http/api-response.types';
-import { Public } from '../../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../../rbac/decorators/require-permissions.decorator';
 import { UpdateInvoiceLineItemDto } from '../dto/update-invoice-line-item.dto';
 import { InvoiceLineItemMapper } from '../mappers/invoice-line-item.mapper';
@@ -16,7 +15,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('invoice-items')
 export class InvoiceItemsController {
   constructor(private readonly invoiceLineItemService: InvoiceLineItemService) {}

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateDashboardSummary } from '@/features/dashboard/hooks/invalidate-dashboard-summary';
 import { createProject } from '@/features/projects/api/projects.api';
 import type { CreateProjectPayload } from '@/features/projects/api/project.types';
 import { projectsQueryKeys } from '@/features/projects/hooks/use-projects';
@@ -10,7 +11,10 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (payload: CreateProjectPayload) => createProject(payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: projectsQueryKeys.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: projectsQueryKeys.all }),
+        invalidateDashboardSummary(queryClient),
+      ]);
     },
   });
 }

@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { SectionTitle } from '@/design-system';
+import { SectionTitle } from '@/design-system/typography';
+import { clearAccessToken } from '@/lib/auth/access-token';
+import { getKeycloakLoginUrl } from '@/lib/auth/config';
 
 const SESSION_TIMEOUT_EVENT = 'agencyos:session-timeout';
 
@@ -22,6 +24,7 @@ export function SessionTimeoutHandler({ onSignInAgain }: SessionTimeoutDialogPro
 
   useEffect(() => {
     const handleTimeout = (): void => {
+      clearAccessToken();
       setOpen(true);
     };
 
@@ -41,7 +44,7 @@ export function SessionTimeoutHandler({ onSignInAgain }: SessionTimeoutDialogPro
       return;
     }
 
-    window.location.reload();
+    window.location.assign(getKeycloakLoginUrl());
   };
 
   return (

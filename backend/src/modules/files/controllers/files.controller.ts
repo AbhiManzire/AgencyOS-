@@ -15,7 +15,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
-import { Public } from '../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { UploadFileDto } from '../dto/upload-file.dto';
 import { FileMapper } from '../mappers/file.mapper';
@@ -28,7 +27,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('files')
 export class FilesController {
   constructor(private readonly fileService: FileService) {}

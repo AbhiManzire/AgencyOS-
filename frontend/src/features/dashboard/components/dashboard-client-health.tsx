@@ -3,12 +3,12 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, ErrorState, LoadingState } from '@/design-system';
 import { Caption, CardTitle } from '@/design-system/typography';
-import type { DashboardClientStats } from '@/features/dashboard/hooks/use-dashboard-stats';
+import type { DashboardSummary } from '@/features/dashboard/api/dashboard.types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
 
 interface DashboardClientHealthProps {
-  readonly stats: DashboardClientStats;
+  readonly summary: DashboardSummary | undefined;
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly error: unknown;
@@ -56,7 +56,7 @@ function HealthProgressCard({
 }
 
 export function DashboardClientHealth({
-  stats,
+  summary,
   isLoading,
   isError,
   error,
@@ -66,7 +66,7 @@ export function DashboardClientHealth({
     return <LoadingState label="Loading client health..." />;
   }
 
-  if (isError) {
+  if (isError || summary === undefined) {
     return (
       <ErrorState
         message={extractApiErrorMessage(error)}
@@ -79,21 +79,18 @@ export function DashboardClientHealth({
     );
   }
 
-  const totalForHealth = stats.activeClients + stats.prospectClients + stats.archivedClients;
+  const active = summary.clients.active;
+  const other = Math.max(summary.clients.total - active, 0);
+  const totalForHealth = summary.clients.total;
   const segments: readonly HealthSegment[] = [
     {
       label: 'Active',
-      count: stats.activeClients,
+      count: active,
       barClassName: 'bg-success',
     },
     {
-      label: 'Prospect',
-      count: stats.prospectClients,
-      barClassName: 'bg-primary',
-    },
-    {
-      label: 'Archived',
-      count: stats.archivedClients,
+      label: 'Other',
+      count: other,
       barClassName: 'bg-muted-foreground/50',
     },
   ];

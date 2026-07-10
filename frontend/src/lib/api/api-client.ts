@@ -5,11 +5,16 @@ import {
 } from '@agencyos/shared';
 import axios from 'axios';
 import { AUTH_CONFIG } from '@/lib/auth/config';
+import { getAccessToken } from '@/lib/auth/access-token';
 import { dispatchSessionTimeout } from '@/lib/auth/session-timeout';
 
 const DEV_TENANT_HEADER = 'x-tenant-id';
 const DEV_WORKSPACE_HEADER = 'x-workspace-id';
 const DEV_USER_HEADER = 'x-user-id';
+
+const allowDevIdentityHeaders =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.NEXT_PUBLIC_ALLOW_DEV_IDENTITY_HEADERS === 'true';
 
 /** Shared Axios instance for AgencyOS REST API calls. */
 export const apiClient = axios.create({
@@ -20,11 +25,31 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  config.headers[DEV_TENANT_HEADER] =
-    process.env.NEXT_PUBLIC_DEV_TENANT_ID ?? DEPLOY_DEFAULT_TENANT_ID;
-  config.headers[DEV_WORKSPACE_HEADER] =
-    process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID ?? DEPLOY_DEFAULT_WORKSPACE_ID;
-  config.headers[DEV_USER_HEADER] = process.env.NEXT_PUBLIC_DEV_USER_ID ?? DEPLOY_DEFAULT_USER_ID;
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  if (allowDevIdentityHeaders) {
+    config.headers[DEV_TENANT_HEADER] =
+      process.env.NEXT_PUBLIC_DEV_TENANT_ID ?? DEPLOY_DEFAULT_TENANT_ID;
+    config.headers[DEV_WORKSPACE_HEADER] =
+      process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID ?? DEPLOY_DEFAULT_WORKSPACE_ID;
+    // When a Bearer token is present, user identity comes from JWT (server-bound).
+    if (!accessToken) {
+      config.headers[DEV_USER_HEADER] =
+        process.env.NEXT_PUBLIC_DEV_USER_ID ?? DEPLOY_DEFAULT_USER_ID;
+    }
+  } else {
+    const tenantId = process.env.NEXT_PUBLIC_TENANT_ID;
+    const workspaceId = process.env.NEXT_PUBLIC_WORKSPACE_ID;
+    if (tenantId) {
+      config.headers[DEV_TENANT_HEADER] = tenantId;
+    }
+    if (workspaceId) {
+      config.headers[DEV_WORKSPACE_HEADER] = workspaceId;
+    }
+  }
 
   return config;
 });

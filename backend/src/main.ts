@@ -14,15 +14,20 @@ async function bootstrap(): Promise<void> {
 
   const apiPrefix = configService.get<string>('apiPrefix', 'api');
   const port = configService.get<number>('port', 3001);
+  const nodeEnv = configService.get<string>('nodeEnv', 'development');
   const corsOrigin = configService.get<string>('cors.origin', 'http://localhost:3000');
-  const swaggerEnabled = configService.get<boolean>('swagger.enabled', true);
+  const swaggerEnabled = configService.get<boolean>('swagger.enabled', nodeEnv !== 'production');
+
+  if (nodeEnv === 'production' && /localhost|127\.0\.0\.1/i.test(corsOrigin)) {
+    throw new Error('CORS_ORIGIN must not be localhost in production');
+  }
 
   app.enableShutdownHooks();
   app.setGlobalPrefix(apiPrefix);
   app.enableCors({ origin: corsOrigin, credentials: true });
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: nodeEnv === 'production',
       crossOriginEmbedderPolicy: false,
     }),
   );

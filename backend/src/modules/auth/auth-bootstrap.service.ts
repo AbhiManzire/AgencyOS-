@@ -11,7 +11,7 @@ export class AuthBootstrapService {
   ) {
     if (!authConfiguration.enabled) {
       this.logger.warn(
-        'Authentication is disabled — Keycloak configuration is missing (development only).',
+        'Authentication is disabled — local/demo only. Production requires AUTH_ENABLED=true.',
       );
     }
   }

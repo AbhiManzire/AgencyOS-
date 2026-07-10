@@ -43,11 +43,18 @@ export function AppSidebar({ collapsed, onNavigate }: AppSidebarProps) {
       <ScrollArea className="flex-1 px-2 py-3">
         <nav aria-label="Main navigation" className="flex flex-col gap-1">
           {APP_NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === '/'
+                ? pathname === '/'
+                : item.activePathPrefixes !== undefined
+                  ? item.activePathPrefixes.some(
+                      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+                    )
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
 
             return (
-              <CanNavItem key={item.href} permission={item.permission}>
+              <CanNavItem key={item.href} permission={item.permission} match={item.match}>
                 <Link
                   href={item.href}
                   title={collapsed ? item.title : undefined}
@@ -75,15 +82,17 @@ export function AppSidebar({ collapsed, onNavigate }: AppSidebarProps) {
           collapsed && 'flex justify-center p-2',
         )}
       >
-        <div
-          className={cn('flex items-center gap-3', collapsed && 'justify-center')}
-          aria-label="User profile placeholder"
-        >
-          <div className="size-8 shrink-0 rounded-full bg-sidebar-accent" />
+        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+          <div
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground"
+            aria-hidden="true"
+          >
+            AO
+          </div>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">Profile</p>
-              <p className="truncate text-xs text-muted-foreground">Account</p>
+              <p className="truncate text-sm font-medium">AgencyOS</p>
+              <p className="truncate text-xs text-muted-foreground">Workspace</p>
             </div>
           )}
         </div>

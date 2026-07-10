@@ -168,11 +168,34 @@ export class PrismaProjectMemberRepository implements ProjectMemberRepository {
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
     });
 
-    return Promise.all(
-      members.map(async (member) => {
-        const departmentName = await this.resolveDepartmentName(scope, member.userId);
-        return toProjectMemberRecord(member, departmentName);
-      }),
+    if (members.length === 0) {
+      return [];
+    }
+
+    const userIds = [...new Set(members.map((member) => member.userId))];
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        userId: { in: userIds },
+        deletedAt: null,
+      },
+      include: {
+        department: {
+          select: { name: true },
+        },
+      },
+    });
+
+    const departmentByUserId = new Map<string, string | null>();
+    for (const employee of employees) {
+      if (!departmentByUserId.has(employee.userId)) {
+        departmentByUserId.set(employee.userId, employee.department?.name ?? null);
+      }
+    }
+
+    return members.map((member) =>
+      toProjectMemberRecord(member, departmentByUserId.get(member.userId) ?? null),
     );
   }
 

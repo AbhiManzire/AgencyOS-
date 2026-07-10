@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { ActivityService } from '../../activities/services/activity.service';
 import { ClientDomainService } from '../domain/client-domain.service';
 import { CLIENT_DOMAIN_ERROR_CODES, ClientDomainError } from '../domain/client-domain.errors';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -33,6 +34,7 @@ export class ClientService {
     private readonly clientRepository: ClientRepository,
     private readonly clientDomainService: ClientDomainService,
     private readonly prisma: PrismaService,
+    private readonly activityService: ActivityService,
   ) {}
 
   async createClient(
@@ -94,7 +96,11 @@ export class ClientService {
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(() => this.clientRepository.create(data));
+    return this.runInTransaction(async () => {
+      const created = await this.clientRepository.create(data);
+      await this.recordActivity(scope, created.id, 'client.created', 'Client created', context);
+      return created;
+    });
   }
 
   async updateClient(
@@ -164,6 +170,7 @@ export class ClientService {
         );
       }
 
+      await this.recordActivity(scope, updated.id, 'client.updated', 'Client updated', context);
       return updated;
     });
   }
@@ -195,7 +202,7 @@ export class ClientService {
         );
       }
 
-      // Contact and document soft-delete cascade is added in a follow-up within this boundary.
+      await this.recordActivity(scope, archived.id, 'client.archived', 'Client archived', context);
       return archived;
     });
   }
@@ -241,7 +248,7 @@ export class ClientService {
         );
       }
 
-      // Contact and document restore cascade is added in a follow-up within this boundary.
+      await this.recordActivity(scope, restored.id, 'client.restored', 'Client restored', context);
       return restored;
     });
   }
@@ -279,6 +286,25 @@ export class ClientService {
   /** Opens a Prisma transaction boundary for mutating use cases. */
   private async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async () => work());
+  }
+
+  private async recordActivity(
+    scope: ClientScope,
+    clientId: string,
+    type: string,
+    title: string,
+    context: ClientApplicationContext,
+  ): Promise<void> {
+    await this.activityService.createActivity(
+      scope,
+      {
+        entityType: 'client',
+        entityId: clientId,
+        type,
+        title,
+      },
+      { actorUserId: context.actorUserId },
+    );
   }
 
   private async requireClient(

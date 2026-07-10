@@ -102,6 +102,10 @@ export async function cleanupWorkspaceFixture(
 ): Promise<void> {
   const prisma = app.get(PrismaService);
 
+  await prisma.activity.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.comment.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.file.deleteMany({ where: { tenantId: fixture.tenantId } });
+  await prisma.timeEntry.deleteMany({ where: { tenantId: fixture.tenantId } });
   await prisma.clientContact.deleteMany({ where: { tenantId: fixture.tenantId } });
   await prisma.task.deleteMany({ where: { tenantId: fixture.tenantId } });
   await prisma.projectMilestone.deleteMany({ where: { tenantId: fixture.tenantId } });

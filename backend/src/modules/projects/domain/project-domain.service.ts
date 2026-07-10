@@ -86,6 +86,41 @@ export class ProjectDomainService {
     }
   }
 
+  validateArchive(scope: ProjectScope, project: ProjectRecord): void {
+    this.ensureWorkspaceOwnership(scope, project);
+    this.assertProjectIsActive(project);
+  }
+
+  validateRestore(scope: ProjectScope, project: ProjectRecord): void {
+    this.ensureWorkspaceOwnership(scope, project);
+
+    if (project.deletedAt === null) {
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.INVALID_STATUS,
+        'Project is not archived.',
+      );
+    }
+  }
+
+  validateComplete(scope: ProjectScope, project: ProjectRecord): void {
+    this.ensureWorkspaceOwnership(scope, project);
+    this.assertProjectIsActive(project);
+    this.assertStatusTransition(project.status, 'COMPLETED');
+  }
+
+  validateInvoiceReady(scope: ProjectScope, project: ProjectRecord): void {
+    this.ensureWorkspaceOwnership(scope, project);
+    this.assertProjectIsActive(project);
+    this.assertStatusTransition(project.status, 'INVOICE_READY');
+
+    if (!project.isBillable) {
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.INVALID_STATUS_TRANSITION,
+        'Only billable projects can be marked invoice ready.',
+      );
+    }
+  }
+
   private assertScopeAlignment(scope: ProjectScope, tenantId: string, workspaceId: string): void {
     if (scope.tenantId !== tenantId || scope.workspaceId !== workspaceId) {
       throw new ProjectDomainError(

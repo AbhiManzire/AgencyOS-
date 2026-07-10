@@ -31,6 +31,14 @@ import { InvoicePdfGenerator } from './invoices/pdf/invoice-pdf.generator';
 import { INVOICE_REPOSITORY } from './invoices/repositories/invoice.repository.interface';
 import { PrismaInvoiceRepository } from './invoices/repositories/prisma-invoice.repository';
 import { InvoiceService } from './invoices/services/invoice.service';
+import {
+  InvoicePaymentsController,
+  PaymentsController,
+} from './payments/controllers/payments.controller';
+import { PaymentDomainService } from './payments/domain/payment-domain.service';
+import { PAYMENT_REPOSITORY } from './payments/repositories/payment.repository.interface';
+import { PrismaPaymentRepository } from './payments/repositories/prisma-payment.repository';
+import { PaymentService } from './payments/services/payment.service';
 
 @Module({
   imports: [
@@ -51,6 +59,10 @@ import { InvoiceService } from './invoices/services/invoice.service';
       useClass: PrismaInvoiceLineItemRepository,
     },
     {
+      provide: PAYMENT_REPOSITORY,
+      useClass: PrismaPaymentRepository,
+    },
+    {
       provide: InvoiceDomainService,
       useFactory: (
         clientRepository: ClientRepository,
@@ -60,25 +72,32 @@ import { InvoiceService } from './invoices/services/invoice.service';
       inject: [CLIENT_REPOSITORY, PROJECT_REPOSITORY, QUOTE_REPOSITORY],
     },
     InvoiceLineItemDomainService,
+    PaymentDomainService,
     InvoicePdfGenerator,
     InvoiceService,
     InvoiceLineItemService,
     InvoiceDeliveryService,
+    PaymentService,
   ],
   controllers: [
     InvoiceDeliveryController,
     InvoicesController,
     InvoiceLineItemsController,
     InvoiceItemsController,
+    PaymentsController,
+    InvoicePaymentsController,
   ],
   exports: [
     INVOICE_REPOSITORY,
     INVOICE_LINE_ITEM_REPOSITORY,
+    PAYMENT_REPOSITORY,
     InvoiceDomainService,
     InvoiceLineItemDomainService,
+    PaymentDomainService,
     InvoiceService,
     InvoiceLineItemService,
     InvoiceDeliveryService,
+    PaymentService,
   ],
 })
 export class FinanceModule {}

@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { successResponse } from '../../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../../common/http/api-response.types';
-import { Public } from '../../../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../../rbac/decorators/require-permissions.decorator';
 import type { InvoiceScope } from '../../invoices/repositories/invoice.repository.interface';
 import { CreateInvoiceLineItemDto } from '../dto/create-invoice-line-item.dto';
@@ -14,7 +13,6 @@ const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
 const USER_HEADER = 'x-user-id';
 
-@Public()
 @Controller('invoices/:invoiceId/items')
 export class InvoiceLineItemsController {
   constructor(private readonly invoiceLineItemService: InvoiceLineItemService) {}

@@ -7,7 +7,10 @@ import { RequestLoggingInterceptor } from './common/interceptors/request-logging
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClientsModule } from './modules/clients/clients.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { FilesModule } from './modules/files/files.module';
@@ -41,6 +44,9 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
     TasksModule,
     SalesModule,
     FinanceModule,
+    DashboardModule,
+    ReportsModule,
+    SettingsModule,
     ActivitiesModule,
     CommentsModule,
     FilesModule,

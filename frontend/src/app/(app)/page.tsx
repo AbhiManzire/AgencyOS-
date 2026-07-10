@@ -11,13 +11,13 @@ import {
   DashboardSection,
   DashboardUpcoming,
 } from '@/features/dashboard/components';
-import { useDashboardStats } from '@/features/dashboard/hooks/use-dashboard-stats';
+import { useDashboardSummary } from '@/features/dashboard/hooks/use-dashboard-summary';
 import { CreateClientDrawer } from '@/features/clients/components/create-client-drawer';
 import { PermissionRoute } from '@/lib/rbac';
 
 export default function DashboardPage() {
   const [createClientOpen, setCreateClientOpen] = useState(false);
-  const { stats, isLoading, isError, error, refetch } = useDashboardStats();
+  const { summary, isLoading, isError, error, refetch } = useDashboardSummary();
 
   return (
     <PermissionRoute permission="dashboard.read">
@@ -29,7 +29,7 @@ export default function DashboardPage() {
 
         <div className="space-y-6">
           <DashboardKpiCards
-            stats={stats}
+            summary={summary}
             isLoading={isLoading}
             isError={isError}
             error={error}
@@ -59,7 +59,7 @@ export default function DashboardPage() {
                 description="Distribution of client lifecycle stages."
               >
                 <DashboardClientHealth
-                  stats={stats}
+                  summary={summary}
                   isLoading={isLoading}
                   isError={isError}
                   error={error}

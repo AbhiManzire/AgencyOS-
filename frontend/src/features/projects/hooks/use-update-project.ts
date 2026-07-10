@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateDashboardSummary } from '@/features/dashboard/hooks/invalidate-dashboard-summary';
 import { updateProject } from '@/features/projects/api/projects.api';
 import type { UpdateProjectPayload } from '@/features/projects/api/project.types';
 import { projectsQueryKeys } from '@/features/projects/hooks/use-projects';
@@ -18,6 +19,7 @@ export function useUpdateProject() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: projectsQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: projectsQueryKeys.detail(variables.id) }),
+        invalidateDashboardSummary(queryClient),
       ]);
     },
   });

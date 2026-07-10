@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, LoadingState, PageContainer, PageHeader } from '@/design-system';
 import { mapProjectRecordToListItem } from '@/features/projects/api/project.mapper';
 import { useProjects } from '@/features/projects/hooks/use-projects';
-import { TaskFormDrawer } from '@/features/tasks/components';
+import { TaskFormDrawer } from '@/features/tasks/components/task-form-drawer';
 import { TaskKanbanBoard } from '@/features/tasks/kanban/components/task-kanban-board';
 import { TaskKanbanToolbar } from '@/features/tasks/kanban/components/task-kanban-toolbar';
 import { TaskViewSwitcher } from '@/features/tasks/kanban/components/task-view-switcher';

@@ -1,22 +1,13 @@
-import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
+import { Injectable } from '@nestjs/common';
 
-/** Denies protected routes when JWT authentication is not configured (development only). */
+/**
+ * Used when AUTH_ENABLED=false (local/demo only).
+ * Allows all routes; identity is taken from trusted local headers.
+ * Production must enable JWT auth — see resolveAuthConfigurationFromEnv.
+ */
 @Injectable()
 export class AuthDisabledGuard {
-  constructor(private readonly reflector: Reflector) {}
-
-  canActivate(context: ExecutionContext): boolean {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-
-    if (isPublic) {
-      return true;
-    }
-
-    throw new UnauthorizedException();
+  canActivate(): boolean {
+    return true;
   }
 }

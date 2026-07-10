@@ -18,6 +18,24 @@ const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
     module: 'dashboard',
   },
   {
+    key: 'reports.read',
+    name: 'View Reports',
+    description: 'Access founder operational reports and CSV export.',
+    module: 'reports',
+  },
+  {
+    key: 'settings.read',
+    name: 'View Settings',
+    description: 'View company, workspace, users, roles, and preferences.',
+    module: 'settings',
+  },
+  {
+    key: 'settings.update',
+    name: 'Update Settings',
+    description: 'Update company profile, workspace settings, preferences, and user roles.',
+    module: 'settings',
+  },
+  {
     key: 'clients.read',
     name: 'View Clients',
     description: 'View client records in the workspace.',

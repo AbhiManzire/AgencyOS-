@@ -5,6 +5,7 @@ import { FileText, Mail, MailX } from 'lucide-react';
 import { Avatar } from '@/design-system';
 import { Body, Caption, CardTitle } from '@/design-system/typography';
 import type { ActivityTimelineEntry } from '@/features/activity/types';
+import { formatDateTime } from '@/lib/format/date';
 import { cn } from '@/lib/utils';
 
 interface ActivityCardProps {
@@ -19,12 +20,8 @@ const ACTIVITY_ICON_BY_TYPE: Record<string, LucideIcon> = {
 };
 
 function formatActivityTimestamp(timestamp: string | Date): string {
-  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  const value = timestamp instanceof Date ? timestamp.toISOString() : timestamp;
+  return formatDateTime(value);
 }
 
 function ActivityIcon({ icon: Icon }: { readonly icon: LucideIcon }) {

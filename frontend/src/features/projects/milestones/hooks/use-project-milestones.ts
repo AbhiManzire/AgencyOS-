@@ -4,7 +4,7 @@ import { listProjectMilestones } from '@/features/projects/milestones/api/milest
 import { projectMilestonesQueryKeys } from '@/features/projects/milestones/hooks/project-milestones-query-keys';
 
 /** TanStack Query hook for GET /projects/:id/milestones. */
-export function useProjectMilestones(projectId: string) {
+export function useProjectMilestones(projectId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: projectMilestonesQueryKeys.list(projectId),
     queryFn: async () => {
@@ -14,6 +14,6 @@ export function useProjectMilestones(projectId: string) {
         availableOwners: result.availableOwners,
       };
     },
-    enabled: projectId.length > 0,
+    enabled: (options?.enabled ?? true) && projectId.length > 0,
   });
 }

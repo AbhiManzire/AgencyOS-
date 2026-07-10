@@ -1,7 +1,7 @@
 import { Controller, Get, Headers } from '@nestjs/common';
-import { Public } from '../../../common/decorators/public.decorator';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
+import { RequirePermissions } from '../decorators/require-permissions.decorator';
 import { RBAC_SCOPE_HEADERS } from '../rbac.constants';
 import { PermissionService } from '../services/permission.service';
 import { RoleService } from '../services/role.service';
@@ -13,7 +13,6 @@ export interface WorkspacePermissionsResponse {
   readonly isSuperAdmin: boolean;
 }
 
-@Public()
 @Controller('rbac')
 export class RbacController {
   constructor(
@@ -36,6 +35,7 @@ export class RbacController {
   }
 
   @Get('permissions/catalog')
+  @RequirePermissions('settings.read')
   async listPermissionCatalog(): Promise<
     ApiSuccessResponse<Awaited<ReturnType<RoleService['listPermissionCatalog']>>>
   > {

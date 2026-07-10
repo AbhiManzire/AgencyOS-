@@ -1,9 +1,19 @@
+'use client';
+
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/design-system';
 import { Body, Caption, CardTitle } from '@/design-system/typography';
 import type { TaskStatus } from '@/features/tasks/types';
+import { useTaskSubtasks } from '@/features/tasks/subtasks/hooks/use-task-subtasks';
 import { getTaskCompletionPercent } from '@/features/tasks/utils/task-display';
+import { useTaskTimeEntries } from '@/features/time-entries/hooks/use-task-time-entries';
+import {
+  computeTimeEntrySummary,
+  formatHoursFromMinutes,
+} from '@/features/time-entries/utils/time-entry-summary';
 
 interface TaskDetailProgressCardProps {
+  readonly taskId: string;
   readonly status: TaskStatus;
   readonly subtaskCount: number;
 }
@@ -24,8 +34,27 @@ function ProgressMetric({ label, value, hint }: ProgressMetricProps) {
   );
 }
 
-export function TaskDetailProgressCard({ status, subtaskCount }: TaskDetailProgressCardProps) {
-  const completionPercent = getTaskCompletionPercent(status);
+export function TaskDetailProgressCard({
+  taskId,
+  status,
+  subtaskCount,
+}: TaskDetailProgressCardProps) {
+  const { data: subtasks = [] } = useTaskSubtasks(taskId);
+  const { data: entries = [], isLoading: isTimeLoading } = useTaskTimeEntries(taskId);
+
+  const doneSubtasks = useMemo(
+    () => subtasks.filter((subtask) => subtask.status === 'DONE').length,
+    [subtasks],
+  );
+
+  const completionPercent = getTaskCompletionPercent(
+    status,
+    subtasks.length > 0 ? { total: subtasks.length, done: doneSubtasks } : undefined,
+  );
+
+  const timeSummary = computeTimeEntrySummary(entries);
+  const timeLogged =
+    isTimeLoading && entries.length === 0 ? '…' : formatHoursFromMinutes(timeSummary.totalMinutes);
 
   return (
     <Card>
@@ -52,9 +81,25 @@ export function TaskDetailProgressCard({ status, subtaskCount }: TaskDetailProgr
           <ProgressMetric
             label="Subtasks"
             value={String(subtaskCount)}
-            hint={subtaskCount === 1 ? '1 subtask' : `${String(subtaskCount)} subtasks`}
+            hint={
+              subtasks.length > 0
+                ? `${String(doneSubtasks)} of ${String(subtasks.length)} done`
+                : subtaskCount === 1
+                  ? '1 subtask'
+                  : `${String(subtaskCount)} subtasks`
+            }
           />
-          <ProgressMetric label="Time Logged" value="—" hint="Time entries coming soon" />
+          <ProgressMetric
+            label="Time Logged"
+            value={timeLogged}
+            hint={
+              isTimeLoading && entries.length === 0
+                ? 'Loading time entries…'
+                : timeSummary.totalEntries === 1
+                  ? '1 time entry'
+                  : `${String(timeSummary.totalEntries)} time entries`
+            }
+          />
         </div>
       </CardContent>
     </Card>

@@ -53,9 +53,11 @@ export function PermissionRoute({ permission, match = 'all', children }: Permiss
 /** Utility wrapper for nav items that should be hidden without permission. */
 export function CanNavItem({
   permission,
+  match = 'all',
   children,
 }: {
-  readonly permission?: string;
+  readonly permission?: string | readonly string[];
+  readonly match?: 'all' | 'any';
   readonly children: ReactNode;
 }) {
   if (permission === undefined) {
@@ -63,7 +65,7 @@ export function CanNavItem({
   }
 
   return (
-    <Can permission={permission} mode="hide">
+    <Can permission={permission} match={match} mode="hide">
       {children}
     </Can>
   );

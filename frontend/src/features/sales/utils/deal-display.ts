@@ -1,4 +1,6 @@
 import type { DealStage } from '@/features/sales/types';
+import { formatShortDate } from '@/lib/format/date';
+import { formatMoney } from '@/lib/format/money';
 
 const STAGE_LABELS: Record<DealStage, string> = {
   NEW: 'New',
@@ -48,24 +50,12 @@ export function formatDealAge(createdAt: string): string {
 
 /** Formats deal currency value for display. */
 export function formatDealValue(value: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
+  return formatMoney(value, currency, 0);
 }
 
 /** Formats an ISO date string for deal display. */
 export function formatDealDate(value: string | null | undefined): string {
-  if (value === null || value === undefined || value.trim().length === 0) {
-    return '—';
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
+  return formatShortDate(value);
 }
 
 /** Resolves owner display label from deal record fields. */

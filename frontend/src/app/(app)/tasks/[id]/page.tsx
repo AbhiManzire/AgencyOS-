@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,9 +13,6 @@ import {
   PageContainer,
 } from '@/design-system';
 import { CardTitle } from '@/design-system/typography';
-import { ActivityTimeline } from '@/features/activity';
-import { CommentsPanel } from '@/features/comments';
-import { FilePanel } from '@/features/files';
 import { useProject } from '@/features/projects/hooks/use-project';
 import { useProjectMilestones } from '@/features/projects/milestones/hooks/use-project-milestones';
 import { displayProjectField } from '@/features/projects/utils/project-display';
@@ -25,10 +23,48 @@ import { TaskDetailProgressCard } from '@/features/tasks/components/task-detail-
 import { TaskDetailTabs } from '@/features/tasks/components/task-detail-tabs';
 import { TaskNotFoundState } from '@/features/tasks/components/task-not-found-state';
 import { useTask } from '@/features/tasks/hooks/use-task';
-import { TaskSubtasksTab } from '@/features/tasks/subtasks/components/task-subtasks-tab';
-import { TaskTimeEntriesTab } from '@/features/time-entries/components/task-time-entries-tab';
 import { displayTaskField } from '@/features/tasks/utils/task-display';
 import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-api-error';
+
+const ActivityTimeline = dynamic(
+  () =>
+    import('@/features/activity/components/activity-timeline').then((mod) => ({
+      default: mod.ActivityTimeline,
+    })),
+  { loading: () => <LoadingState label="Loading activity..." /> },
+);
+
+const TaskSubtasksTab = dynamic(
+  () =>
+    import('@/features/tasks/subtasks/components/task-subtasks-tab').then((mod) => ({
+      default: mod.TaskSubtasksTab,
+    })),
+  { loading: () => <LoadingState label="Loading subtasks..." /> },
+);
+
+const FilePanel = dynamic(
+  () =>
+    import('@/features/files/components/file-panel').then((mod) => ({
+      default: mod.FilePanel,
+    })),
+  { loading: () => <LoadingState label="Loading files..." /> },
+);
+
+const CommentsPanel = dynamic(
+  () =>
+    import('@/features/comments/components/comments-panel').then((mod) => ({
+      default: mod.CommentsPanel,
+    })),
+  { loading: () => <LoadingState label="Loading comments..." /> },
+);
+
+const TaskTimeEntriesTab = dynamic(
+  () =>
+    import('@/features/time-entries/components/task-time-entries-tab').then((mod) => ({
+      default: mod.TaskTimeEntriesTab,
+    })),
+  { loading: () => <LoadingState label="Loading time entries..." /> },
+);
 
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
@@ -40,7 +76,9 @@ export default function TaskDetailPage() {
     enabled: task !== undefined,
   });
   const projectId = task?.projectId;
-  const { data: milestonesData } = useProjectMilestones(projectId ?? '');
+  const { data: milestonesData } = useProjectMilestones(projectId ?? '', {
+    enabled: Boolean(task?.milestoneId),
+  });
 
   const projectName = project?.name ?? displayProjectField(task?.projectId);
   const milestoneName = useMemo(() => {
@@ -112,7 +150,11 @@ export default function TaskDetailPage() {
             createdByUserId={task.createdByUserId}
             createdByDisplayName={task.createdByDisplayName}
           />
-          <TaskDetailProgressCard status={task.status} subtaskCount={task.subtaskCount} />
+          <TaskDetailProgressCard
+            taskId={taskId}
+            status={task.status}
+            subtaskCount={task.subtaskCount}
+          />
         </div>
 
         <Card>

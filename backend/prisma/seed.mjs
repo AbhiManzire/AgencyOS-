@@ -11,6 +11,9 @@ const prisma = new PrismaClient();
 async function seedPermissionCatalog(now) {
   const catalog = [
     { key: 'dashboard.read', name: 'View Dashboard', description: 'Access the executive dashboard.', module: 'dashboard' },
+    { key: 'reports.read', name: 'View Reports', description: 'Access founder operational reports and CSV export.', module: 'reports' },
+    { key: 'settings.read', name: 'View Settings', description: 'View company, workspace, users, roles, and preferences.', module: 'settings' },
+    { key: 'settings.update', name: 'Update Settings', description: 'Update company profile, workspace settings, preferences, and user roles.', module: 'settings' },
     { key: 'clients.read', name: 'View Clients', description: 'View client records in the workspace.', module: 'clients' },
     { key: 'clients.create', name: 'Create Clients', description: 'Create new client records.', module: 'clients' },
     { key: 'clients.update', name: 'Update Clients', description: 'Edit existing client records.', module: 'clients' },

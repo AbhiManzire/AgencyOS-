@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateDashboardSummary } from '@/features/dashboard/hooks/invalidate-dashboard-summary';
 import { updateDeal } from '@/features/sales/api/deals.api';
 import type { UpdateDealPayload } from '@/features/sales/api/deal.types';
 import { dealsQueryKeys } from '@/features/sales/hooks/use-deals';
@@ -18,6 +19,7 @@ export function useUpdateDeal() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: dealsQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: dealsQueryKeys.detail(variables.id) }),
+        invalidateDashboardSummary(queryClient),
       ]);
     },
   });

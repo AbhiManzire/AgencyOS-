@@ -2,11 +2,12 @@
 
 import { Button } from '@/components/ui/button';
 import { DataCard, ErrorState, LoadingState } from '@/design-system';
-import type { DashboardClientStats } from '@/features/dashboard/hooks/use-dashboard-stats';
+import type { DashboardSummary } from '@/features/dashboard/api/dashboard.types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
+import { formatMoney } from '@/lib/format/money';
 
 interface DashboardKpiCardsProps {
-  readonly stats: DashboardClientStats;
+  readonly summary: DashboardSummary | undefined;
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly error: unknown;
@@ -14,7 +15,7 @@ interface DashboardKpiCardsProps {
 }
 
 export function DashboardKpiCards({
-  stats,
+  summary,
   isLoading,
   isError,
   error,
@@ -24,7 +25,7 @@ export function DashboardKpiCards({
     return <LoadingState label="Loading metrics..." />;
   }
 
-  if (isError) {
+  if (isError || summary === undefined) {
     return (
       <ErrorState
         message={extractApiErrorMessage(error)}
@@ -37,22 +38,39 @@ export function DashboardKpiCards({
     );
   }
 
+  const { currency } = summary;
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-      <DataCard label="Total Clients" value={stats.totalClients} hint="All client accounts" />
-      <DataCard label="Active Clients" value={stats.activeClients} hint="Currently active" />
-      <DataCard label="Projects" value={stats.totalProjects} hint="Active workspace projects" />
-      <DataCard label="Invoices" value={stats.totalInvoices} hint="All invoices" />
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <DataCard
-        label="Outstanding Invoices"
-        value={stats.outstandingInvoices}
-        hint="Sent and awaiting payment"
+        label="Invoiced Monthly"
+        value={formatMoney(summary.revenue.invoicedMonthly, currency, 0)}
+        hint="Issued this month"
       />
       <DataCard
-        label="Archived Clients"
-        value={stats.archivedClients}
-        hint="Archived client accounts"
+        label="Collected Monthly"
+        value={formatMoney(summary.revenue.collectedMonthly, currency, 0)}
+        hint="Paid this month"
       />
+      <DataCard
+        label="Outstanding Amount"
+        value={formatMoney(summary.invoices.outstandingAmount, currency, 0)}
+        hint="Sent and overdue"
+      />
+      <DataCard label="Total Clients" value={summary.clients.total} hint="All client accounts" />
+      <DataCard label="Active Clients" value={summary.clients.active} hint="Currently active" />
+      <DataCard
+        label="Active Projects"
+        value={summary.projects.active}
+        hint="Projects in delivery"
+      />
+      <DataCard
+        label="Tasks Due Today"
+        value={summary.tasks.dueToday}
+        hint="Open tasks due today"
+      />
+      <DataCard label="Overdue Tasks" value={summary.tasks.overdue} hint="Past due and open" />
+      <DataCard label="Open Deals" value={summary.sales.openDeals} hint="Active pipeline deals" />
     </div>
   );
 }
