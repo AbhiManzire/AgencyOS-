@@ -22,12 +22,12 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
   headers() {
-    return [
+    return Promise.resolve([
       {
         source: '/:path*',
         headers: securityHeaders,
       },
-    ];
+    ]);
   },
 };
 
