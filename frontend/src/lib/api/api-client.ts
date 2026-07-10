@@ -41,14 +41,12 @@ apiClient.interceptors.request.use((config) => {
         process.env.NEXT_PUBLIC_DEV_USER_ID ?? DEPLOY_DEFAULT_USER_ID;
     }
   } else {
-    const tenantId = process.env.NEXT_PUBLIC_TENANT_ID;
-    const workspaceId = process.env.NEXT_PUBLIC_WORKSPACE_ID;
-    if (tenantId) {
-      config.headers[DEV_TENANT_HEADER] = tenantId;
-    }
-    if (workspaceId) {
-      config.headers[DEV_WORKSPACE_HEADER] = workspaceId;
-    }
+    config.headers[DEV_TENANT_HEADER] =
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty env must use defaults
+      process.env.NEXT_PUBLIC_TENANT_ID || DEPLOY_DEFAULT_TENANT_ID;
+    config.headers[DEV_WORKSPACE_HEADER] =
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty env must use defaults
+      process.env.NEXT_PUBLIC_WORKSPACE_ID || DEPLOY_DEFAULT_WORKSPACE_ID;
   }
 
   return config;
