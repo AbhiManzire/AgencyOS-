@@ -11,16 +11,20 @@ export interface AuthConfiguration {
 /** Resolves Keycloak auth settings from environment variables. */
 export function resolveAuthConfigurationFromEnv(): AuthConfiguration {
   const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const authExplicitlyDisabled =
+    (process.env.AUTH_ENABLED ?? 'true').trim().toLowerCase() === 'false';
   const issuer = (process.env.KEYCLOAK_ISSUER_URL ?? '').trim();
   const configuredJwksUri = (process.env.KEYCLOAK_JWKS_URI ?? '').trim();
   const audience = process.env.KEYCLOAK_AUDIENCE ?? 'agencyos-api';
   const jwksUri =
     configuredJwksUri ||
     (issuer ? `${issuer.replace(/\/$/, '')}/protocol/openid-connect/certs` : '');
-  const enabled = jwksUri.length > 0;
+  const enabled = !authExplicitlyDisabled && jwksUri.length > 0;
 
-  if (!enabled && nodeEnv === 'production') {
-    throw new Error('KEYCLOAK_JWKS_URI or KEYCLOAK_ISSUER_URL must be configured in production');
+  if (!enabled && nodeEnv === 'production' && !authExplicitlyDisabled) {
+    throw new Error(
+      'KEYCLOAK_JWKS_URI or KEYCLOAK_ISSUER_URL must be configured in production (or set AUTH_ENABLED=false for demo deploys)',
+    );
   }
 
   return {

@@ -37,7 +37,7 @@ CREATE INDEX "idx_deals_scope_owner_deleted" ON "deals"("tenant_id", "workspace_
 CREATE INDEX "idx_deals_scope_client_deleted" ON "deals"("tenant_id", "workspace_id", "client_id", "deleted_at");
 
 -- AddForeignKey
-ALTER TABLE "deals" ADD CONSTRAINT "deals_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "deals" ADD CONSTRAINT "deals_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "platform_tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "deals" ADD CONSTRAINT "deals_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

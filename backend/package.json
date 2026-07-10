@@ -4,11 +4,15 @@
   "description": "AgencyOS API service",
   "private": true,
   "license": "UNLICENSED",
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
+  },
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "nest start",
     "start:prod": "node dist/main",
+    "start:deploy": "prisma migrate deploy && prisma db seed && node dist/main.js",
     "lint": "eslint -c ../eslint.config.mjs \"{src,test}/**/*.ts\" --max-warnings 0",
     "lint:fix": "eslint -c ../eslint.config.mjs \"{src,test}/**/*.ts\" --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",

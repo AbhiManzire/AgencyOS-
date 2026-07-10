@@ -1,5 +1,5 @@
 import { ClientStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class ListClientsQueryDto {
@@ -21,7 +21,7 @@ export class ListClientsQueryDto {
   status?: ClientStatus;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   includeArchived?: boolean;
 }
