@@ -93,16 +93,18 @@ export function DashboardQuickActions({ onNewClient }: DashboardQuickActionsProp
     {
       id: 'new-project',
       label: 'New Project',
-      description: 'Projects module coming soon',
+      description: 'Create a client project',
       icon: FolderKanban,
-      disabled: true,
+      permission: 'projects.create',
+      href: '/projects',
     },
     {
       id: 'create-invoice',
       label: 'Create Invoice',
-      description: 'Billing module coming soon',
+      description: 'Open the invoices workspace',
       icon: FileText,
-      disabled: true,
+      permission: 'invoices.create',
+      href: '/finance/invoices',
     },
   ];
 

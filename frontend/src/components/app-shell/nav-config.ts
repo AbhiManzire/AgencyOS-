@@ -1,14 +1,11 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  BarChart3,
   Briefcase,
   CheckSquare,
   DollarSign,
   FileText,
   GitBranch,
   LayoutDashboard,
-  Megaphone,
-  Settings,
   ShoppingCart,
   Users,
 } from 'lucide-react';
@@ -28,13 +25,10 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   { title: 'Projects', href: '/projects', icon: Briefcase, permission: 'projects.read' },
   { title: 'Tasks', href: '/tasks', icon: CheckSquare, permission: 'tasks.read' },
   { title: 'Finance', href: '/finance/invoices', icon: DollarSign, permission: 'invoices.read' },
-  { title: 'Marketing', href: '/marketing', icon: Megaphone },
-  { title: 'Reports', href: '/reports', icon: BarChart3 },
   {
     title: 'Workflows',
     href: '/settings/workflows',
     icon: GitBranch,
     permission: 'workflows.read',
   },
-  { title: 'Settings', href: '/settings', icon: Settings },
 ] as const;

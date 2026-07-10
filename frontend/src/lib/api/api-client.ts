@@ -1,3 +1,8 @@
+import {
+  DEPLOY_DEFAULT_TENANT_ID,
+  DEPLOY_DEFAULT_USER_ID,
+  DEPLOY_DEFAULT_WORKSPACE_ID,
+} from '@agencyos/shared';
 import axios from 'axios';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { dispatchSessionTimeout } from '@/lib/auth/session-timeout';
@@ -15,9 +20,11 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  config.headers[DEV_TENANT_HEADER] = process.env.NEXT_PUBLIC_DEV_TENANT_ID ?? '';
-  config.headers[DEV_WORKSPACE_HEADER] = process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID ?? '';
-  config.headers[DEV_USER_HEADER] = process.env.NEXT_PUBLIC_DEV_USER_ID ?? '';
+  config.headers[DEV_TENANT_HEADER] =
+    process.env.NEXT_PUBLIC_DEV_TENANT_ID ?? DEPLOY_DEFAULT_TENANT_ID;
+  config.headers[DEV_WORKSPACE_HEADER] =
+    process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID ?? DEPLOY_DEFAULT_WORKSPACE_ID;
+  config.headers[DEV_USER_HEADER] = process.env.NEXT_PUBLIC_DEV_USER_ID ?? DEPLOY_DEFAULT_USER_ID;
 
   return config;
 });

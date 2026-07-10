@@ -13,8 +13,6 @@ interface DashboardKpiCardsProps {
   readonly onRetry: () => void;
 }
 
-const PLACEHOLDER = '—';
-
 export function DashboardKpiCards({
   stats,
   isLoading,
@@ -43,13 +41,17 @@ export function DashboardKpiCards({
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
       <DataCard label="Total Clients" value={stats.totalClients} hint="All client accounts" />
       <DataCard label="Active Clients" value={stats.activeClients} hint="Currently active" />
-      <DataCard label="Total Contacts" value={PLACEHOLDER} hint="Aggregate contacts API pending" />
-      <DataCard label="Projects" value={PLACEHOLDER} hint="Projects module coming soon" />
-      <DataCard label="Revenue" value={PLACEHOLDER} hint="Finance module coming soon" />
+      <DataCard label="Projects" value={stats.totalProjects} hint="Active workspace projects" />
+      <DataCard label="Invoices" value={stats.totalInvoices} hint="All invoices" />
       <DataCard
         label="Outstanding Invoices"
-        value={PLACEHOLDER}
-        hint="Billing module coming soon"
+        value={stats.outstandingInvoices}
+        hint="Sent and awaiting payment"
+      />
+      <DataCard
+        label="Archived Clients"
+        value={stats.archivedClients}
+        hint="Archived client accounts"
       />
     </div>
   );
