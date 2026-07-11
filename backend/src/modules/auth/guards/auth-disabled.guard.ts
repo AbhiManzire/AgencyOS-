@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
 /**
- * Used when AUTH_ENABLED=false (local/demo only).
+ * Used when AUTH_ENABLED=false (local/demo, including temporary production demos).
  * Allows all routes; identity is taken from trusted local headers.
- * Production must enable JWT auth — see resolveAuthConfigurationFromEnv.
+ * JWT auth remains intact and is used when AUTH_ENABLED=true.
  */
 @Injectable()
 export class AuthDisabledGuard {

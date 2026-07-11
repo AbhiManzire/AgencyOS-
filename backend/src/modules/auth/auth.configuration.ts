@@ -19,15 +19,27 @@ export function resolveAuthConfigurationFromEnv(): AuthConfiguration {
   const jwksUri =
     configuredJwksUri ||
     (issuer ? `${issuer.replace(/\/$/, '')}/protocol/openid-connect/certs` : '');
-  const enabled = !authExplicitlyDisabled && jwksUri.length > 0;
+
+  // Demo / local: AUTH_ENABLED=false skips Keycloak entirely (including production).
+  if (authExplicitlyDisabled) {
+    return {
+      enabled: false,
+      nodeEnv,
+      issuer,
+      audience,
+      jwksUri,
+    };
+  }
+
+  const enabled = jwksUri.length > 0;
 
   if (nodeEnv === 'production') {
-    if (authExplicitlyDisabled || !enabled) {
+    if (!enabled) {
       throw new Error(
         'Production requires AUTH_ENABLED=true with KEYCLOAK_JWKS_URI or KEYCLOAK_ISSUER_URL configured.',
       );
     }
-  } else if (!enabled && !authExplicitlyDisabled) {
+  } else if (!enabled) {
     throw new Error(
       'KEYCLOAK_JWKS_URI or KEYCLOAK_ISSUER_URL must be configured when AUTH_ENABLED=true (set AUTH_ENABLED=false only for local/demo).',
     );

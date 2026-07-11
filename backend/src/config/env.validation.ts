@@ -15,20 +15,19 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     const issuer = readString(config, 'KEYCLOAK_ISSUER_URL');
     const jwksUri = readString(config, 'KEYCLOAK_JWKS_URI');
 
-    if (!authEnabled) {
-      errors.push('AUTH_ENABLED=false is not allowed in production');
-    }
+    // AUTH_ENABLED=false is allowed for temporary demo deployments (no Keycloak).
+    if (authEnabled) {
+      if (!issuer && !jwksUri) {
+        errors.push('KEYCLOAK_ISSUER_URL or KEYCLOAK_JWKS_URI is required in production');
+      }
 
-    if (!rbacEnforced) {
-      errors.push('RBAC_ENFORCED=true is required in production');
+      if (!rbacEnforced) {
+        errors.push('RBAC_ENFORCED=true is required in production');
+      }
     }
 
     if (!corsOrigin || /localhost|127\.0\.0\.1/i.test(corsOrigin)) {
       errors.push('CORS_ORIGIN must be a non-localhost origin in production');
-    }
-
-    if (!issuer && !jwksUri) {
-      errors.push('KEYCLOAK_ISSUER_URL or KEYCLOAK_JWKS_URI is required in production');
     }
   }
 

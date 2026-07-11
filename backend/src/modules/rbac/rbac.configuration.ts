@@ -8,8 +8,11 @@ export const RBAC_CONFIGURATION = Symbol('RBAC_CONFIGURATION');
 export function resolveRbacConfigurationFromEnv(): RbacConfiguration {
   const nodeEnv = process.env.NODE_ENV ?? 'development';
   const enforced = process.env.RBAC_ENFORCED === 'true';
+  const authDisabled =
+    (process.env.AUTH_ENABLED ?? 'true').trim().toLowerCase() === 'false';
 
-  if (nodeEnv === 'production' && !enforced) {
+  // When AUTH_ENABLED=false (demo), RBAC may also be off and must not require JWT claims.
+  if (nodeEnv === 'production' && !enforced && !authDisabled) {
     throw new Error('Production requires RBAC_ENFORCED=true.');
   }
 
