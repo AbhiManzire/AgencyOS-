@@ -2,11 +2,16 @@
 
 import { Archive, CheckCircle2, FileText, Pencil, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { Body, Caption } from '@/design-system';
 import { Button } from '@/components/ui/button';
 import type { ProjectRecord } from '@/features/projects/api/project.types';
+import { ProjectArchivedBadge } from '@/features/projects/components/project-archived-badge';
+import { ProjectPriorityBadge } from '@/features/projects/components/project-priority-badge';
 import { ProjectStatusBadge } from '@/features/projects/components/project-status-badge';
-import { displayProjectField } from '@/features/projects/utils/project-display';
+import { useProjectWorkspaceOwners } from '@/features/projects/hooks/use-project-meta';
+import { displayProjectField, formatProjectDate } from '@/features/projects/utils/project-display';
+import { isProjectArchived } from '@/features/projects/utils/list-projects-query';
 import { Can } from '@/lib/rbac';
 
 interface ProjectDetailHeaderProps {
@@ -34,8 +39,19 @@ export function ProjectDetailHeader({
   isInvoiceReadyPending = false,
   isRestorePending = false,
 }: ProjectDetailHeaderProps) {
-  const managerLabel = displayProjectField(project.projectManagerUserId);
-  const archived = project.deletedAt !== null;
+  const { data: owners = [] } = useProjectWorkspaceOwners();
+  const ownerLabel = useMemo(() => {
+    if (project.projectManagerUserId === null) {
+      return '—';
+    }
+
+    return (
+      owners.find((owner) => owner.id === project.projectManagerUserId)?.displayName ??
+      displayProjectField(project.projectManagerUserId)
+    );
+  }, [owners, project.projectManagerUserId]);
+
+  const archived = isProjectArchived(project);
   const canComplete = !archived && project.status === 'ACTIVE';
   const canInvoiceReady = !archived && project.status === 'COMPLETED' && project.isBillable;
   const canArchive = !archived && project.status !== 'CANCELLED';
@@ -54,9 +70,17 @@ export function ProjectDetailHeader({
             {project.name}
           </h1>
           <ProjectStatusBadge status={project.status} />
+          <ProjectPriorityBadge priority={project.priority} />
+          {archived ? <ProjectArchivedBadge /> : null}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:gap-8">
+        <div className="flex flex-wrap gap-x-8 gap-y-2">
+          <div>
+            <Caption className="block uppercase tracking-wide">Project Code</Caption>
+            <Body className="font-mono text-muted-foreground">
+              {displayProjectField(project.code)}
+            </Body>
+          </div>
           <div>
             <Caption className="block uppercase tracking-wide">Client</Caption>
             <Body>
@@ -69,8 +93,16 @@ export function ProjectDetailHeader({
             </Body>
           </div>
           <div>
-            <Caption className="block uppercase tracking-wide">Project Manager</Caption>
-            <Body className="text-muted-foreground">{managerLabel}</Body>
+            <Caption className="block uppercase tracking-wide">Owner</Caption>
+            <Body className="text-muted-foreground">{ownerLabel}</Body>
+          </div>
+          <div>
+            <Caption className="block uppercase tracking-wide">Created</Caption>
+            <Body className="text-muted-foreground">{formatProjectDate(project.createdAt)}</Body>
+          </div>
+          <div>
+            <Caption className="block uppercase tracking-wide">Updated</Caption>
+            <Body className="text-muted-foreground">{formatProjectDate(project.updatedAt)}</Body>
           </div>
         </div>
       </div>

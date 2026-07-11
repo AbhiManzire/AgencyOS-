@@ -17,7 +17,11 @@ import { ListQuotesQueryDto } from '../dto/list-quotes-query.dto';
 import { UpdateQuoteDto } from '../dto/update-quote.dto';
 import { QuoteMapper } from '../mappers/quote.mapper';
 import type { QuoteRecord } from '../repositories/quote.repository.interface';
-import type { QuoteApplicationContext, QuoteScope } from '../services/quote-application.types';
+import type {
+  QuoteApplicationContext,
+  QuoteRevisionRecord,
+  QuoteScope,
+} from '../services/quote-application.types';
 import { QuoteService } from '../services/quote.service';
 
 const TENANT_HEADER = 'x-tenant-id';
@@ -84,6 +88,18 @@ export class QuotesController {
     const quote = await this.quoteService.updateQuote(scope, id, command, context);
 
     return successResponse(quote);
+  }
+
+  @Get(':id/revisions')
+  @RequirePermissions('quotes.read')
+  async listRevisions(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<readonly QuoteRevisionRecord[]>> {
+    const scope = this.resolveScope(headers);
+    const revisions = await this.quoteService.listQuoteRevisions(scope, id);
+
+    return successResponse(revisions);
   }
 
   private resolveScope(headers: Record<string, string | string[] | undefined>): QuoteScope {

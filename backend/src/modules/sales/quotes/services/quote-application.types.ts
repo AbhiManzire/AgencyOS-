@@ -1,4 +1,4 @@
-import type { QuoteStatus } from '@prisma/client';
+import type { Prisma, QuoteStatus } from '@prisma/client';
 import type {
   ListQuotesResult,
   QuoteRecord,
@@ -40,6 +40,20 @@ export interface ListQuotesQuery {
   readonly dealId?: string;
   readonly clientId?: string;
   readonly includeArchived?: boolean;
+}
+
+export interface QuoteRevisionRecord {
+  readonly id: string;
+  readonly quoteId: string;
+  readonly revision: number;
+  readonly title: string;
+  readonly status: QuoteStatus;
+  readonly totalAmount: number;
+  readonly currency: string;
+  readonly validUntil: Date | null;
+  readonly lineItemsJson: Prisma.JsonValue;
+  readonly createdAt: Date;
+  readonly createdByUserId: string | null;
 }
 
 export type { ListQuotesResult, QuoteRecord, QuoteScope };

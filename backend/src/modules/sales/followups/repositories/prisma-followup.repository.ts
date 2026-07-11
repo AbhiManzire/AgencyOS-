@@ -139,6 +139,8 @@ function toFollowUpRecord(followUp: FollowUpWithOwner): FollowUpRecord {
     scheduledAt: followUp.scheduledAt,
     notes: followUp.notes,
     reminderAt: followUp.reminderAt,
+    outcome: followUp.outcome,
+    nextFollowUpAt: followUp.nextFollowUpAt,
     ownerUserId: followUp.ownerUserId,
     ownerDisplayName: followUp.ownerUser ? resolveUserDisplayName(followUp.ownerUser) : null,
     ownerEmail: followUp.ownerUser?.email ?? null,

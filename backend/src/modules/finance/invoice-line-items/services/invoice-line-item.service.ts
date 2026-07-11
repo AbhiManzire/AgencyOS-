@@ -10,6 +10,7 @@ import {
   type InvoiceRepository,
   type InvoiceScope,
 } from '../../invoices/repositories/invoice.repository.interface';
+import { InvoiceService } from '../../invoices/services/invoice.service';
 import { InvoiceLineItemDomainService } from '../domain/invoice-line-item-domain.service';
 import {
   INVOICE_LINE_ITEM_DOMAIN_ERROR_CODES,
@@ -38,6 +39,7 @@ export class InvoiceLineItemService {
     private readonly invoiceLineItemRepository: InvoiceLineItemRepository,
     @Inject(INVOICE_REPOSITORY)
     private readonly invoiceRepository: InvoiceRepository,
+    private readonly invoiceService: InvoiceService,
     private readonly invoiceLineItemDomainService: InvoiceLineItemDomainService,
     private readonly prisma: PrismaService,
   ) {}
@@ -105,7 +107,13 @@ export class InvoiceLineItemService {
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(async () => this.invoiceLineItemRepository.create(data));
+    return this.runInTransaction(async () => {
+      const created = await this.invoiceLineItemRepository.create(data);
+      await this.invoiceService.recalculateInvoiceTotals(scope, invoiceId, {
+        actorUserId: context.actorUserId,
+      });
+      return created;
+    });
   }
 
   async updateLineItem(
@@ -168,6 +176,10 @@ export class InvoiceLineItemService {
         );
       }
 
+      await this.invoiceService.recalculateInvoiceTotals(scope, existing.invoiceId, {
+        actorUserId: context.actorUserId,
+      });
+
       return updated;
     });
   }
@@ -195,6 +207,10 @@ export class InvoiceLineItemService {
           'Line item was not found.',
         );
       }
+
+      await this.invoiceService.recalculateInvoiceTotals(scope, existing.invoiceId, {
+        actorUserId: context.actorUserId,
+      });
 
       return deleted;
     });

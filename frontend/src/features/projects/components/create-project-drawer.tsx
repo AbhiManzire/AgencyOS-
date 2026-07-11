@@ -13,6 +13,8 @@ import {
   areProjectFormValuesEqual,
   DEFAULT_CREATE_PROJECT_FORM_VALUES,
   mapApiFieldToFormField,
+  parseTagNames,
+  PROJECT_PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
   projectRecordToFormValues,
   toCreateProjectPayload,
@@ -23,8 +25,13 @@ import {
 } from '@/features/projects/forms/create-project.validation';
 import { useCreateProject } from '@/features/projects/hooks/use-create-project';
 import { useProject } from '@/features/projects/hooks/use-project';
+import {
+  useProjectDepartments,
+  useProjectWorkspaceOwners,
+} from '@/features/projects/hooks/use-project-meta';
 import { useUpdateProject } from '@/features/projects/hooks/use-update-project';
-import type { ProjectStatus } from '@/features/projects/types';
+import { assignProjectTag } from '@/features/projects/tags/api/project-tags.api';
+import type { ProjectPriority, ProjectStatus } from '@/features/projects/types';
 import { extractApiErrorMessage, extractApiValidationErrors } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
 
@@ -64,6 +71,8 @@ function ProjectFormFields({
   isLoadingClients,
   clientsError,
   clientOptions,
+  ownerOptions,
+  departmentOptions,
   onRetryClients,
   updateField,
 }: {
@@ -74,6 +83,8 @@ function ProjectFormFields({
   readonly isLoadingClients: boolean;
   readonly clientsError: unknown;
   readonly clientOptions: readonly { id: string; label: string }[];
+  readonly ownerOptions: readonly { id: string; label: string }[];
+  readonly departmentOptions: readonly { id: string; label: string }[];
   readonly onRetryClients: () => void;
   readonly updateField: <K extends keyof CreateProjectFormValues>(
     field: K,
@@ -114,6 +125,18 @@ function ProjectFormFields({
           />
         </FormField>
 
+        <FormField label="Project Code" htmlFor="projectCode" error={errors.code}>
+          <Input
+            id="projectCode"
+            value={values.code}
+            onChange={(event) => {
+              updateField('code', event.target.value);
+            }}
+            placeholder="WR-2026"
+            disabled={isPending}
+          />
+        </FormField>
+
         <FormField label="Client" htmlFor="clientId" required error={errors.clientId}>
           <NativeSelect
             id="clientId"
@@ -145,9 +168,29 @@ function ProjectFormFields({
               updateField('status', event.target.value as ProjectStatus);
             }}
           >
-            {(Object.keys(PROJECT_STATUS_LABELS) as ProjectStatus[]).map((status) => (
-              <option key={status} value={status}>
-                {PROJECT_STATUS_LABELS[status]}
+            {(Object.keys(PROJECT_STATUS_LABELS) as ProjectStatus[])
+              .filter((status) => status !== 'ARCHIVED')
+              .map((status) => (
+                <option key={status} value={status}>
+                  {PROJECT_STATUS_LABELS[status]}
+                </option>
+              ))}
+          </NativeSelect>
+        </FormField>
+
+        <FormField label="Priority" htmlFor="priority">
+          <NativeSelect
+            id="priority"
+            label="Priority"
+            value={values.priority}
+            disabled={isPending}
+            onChange={(event) => {
+              updateField('priority', event.target.value as ProjectPriority);
+            }}
+          >
+            {(Object.keys(PROJECT_PRIORITY_LABELS) as ProjectPriority[]).map((priority) => (
+              <option key={priority} value={priority}>
+                {PROJECT_PRIORITY_LABELS[priority]}
               </option>
             ))}
           </NativeSelect>
@@ -171,6 +214,20 @@ function ProjectFormFields({
             )}
           />
         </FormField>
+
+        {!isEditMode ? (
+          <FormField label="Tags" htmlFor="tags" error={errors.tags}>
+            <Input
+              id="tags"
+              value={values.tags}
+              onChange={(event) => {
+                updateField('tags', event.target.value);
+              }}
+              placeholder="Comma-separated tags"
+              disabled={isPending}
+            />
+          </FormField>
+        ) : null}
       </section>
 
       <section className="space-y-4">
@@ -201,17 +258,91 @@ function ProjectFormFields({
         </FormField>
 
         <FormField
-          label="Project Manager"
+          label="Project Owner"
           htmlFor="projectManagerUserId"
+          required
           error={errors.projectManagerUserId}
         >
-          <Input
+          <NativeSelect
             id="projectManagerUserId"
+            label="Project Owner"
             value={values.projectManagerUserId}
+            disabled={isPending || ownerOptions.length === 0}
             onChange={(event) => {
               updateField('projectManagerUserId', event.target.value);
             }}
-            placeholder="Manager user ID (optional)"
+          >
+            <option value="">
+              {ownerOptions.length === 0 ? 'No workspace members available' : 'Select an owner'}
+            </option>
+            {ownerOptions.map((owner) => (
+              <option key={owner.id} value={owner.id}>
+                {owner.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+
+        <FormField label="Department" htmlFor="departmentId" error={errors.departmentId}>
+          <NativeSelect
+            id="departmentId"
+            label="Department"
+            value={values.departmentId}
+            disabled={isPending}
+            onChange={(event) => {
+              updateField('departmentId', event.target.value);
+            }}
+          >
+            <option value="">No department</option>
+            {departmentOptions.map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+
+        <FormField label="Budget" htmlFor="budgetAmount" error={errors.budgetAmount}>
+          <Input
+            id="budgetAmount"
+            type="number"
+            min={0}
+            step="0.01"
+            value={values.budgetAmount}
+            onChange={(event) => {
+              updateField('budgetAmount', event.target.value);
+            }}
+            placeholder="0.00"
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField label="Estimated Hours" htmlFor="estimatedHours" error={errors.estimatedHours}>
+          <Input
+            id="estimatedHours"
+            type="number"
+            min={0}
+            step="0.01"
+            value={values.estimatedHours}
+            onChange={(event) => {
+              updateField('estimatedHours', event.target.value);
+            }}
+            placeholder="0"
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField label="Actual Hours" htmlFor="actualHours" error={errors.actualHours}>
+          <Input
+            id="actualHours"
+            type="number"
+            min={0}
+            step="0.01"
+            value={values.actualHours}
+            onChange={(event) => {
+              updateField('actualHours', event.target.value);
+            }}
+            placeholder="0"
             disabled={isPending}
           />
         </FormField>
@@ -257,6 +388,8 @@ export function CreateProjectDrawer({
     error: clientsError,
     refetch: refetchClients,
   } = useClients({ take: 100 }, { enabled: open });
+  const { data: owners = [] } = useProjectWorkspaceOwners({ enabled: open });
+  const { data: departments = [] } = useProjectDepartments({ enabled: open });
 
   const [values, setValues] = useState<CreateProjectFormValues>(DEFAULT_CREATE_PROJECT_FORM_VALUES);
   const [initialValues, setInitialValues] = useState<CreateProjectFormValues>(
@@ -278,6 +411,24 @@ export function CreateProjectDrawer({
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [clientsData]);
+
+  const ownerOptions = useMemo(
+    () =>
+      owners.map((owner) => ({
+        id: owner.id,
+        label: owner.displayName,
+      })),
+    [owners],
+  );
+
+  const departmentOptions = useMemo(
+    () =>
+      departments.map((department) => ({
+        id: department.id,
+        label: department.name,
+      })),
+    [departments],
+  );
 
   const isDirty = useMemo(
     () => !areProjectFormValuesEqual(values, initialValues),
@@ -366,7 +517,11 @@ export function CreateProjectDrawer({
         await updateProject({ id: projectId, payload: toUpdateProjectPayload(values) });
         showToast('Project updated successfully');
       } else {
-        await createProject(toCreateProjectPayload(values));
+        const created = await createProject(toCreateProjectPayload(values));
+        const tagNames = parseTagNames(values.tags);
+        for (const name of tagNames) {
+          await assignProjectTag(created.id, { name });
+        }
         showToast('Project created successfully');
       }
 
@@ -426,6 +581,8 @@ export function CreateProjectDrawer({
                   isLoadingClients={isLoadingClients}
                   clientsError={clientsError}
                   clientOptions={clientOptions}
+                  ownerOptions={ownerOptions}
+                  departmentOptions={departmentOptions}
                   onRetryClients={() => {
                     void refetchClients();
                   }}

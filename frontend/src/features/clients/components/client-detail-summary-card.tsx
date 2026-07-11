@@ -50,6 +50,22 @@ export function ClientDetailSummaryCard({ client }: ClientDetailSummaryCardProps
           <SummaryField label="Client code" value={displayClientField(client.clientCode)} />
           <SummaryField label="Industry" value={displayClientField(client.industry)} />
           <SummaryField label="Currency" value={displayClientField(client.currency)} />
+          <SummaryField
+            label="Payment terms (days)"
+            value={
+              client.paymentTermsDays !== null && client.paymentTermsDays !== undefined
+                ? String(client.paymentTermsDays)
+                : '—'
+            }
+          />
+          <SummaryField
+            label="Credit limit"
+            value={
+              client.creditLimit !== null && client.creditLimit !== undefined
+                ? String(client.creditLimit)
+                : '—'
+            }
+          />
           <SummaryField label="GSTIN" value={displayClientField(client.gstin)} />
           <SummaryField label="PAN" value={displayClientField(client.pan)} />
           <SummaryField label="Email" value={displayClientField(client.email)} />

@@ -1,12 +1,20 @@
 'use client';
 
 import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState, LoadingState, PageContainer, PageHeader } from '@/design-system';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageContainer,
+  PageHeader,
+  useToast,
+} from '@/design-system';
 import { mapClientRecordToListItem } from '@/features/clients/api/client.mapper';
 import { useClients } from '@/features/clients/hooks/use-clients';
 import { mapProjectRecordToListItem } from '@/features/projects/api/project.mapper';
+import { ArchiveProjectDialog } from '@/features/projects/components/archive-project-dialog';
 import { CreateProjectDrawer } from '@/features/projects/components/create-project-drawer';
 import {
   ProjectListMobileCards,
@@ -14,51 +22,74 @@ import {
 } from '@/features/projects/components/project-list-table';
 import { ProjectListPagination } from '@/features/projects/components/project-list-pagination';
 import { ProjectListToolbar } from '@/features/projects/components/project-list-toolbar';
+import { useArchiveProject } from '@/features/projects/hooks/use-archive-project';
+import {
+  useProjectDepartments,
+  useProjectWorkspaceOwners,
+} from '@/features/projects/hooks/use-project-meta';
 import { useProjects } from '@/features/projects/hooks/use-projects';
+import { useRestoreProject } from '@/features/projects/hooks/use-restore-project';
 import type {
-  ProjectListItem,
   ProjectListStatusFilter,
+  ProjectPriority,
   ProjectSortField,
   SortDirection,
+  WorkspaceOwnerOption,
 } from '@/features/projects/types';
 import { resolveListProjectsQuery } from '@/features/projects/utils/list-projects-query';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { Can } from '@/lib/rbac';
 
-function compareProjects(
-  a: ProjectListItem,
-  b: ProjectListItem,
-  field: ProjectSortField,
-  direction: SortDirection,
-): number {
-  if (field === 'targetEndDate' || field === 'updatedAt') {
-    const aTime = a[field] ? new Date(a[field]).getTime() : 0;
-    const bTime = b[field] ? new Date(b[field]).getTime() : 0;
-    const result = aTime - bTime;
-    return direction === 'asc' ? result : -result;
-  }
-
-  const result = a[field].localeCompare(b[field], undefined, { sensitivity: 'base' });
-  return direction === 'asc' ? result : -result;
-}
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function ProjectsPage() {
+  const { showToast } = useToast();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectListStatusFilter>('all');
-  const [sortField, setSortField] = useState<ProjectSortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState<ProjectPriority | 'all'>('all');
+  const [sortField, setSortField] = useState<ProjectSortField>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(25);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [editProjectId, setEditProjectId] = useState<string | null>(null);
+  const [archiveProjectId, setArchiveProjectId] = useState<string | null>(null);
 
-  const { params: listParams, usesClientSideListProcessing } = resolveListProjectsQuery(
+  const { mutateAsync: archiveProject, isPending: isArchiving } = useArchiveProject();
+  const { mutateAsync: restoreProject } = useRestoreProject();
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [search]);
+
+  const { params: listParams } = resolveListProjectsQuery({
     statusFilter,
     page,
     pageSize,
-  );
+    search: debouncedSearch,
+    projectManagerUserId: ownerFilter !== 'all' ? ownerFilter : undefined,
+    clientId: clientFilter !== 'all' ? clientFilter : undefined,
+    departmentId: departmentFilter !== 'all' ? departmentFilter : undefined,
+    priority: priorityFilter,
+    sortField,
+    sortDirection,
+  });
 
   const { data, isLoading, isFetching, error, refetch } = useProjects(listParams);
   const { data: clientsData } = useClients({ take: 100 });
+  const { data: owners = [] } = useProjectWorkspaceOwners();
+  const { data: departments = [] } = useProjectDepartments();
 
   const clientNamesById = useMemo(() => {
     const map = new Map<string, string>();
@@ -73,60 +104,105 @@ export default function ProjectsPage() {
     return map;
   }, [clientsData]);
 
-  const matchingProjects = useMemo(() => {
+  const ownersById = useMemo(() => {
+    const map = new Map<string, WorkspaceOwnerOption>();
+    for (const owner of owners) {
+      map.set(owner.id, owner);
+    }
+    return map;
+  }, [owners]);
+
+  const ownerOptions = useMemo(
+    () => owners.map((owner) => ({ id: owner.id, label: owner.displayName })),
+    [owners],
+  );
+
+  const clientOptions = useMemo(() => {
+    if (!clientsData) {
+      return [];
+    }
+
+    return clientsData.items
+      .filter((client) => client.deletedAt === null)
+      .map((client) => ({ id: client.id, label: client.displayName }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [clientsData]);
+
+  const departmentOptions = useMemo(
+    () => departments.map((department) => ({ id: department.id, label: department.name })),
+    [departments],
+  );
+
+  const projects = useMemo(() => {
     if (!data) {
       return [];
     }
 
-    const query = search.trim().toLowerCase();
+    return data.items.map((record) =>
+      mapProjectRecordToListItem(record, { clientNamesById, ownersById }),
+    );
+  }, [clientNamesById, data, ownersById]);
 
-    return data.items
-      .map((record) => mapProjectRecordToListItem(record, { clientNamesById }))
-      .filter((project) => {
-        if (query.length === 0) {
-          return true;
-        }
-
-        return (
-          project.name.toLowerCase().includes(query) ||
-          project.code.toLowerCase().includes(query) ||
-          project.clientName.toLowerCase().includes(query)
-        );
-      })
-      .sort((a, b) => compareProjects(a, b, sortField, sortDirection));
-  }, [clientNamesById, data, search, sortDirection, sortField]);
-
-  const filteredProjects = useMemo(() => {
-    if (!usesClientSideListProcessing) {
-      return matchingProjects;
-    }
-
-    const start = (page - 1) * pageSize;
-    return matchingProjects.slice(start, start + pageSize);
-  }, [matchingProjects, page, pageSize, usesClientSideListProcessing]);
-
-  const totalItems = matchingProjects.length;
-  const hasActiveFilters = search.trim().length > 0 || statusFilter !== 'all';
+  const totalItems = data?.total ?? 0;
+  const hasActiveFilters =
+    search.trim().length > 0 ||
+    statusFilter !== 'all' ||
+    ownerFilter !== 'all' ||
+    clientFilter !== 'all' ||
+    departmentFilter !== 'all' ||
+    priorityFilter !== 'all';
   const errorMessage = error ? extractApiErrorMessage(error) : null;
 
   const handleSortFieldChange = (field: ProjectSortField): void => {
     if (field === sortField) {
       setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+      setPage(1);
       return;
     }
 
     setSortField(field);
     setSortDirection('asc');
+    setPage(1);
   };
 
   const clearFilters = (): void => {
     setSearch('');
+    setDebouncedSearch('');
     setStatusFilter('all');
+    setOwnerFilter('all');
+    setClientFilter('all');
+    setDepartmentFilter('all');
+    setPriorityFilter('all');
     setPage(1);
   };
 
   const handleRefresh = (): void => {
     void refetch();
+  };
+
+  const handleArchive = async (): Promise<void> => {
+    if (archiveProjectId === null) {
+      return;
+    }
+
+    try {
+      await archiveProject(archiveProjectId);
+      showToast('Project archived successfully');
+      setArchiveProjectId(null);
+      await refetch();
+    } catch (archiveError) {
+      showToast(extractApiErrorMessage(archiveError), 'error');
+    }
+  };
+
+  const handleRestore = async (projectId: string): Promise<void> => {
+    try {
+      await restoreProject(projectId);
+      showToast('Project restored successfully');
+      await refetch();
+    } catch (restoreError) {
+      showToast(extractApiErrorMessage(restoreError), 'error');
+    }
   };
 
   return (
@@ -152,24 +228,70 @@ export default function ProjectsPage() {
 
       <CreateProjectDrawer open={createDrawerOpen} onOpenChange={setCreateDrawerOpen} />
 
+      <CreateProjectDrawer
+        open={editProjectId !== null}
+        mode="edit"
+        projectId={editProjectId ?? undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditProjectId(null);
+          }
+        }}
+      />
+
+      <ArchiveProjectDialog
+        open={archiveProjectId !== null}
+        isPending={isArchiving}
+        onCancel={() => {
+          setArchiveProjectId(null);
+        }}
+        onConfirm={() => {
+          void handleArchive();
+        }}
+      />
+
       <div className="space-y-4">
         <ProjectListToolbar
           search={search}
           statusFilter={statusFilter}
+          ownerFilter={ownerFilter}
+          clientFilter={clientFilter}
+          departmentFilter={departmentFilter}
+          priorityFilter={priorityFilter}
+          ownerOptions={ownerOptions}
+          clientOptions={clientOptions}
+          departmentOptions={departmentOptions}
           sortField={sortField}
           sortDirection={sortDirection}
           isRefreshing={isFetching && !isLoading}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
+          onSearchChange={setSearch}
           onStatusFilterChange={(value) => {
             setStatusFilter(value);
             setPage(1);
           }}
-          onSortFieldChange={setSortField}
+          onOwnerFilterChange={(value) => {
+            setOwnerFilter(value);
+            setPage(1);
+          }}
+          onClientFilterChange={(value) => {
+            setClientFilter(value);
+            setPage(1);
+          }}
+          onDepartmentFilterChange={(value) => {
+            setDepartmentFilter(value);
+            setPage(1);
+          }}
+          onPriorityFilterChange={(value) => {
+            setPriorityFilter(value);
+            setPage(1);
+          }}
+          onSortFieldChange={(value) => {
+            setSortField(value);
+            setPage(1);
+          }}
           onSortDirectionToggle={() => {
             setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+            setPage(1);
           }}
           onRefresh={handleRefresh}
         />
@@ -185,7 +307,7 @@ export default function ProjectsPage() {
           />
         ) : isLoading ? (
           <LoadingState label="Loading projects..." />
-        ) : filteredProjects.length === 0 ? (
+        ) : projects.length === 0 ? (
           <EmptyState
             title={hasActiveFilters ? 'No projects match your filters' : 'No projects yet'}
             description={
@@ -213,13 +335,25 @@ export default function ProjectsPage() {
           />
         ) : (
           <>
-            <ProjectListMobileCards projects={filteredProjects} />
+            <ProjectListMobileCards
+              projects={projects}
+              onEditProject={setEditProjectId}
+              onArchiveProject={setArchiveProjectId}
+              onRestoreProject={(projectId) => {
+                void handleRestore(projectId);
+              }}
+            />
             <div className="hidden md:block">
               <ProjectListTable
-                projects={filteredProjects}
+                projects={projects}
                 sortField={sortField}
                 sortDirection={sortDirection}
                 onSortFieldChange={handleSortFieldChange}
+                onEditProject={setEditProjectId}
+                onArchiveProject={setArchiveProjectId}
+                onRestoreProject={(projectId) => {
+                  void handleRestore(projectId);
+                }}
               />
             </div>
             <ProjectListPagination

@@ -2,9 +2,27 @@ import { apiClient } from '@/lib/api/api-client';
 import type { ApiSuccessResponse } from '@/lib/api/api-response.types';
 import type {
   CreateProposalPayload,
+  ListProposalsParams,
+  ListProposalsResult,
   ProposalRecord,
   UpdateProposalPayload,
 } from '@/features/sales/proposals/api/proposal.types';
+
+export async function listProposals(
+  params: ListProposalsParams = {},
+): Promise<ListProposalsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<ProposalRecord[]>>('/proposals', {
+    params,
+  });
+  const { data, meta } = response.data;
+
+  return {
+    items: data,
+    total: meta?.total ?? data.length,
+    skip: meta?.skip ?? params.skip ?? 0,
+    take: meta?.take ?? params.take ?? 25,
+  };
+}
 
 export async function getProposal(proposalId: string): Promise<ProposalRecord> {
   const response = await apiClient.get<ApiSuccessResponse<ProposalRecord>>(

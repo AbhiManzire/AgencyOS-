@@ -1,0 +1,308 @@
+'use client';
+
+import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState, type SyntheticEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { SectionTitle, useToast } from '@/design-system';
+import { UnsavedChangesDialog } from '@/features/clients/components/unsaved-changes-dialog';
+import { formatPurchaseBillAmount } from '@/features/finance/purchases/forms/purchase-bill-form.validation';
+import {
+  arePurchaseLineItemFormValuesEqual,
+  calculatePurchaseLineItemFormTotal,
+  DEFAULT_PURCHASE_LINE_ITEM_FORM_VALUES,
+  purchaseLineItemToFormValues,
+  validatePurchaseLineItemForm,
+} from '@/features/finance/purchases/forms/purchase-line-item-form.validation';
+import type {
+  PurchaseBillLineItemListItem,
+  PurchaseLineItemDrawerMode,
+  PurchaseLineItemFormErrors,
+  PurchaseLineItemFormValues,
+} from '@/features/finance/purchases/types';
+import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
+
+interface PurchaseLineItemDrawerProps {
+  readonly open: boolean;
+  readonly mode: PurchaseLineItemDrawerMode;
+  readonly currency: string;
+  readonly lineItem?: PurchaseBillLineItemListItem;
+  readonly isPending?: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly onSave: (values: PurchaseLineItemFormValues) => Promise<void>;
+}
+
+export function PurchaseLineItemDrawer({
+  open,
+  mode,
+  currency,
+  lineItem,
+  isPending = false,
+  onOpenChange,
+  onSave,
+}: PurchaseLineItemDrawerProps) {
+  const { showToast } = useToast();
+  const [values, setValues] = useState<PurchaseLineItemFormValues>(
+    DEFAULT_PURCHASE_LINE_ITEM_FORM_VALUES,
+  );
+  const [initialValues, setInitialValues] = useState<PurchaseLineItemFormValues>(
+    DEFAULT_PURCHASE_LINE_ITEM_FORM_VALUES,
+  );
+  const [errors, setErrors] = useState<PurchaseLineItemFormErrors>({});
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isSaving = isPending || isSubmitting;
+  const isEditMode = mode === 'edit';
+  const isDirty = useMemo(
+    () => !arePurchaseLineItemFormValuesEqual(values, initialValues),
+    [initialValues, values],
+  );
+  const previewTotal = useMemo(() => calculatePurchaseLineItemFormTotal(values), [values]);
+
+  useEffect(() => {
+    if (!open) {
+      setShowDiscardConfirm(false);
+      return;
+    }
+
+    if (isEditMode && lineItem !== undefined) {
+      const formValues = purchaseLineItemToFormValues(lineItem);
+      setValues(formValues);
+      setInitialValues(formValues);
+    } else {
+      setValues(DEFAULT_PURCHASE_LINE_ITEM_FORM_VALUES);
+      setInitialValues(DEFAULT_PURCHASE_LINE_ITEM_FORM_VALUES);
+    }
+
+    setErrors({});
+  }, [lineItem, isEditMode, open]);
+
+  const updateField = <K extends keyof PurchaseLineItemFormValues>(
+    field: K,
+    value: PurchaseLineItemFormValues[K],
+  ): void => {
+    setValues((current) => ({ ...current, [field]: value }));
+    setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
+  };
+
+  const handleCloseRequest = (): void => {
+    if (isSaving) {
+      return;
+    }
+
+    if (isDirty) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+
+    onOpenChange(false);
+  };
+
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+
+    const validationErrors = validatePurchaseLineItemForm(values);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await onSave(values);
+      showToast(isEditMode ? 'Line item updated' : 'Line item added', 'success');
+      onOpenChange(false);
+    } catch (saveError) {
+      showToast(extractApiErrorMessage(saveError), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <Sheet
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            handleCloseRequest();
+            return;
+          }
+          onOpenChange(nextOpen);
+        }}
+      >
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+          <form className="flex h-full flex-col" onSubmit={(event) => void handleSubmit(event)}>
+            <div className="space-y-6 pb-6">
+              <SectionTitle>{isEditMode ? 'Edit Line Item' : 'Add Line Item'}</SectionTitle>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="purchase-line-item-name" className="text-sm font-medium">
+                    Name
+                  </label>
+                  <Input
+                    id="purchase-line-item-name"
+                    value={values.name}
+                    disabled={isSaving}
+                    onChange={(event) => {
+                      updateField('name', event.target.value);
+                    }}
+                  />
+                  {errors.name ? <p className="text-sm text-danger">{errors.name}</p> : null}
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="purchase-line-item-description" className="text-sm font-medium">
+                    Description
+                  </label>
+                  <Input
+                    id="purchase-line-item-description"
+                    value={values.description}
+                    disabled={isSaving}
+                    onChange={(event) => {
+                      updateField('description', event.target.value);
+                    }}
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="purchase-line-item-quantity" className="text-sm font-medium">
+                      Quantity
+                    </label>
+                    <Input
+                      id="purchase-line-item-quantity"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={values.quantity}
+                      disabled={isSaving}
+                      onChange={(event) => {
+                        updateField('quantity', event.target.value);
+                      }}
+                    />
+                    {errors.quantity ? (
+                      <p className="text-sm text-danger">{errors.quantity}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="purchase-line-item-unit" className="text-sm font-medium">
+                      Unit
+                    </label>
+                    <Input
+                      id="purchase-line-item-unit"
+                      value={values.unit}
+                      placeholder="e.g. hours"
+                      disabled={isSaving}
+                      onChange={(event) => {
+                        updateField('unit', event.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="purchase-line-item-unit-price" className="text-sm font-medium">
+                    Unit Price
+                  </label>
+                  <Input
+                    id="purchase-line-item-unit-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={values.unitPrice}
+                    disabled={isSaving}
+                    onChange={(event) => {
+                      updateField('unitPrice', event.target.value);
+                    }}
+                  />
+                  {errors.unitPrice ? (
+                    <p className="text-sm text-danger">{errors.unitPrice}</p>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="purchase-line-item-discount" className="text-sm font-medium">
+                      Discount
+                    </label>
+                    <Input
+                      id="purchase-line-item-discount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={values.discount}
+                      disabled={isSaving}
+                      onChange={(event) => {
+                        updateField('discount', event.target.value);
+                      }}
+                    />
+                    {errors.discount ? (
+                      <p className="text-sm text-danger">{errors.discount}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="purchase-line-item-tax" className="text-sm font-medium">
+                      Tax
+                    </label>
+                    <Input
+                      id="purchase-line-item-tax"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={values.tax}
+                      disabled={isSaving}
+                      onChange={(event) => {
+                        updateField('tax', event.target.value);
+                      }}
+                    />
+                    {errors.tax ? <p className="text-sm text-danger">{errors.tax}</p> : null}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/40 p-4">
+                  <p className="text-sm text-muted-foreground">Line total</p>
+                  <p className="text-lg font-semibold">
+                    {formatPurchaseBillAmount(previewTotal, currency)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto flex justify-end gap-2 border-t border-border pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSaving}
+                onClick={handleCloseRequest}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSaving} className="gap-2">
+                {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {isEditMode ? 'Save Changes' : 'Add Item'}
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      <UnsavedChangesDialog
+        open={showDiscardConfirm}
+        onCancel={() => {
+          setShowDiscardConfirm(false);
+        }}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          onOpenChange(false);
+        }}
+      />
+    </>
+  );
+}

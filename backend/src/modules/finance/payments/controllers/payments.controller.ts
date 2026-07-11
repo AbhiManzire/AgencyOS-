@@ -73,6 +73,7 @@ export class PaymentsController {
         currency: dto.currency,
         reference: dto.reference,
         notes: dto.notes,
+        approvalStatus: dto.approvalStatus,
       },
       context,
     );
@@ -172,6 +173,7 @@ export class InvoicePaymentsController {
         currency: dto.currency,
         reference: dto.reference,
         notes: dto.notes,
+        approvalStatus: dto.approvalStatus,
       },
       context,
     );

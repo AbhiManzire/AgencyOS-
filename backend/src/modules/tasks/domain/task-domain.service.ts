@@ -1,4 +1,4 @@
-import type { TaskPriority, TaskStatus } from '@prisma/client';
+import type { TaskPriority, TaskStatus, TaskType } from '@prisma/client';
 import type {
   ProjectMilestoneRepository,
   ProjectMilestoneScope,
@@ -9,6 +9,7 @@ import type {
   ProjectScope,
 } from '../../projects/repositories/project.repository.interface';
 import type {
+  TaskDependencyRepository,
   TaskRecord,
   TaskRepository,
   TaskScope,
@@ -18,6 +19,7 @@ import {
   TASK_CREATABLE_STATUSES,
   TASK_PRIORITIES,
   TASK_STATUSES,
+  TASK_TYPES,
   type CreateSubtaskValidationInput,
   type CreateTaskValidationInput,
   type UpdateSubtaskValidationInput,
@@ -25,11 +27,14 @@ import {
 } from './task-domain.types';
 
 const STATUS_TRANSITIONS: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = {
-  TODO: ['IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS: ['IN_REVIEW', 'DONE', 'TODO', 'CANCELLED'],
-  IN_REVIEW: ['DONE', 'IN_PROGRESS', 'CANCELLED'],
-  DONE: [],
-  CANCELLED: [],
+  BACKLOG: ['TODO', 'CANCELLED'],
+  TODO: ['BACKLOG', 'IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: ['TODO', 'REVIEW', 'BLOCKED', 'COMPLETED', 'CANCELLED'],
+  REVIEW: ['IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'CANCELLED'],
+  BLOCKED: ['TODO', 'IN_PROGRESS', 'REVIEW', 'CANCELLED'],
+  COMPLETED: ['TODO'],
+  CANCELLED: ['TODO'],
+  ARCHIVED: [],
 };
 
 export class TaskDomainService {
@@ -37,19 +42,24 @@ export class TaskDomainService {
     private readonly taskRepository: TaskRepository,
     private readonly projectRepository: ProjectRepository,
     private readonly projectMilestoneRepository: ProjectMilestoneRepository,
+    private readonly taskDependencyRepository?: TaskDependencyRepository,
   ) {}
 
   async validateCreate(scope: TaskScope, input: CreateTaskValidationInput): Promise<void> {
     this.assertScopeAlignment(scope, input.tenantId, input.workspaceId);
     this.assertTitleRequired(input.title);
+    this.assertProjectRequired(input.projectId);
 
     const status = input.status ?? 'TODO';
     this.assertCreatableStatus(status);
-    this.assertValidPriority(input.priority ?? 'NORMAL');
+    this.assertValidPriority(input.priority ?? 'MEDIUM');
+    this.assertValidType(input.type ?? 'FEATURE');
     this.assertDateRange(input.startDate, input.dueDate);
     this.assertEstimatedHours(input.estimatedHours);
+    this.assertActualHours(input.actualHours);
 
     await this.assertProjectEligible(scope, input.projectId);
+    await this.assertCodeUnique(scope, input.code);
 
     if (input.milestoneId !== undefined && input.milestoneId !== null) {
       await this.assertMilestoneBelongsToProject(scope, input.projectId, input.milestoneId);
@@ -57,6 +67,10 @@ export class TaskDomainService {
 
     if (input.assigneeUserId !== undefined && input.assigneeUserId !== null) {
       await this.assertAssigneeEligible(scope, input.assigneeUserId);
+    }
+
+    if (input.reporterUserId !== undefined && input.reporterUserId !== null) {
+      await this.assertReporterEligible(scope, input.reporterUserId);
     }
   }
 
@@ -75,10 +89,18 @@ export class TaskDomainService {
     if (input.status !== undefined) {
       this.assertValidStatus(input.status);
       this.assertStatusTransition(task.status, input.status);
+
+      if (input.status === 'COMPLETED') {
+        await this.assertCanComplete(scope, task);
+      }
     }
 
     if (input.priority !== undefined) {
       this.assertValidPriority(input.priority);
+    }
+
+    if (input.type !== undefined) {
+      this.assertValidType(input.type);
     }
 
     const startDate = input.startDate !== undefined ? input.startDate : task.startDate;
@@ -89,6 +111,14 @@ export class TaskDomainService {
       this.assertEstimatedHours(input.estimatedHours);
     }
 
+    if (input.actualHours !== undefined) {
+      this.assertActualHours(input.actualHours);
+    }
+
+    if (input.code !== undefined) {
+      await this.assertCodeUnique(scope, input.code, task.id);
+    }
+
     if (input.milestoneId !== undefined && input.milestoneId !== null) {
       await this.assertMilestoneBelongsToProject(scope, task.projectId, input.milestoneId);
     }
@@ -96,6 +126,71 @@ export class TaskDomainService {
     if (input.assigneeUserId !== undefined && input.assigneeUserId !== null) {
       await this.assertAssigneeEligible(scope, input.assigneeUserId);
     }
+
+    if (input.reporterUserId !== undefined && input.reporterUserId !== null) {
+      await this.assertReporterEligible(scope, input.reporterUserId);
+    }
+  }
+
+  validateArchive(scope: TaskScope, task: TaskRecord): void {
+    this.ensureWorkspaceOwnership(scope, task);
+    this.assertTaskIsActive(task);
+  }
+
+  validateRestore(scope: TaskScope, task: TaskRecord): void {
+    this.ensureWorkspaceOwnership(scope, task);
+
+    if (task.deletedAt === null && task.status !== 'ARCHIVED') {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.TASK_NOT_ARCHIVED,
+        'Task is not archived and cannot be restored.',
+      );
+    }
+  }
+
+  async validateAddDependency(
+    scope: TaskScope,
+    task: TaskRecord,
+    dependsOnTaskId: string,
+  ): Promise<TaskRecord> {
+    this.ensureWorkspaceOwnership(scope, task);
+    this.assertTaskIsActive(task);
+
+    if (task.id === dependsOnTaskId) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.DEPENDENCY_SELF_NOT_ALLOWED,
+        'A task cannot depend on itself.',
+      );
+    }
+
+    const dependsOn = await this.taskRepository.findById(scope, dependsOnTaskId);
+    if (dependsOn === null) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.DEPENDENCY_TARGET_NOT_FOUND,
+        'Dependency target task was not found.',
+      );
+    }
+
+    this.ensureWorkspaceOwnership(scope, dependsOn);
+    this.assertTaskIsActive(dependsOn);
+
+    const dependencyRepository = this.requireDependencyRepository();
+    if (await dependencyRepository.exists(scope, task.id, dependsOnTaskId)) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.DEPENDENCY_ALREADY_EXISTS,
+        'This dependency already exists.',
+      );
+    }
+
+    const wouldCycle = await dependencyRepository.wouldCreateCycle(scope, task.id, dependsOnTaskId);
+    if (wouldCycle) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.DEPENDENCY_CYCLE_DETECTED,
+        'Adding this dependency would create a cycle.',
+      );
+    }
+
+    return dependsOn;
   }
 
   ensureWorkspaceOwnership(scope: TaskScope, task: TaskRecord): void {
@@ -114,12 +209,11 @@ export class TaskDomainService {
   ): Promise<void> {
     this.ensureWorkspaceOwnership(scope, parentTask);
     this.assertTaskIsActive(parentTask);
-    this.assertParentTaskEligible(parentTask);
     this.assertTitleRequired(input.title);
 
     const status = input.status ?? 'TODO';
     this.assertCreatableStatus(status);
-    this.assertValidPriority(input.priority ?? 'NORMAL');
+    this.assertValidPriority(input.priority ?? 'MEDIUM');
 
     if (input.assigneeUserId !== undefined && input.assigneeUserId !== null) {
       await this.assertAssigneeEligible(scope, input.assigneeUserId);
@@ -143,6 +237,10 @@ export class TaskDomainService {
     if (input.status !== undefined) {
       this.assertValidStatus(input.status);
       this.assertStatusTransition(subtask.status, input.status);
+
+      if (input.status === 'COMPLETED') {
+        await this.assertCanComplete(scope, subtask);
+      }
     }
 
     if (input.priority !== undefined) {
@@ -163,11 +261,25 @@ export class TaskDomainService {
     }
   }
 
-  private assertParentTaskEligible(parentTask: TaskRecord): void {
-    if (parentTask.parentTaskId !== null) {
+  private async assertCanComplete(scope: TaskScope, task: TaskRecord): Promise<void> {
+    const openSubtasks = await this.taskRepository.countOpenSubtasks(scope, task.id);
+    if (openSubtasks > 0) {
       throw new TaskDomainError(
-        TASK_DOMAIN_ERROR_CODES.NESTED_SUBTASKS_NOT_ALLOWED,
-        'Subtasks cannot be created under another subtask.',
+        TASK_DOMAIN_ERROR_CODES.OPEN_SUBTASKS_BLOCK_COMPLETION,
+        'Cannot complete a task while open subtasks remain.',
+      );
+    }
+
+    const dependencyRepository = this.taskDependencyRepository;
+    if (dependencyRepository === undefined) {
+      return;
+    }
+
+    const hasIncomplete = await dependencyRepository.hasIncompleteBlockedBy(scope, task.id);
+    if (hasIncomplete) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.INCOMPLETE_DEPENDENCY_BLOCKS_COMPLETION,
+        'Cannot complete a task while blocked by incomplete dependencies.',
       );
     }
   }
@@ -177,6 +289,15 @@ export class TaskDomainService {
       throw new TaskDomainError(
         TASK_DOMAIN_ERROR_CODES.TENANT_SCOPE_MISMATCH,
         'Task data must match the active tenant and workspace scope.',
+      );
+    }
+  }
+
+  private assertProjectRequired(projectId: string): void {
+    if (projectId.trim().length === 0) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.PROJECT_REQUIRED,
+        'Project is required when creating a task.',
       );
     }
   }
@@ -200,7 +321,7 @@ export class TaskDomainService {
   }
 
   private assertValidStatus(status: TaskStatus): void {
-    if (!TASK_STATUSES.includes(status)) {
+    if (!TASK_STATUSES.includes(status) || status === 'ARCHIVED') {
       throw new TaskDomainError(
         TASK_DOMAIN_ERROR_CODES.INVALID_STATUS,
         `Status "${status}" is not a valid task state.`,
@@ -213,6 +334,15 @@ export class TaskDomainService {
       throw new TaskDomainError(
         TASK_DOMAIN_ERROR_CODES.INVALID_PRIORITY,
         `Priority "${priority}" is not valid.`,
+      );
+    }
+  }
+
+  private assertValidType(type: TaskType): void {
+    if (!TASK_TYPES.includes(type)) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.INVALID_TYPE,
+        `Type "${type}" is not valid.`,
       );
     }
   }
@@ -262,11 +392,47 @@ export class TaskDomainService {
     }
   }
 
+  private assertActualHours(actualHours?: number | null): void {
+    if (actualHours === undefined || actualHours === null) {
+      return;
+    }
+
+    if (actualHours < 0) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.INVALID_ACTUAL_HOURS,
+        'Actual hours must be zero or greater.',
+      );
+    }
+  }
+
   private assertTaskIsActive(task: TaskRecord): void {
-    if (task.deletedAt !== null) {
+    if (task.deletedAt !== null || task.status === 'ARCHIVED') {
       throw new TaskDomainError(
         TASK_DOMAIN_ERROR_CODES.TASK_ARCHIVED,
         'Task is archived and cannot be modified.',
+      );
+    }
+  }
+
+  private async assertCodeUnique(
+    scope: TaskScope,
+    code?: string | null,
+    excludeTaskId?: string,
+  ): Promise<void> {
+    if (code === undefined || code === null) {
+      return;
+    }
+
+    const normalized = code.trim();
+    if (normalized.length === 0) {
+      return;
+    }
+
+    const existing = await this.taskRepository.findByCode(scope, normalized);
+    if (existing !== null && existing.id !== excludeTaskId) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.TASK_CODE_NOT_UNIQUE,
+        'Task code must be unique within the workspace.',
       );
     }
   }
@@ -320,5 +486,25 @@ export class TaskDomainService {
         'Assignee must be an active member of the workspace.',
       );
     }
+  }
+
+  private async assertReporterEligible(scope: TaskScope, reporterUserId: string): Promise<void> {
+    if (!(await this.taskRepository.isWorkspaceUser(scope, reporterUserId))) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.REPORTER_NOT_WORKSPACE_MEMBER,
+        'Reporter must be an active member of the workspace.',
+      );
+    }
+  }
+
+  private requireDependencyRepository(): TaskDependencyRepository {
+    if (this.taskDependencyRepository === undefined) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.DEPENDENCY_NOT_FOUND,
+        'Task dependency repository is not configured.',
+      );
+    }
+
+    return this.taskDependencyRepository;
   }
 }

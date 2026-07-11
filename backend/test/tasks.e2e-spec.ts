@@ -273,14 +273,14 @@ describe('Tasks (e2e)', () => {
         .send({
           title: `Updated Task ${suffix}`,
           status: 'IN_PROGRESS',
-          priority: 'URGENT',
+          priority: 'CRITICAL',
         })
         .expect(200);
 
       const body = response.body as ApiSuccessResponse<TaskRecord>;
       expect(body.data.title).toBe(`Updated Task ${suffix}`);
       expect(body.data.status).toBe('IN_PROGRESS');
-      expect(body.data.priority).toBe('URGENT');
+      expect(body.data.priority).toBe('CRITICAL');
       expect(body.data.updatedByUserId).toBe(primary.userId);
     });
 
@@ -302,7 +302,7 @@ describe('Tasks (e2e)', () => {
       const response = await request(app.getHttpServer())
         .patch(`/api/tasks/${created.id}`)
         .set(workspaceHeaders(primary))
-        .send({ status: 'DONE' })
+        .send({ status: 'COMPLETED' })
         .expect(422);
 
       const body = response.body as ApiErrorResponse;

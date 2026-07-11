@@ -41,6 +41,18 @@ export class UpdateFollowUpDto {
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(2000)
+  outcome?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Date)
+  @IsDate()
+  nextFollowUpAt?: Date | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsUUID()
   ownerUserId?: string | null;
 

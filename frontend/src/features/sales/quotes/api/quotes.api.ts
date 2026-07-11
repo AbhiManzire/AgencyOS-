@@ -7,6 +7,7 @@ import type {
   QuoteRecord,
   UpdateQuotePayload,
 } from '@/features/sales/quotes/api/quote.types';
+import type { QuoteRevisionRecord } from '@/features/sales/quotes/api/quote-revision.types';
 
 export async function listQuotes(params: ListQuotesParams): Promise<ListQuotesResult> {
   const response = await apiClient.get<ApiSuccessResponse<QuoteRecord[]>>('/quotes', { params });
@@ -37,6 +38,13 @@ export async function updateQuote(
   const response = await apiClient.patch<ApiSuccessResponse<QuoteRecord>>(
     `/quotes/${quoteId}`,
     payload,
+  );
+  return response.data.data;
+}
+
+export async function listQuoteRevisions(quoteId: string): Promise<readonly QuoteRevisionRecord[]> {
+  const response = await apiClient.get<ApiSuccessResponse<QuoteRevisionRecord[]>>(
+    `/quotes/${quoteId}/revisions`,
   );
   return response.data.data;
 }

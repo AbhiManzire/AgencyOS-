@@ -81,7 +81,7 @@ export interface ProjectMemberRepository {
     userId: string,
     excludeMemberId?: string,
   ): Promise<ProjectMemberRecord | null>;
-  findActiveLead(
+  findActiveManager(
     scope: ProjectMemberScope,
     excludeMemberId?: string,
   ): Promise<ProjectMemberRecord | null>;

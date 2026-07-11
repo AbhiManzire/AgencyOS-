@@ -6,23 +6,25 @@ import type { ListTasksParams, ListTasksResult } from '@/features/tasks/api/task
 import type { TaskStatus } from '@/features/tasks/types';
 import { tasksQueryKeys } from '@/features/tasks/hooks/use-tasks';
 
-interface UpdateTaskStatusVariables {
+interface UpdateTaskBoardVariables {
   readonly taskId: string;
   readonly status: TaskStatus;
+  readonly boardOrder: number;
 }
 
-interface UpdateTaskStatusContext {
+interface UpdateTaskBoardContext {
   readonly previous: ListTasksResult | undefined;
 }
 
-/** Updates task status with optimistic cache updates and rollback on failure. */
+/** Updates task status/boardOrder with optimistic cache updates and rollback on failure. */
 export function useUpdateTaskStatusOptimistic(listParams: ListTasksParams) {
   const queryClient = useQueryClient();
   const queryKey = tasksQueryKeys.list(listParams);
 
   return useMutation({
-    mutationFn: ({ taskId, status }: UpdateTaskStatusVariables) => updateTask(taskId, { status }),
-    onMutate: async ({ taskId, status }) => {
+    mutationFn: ({ taskId, status, boardOrder }: UpdateTaskBoardVariables) =>
+      updateTask(taskId, { status, boardOrder }),
+    onMutate: async ({ taskId, status, boardOrder }) => {
       await queryClient.cancelQueries({ queryKey });
 
       const previous = queryClient.getQueryData<ListTasksResult>(queryKey);
@@ -30,11 +32,13 @@ export function useUpdateTaskStatusOptimistic(listParams: ListTasksParams) {
       if (previous !== undefined) {
         queryClient.setQueryData<ListTasksResult>(queryKey, {
           ...previous,
-          items: previous.items.map((task) => (task.id === taskId ? { ...task, status } : task)),
+          items: previous.items.map((task) =>
+            task.id === taskId ? { ...task, status, boardOrder } : task,
+          ),
         });
       }
 
-      return { previous } satisfies UpdateTaskStatusContext;
+      return { previous } satisfies UpdateTaskBoardContext;
     },
     onError: (_error, _variables, context) => {
       if (context?.previous !== undefined) {

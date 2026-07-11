@@ -1,6 +1,6 @@
 'use client';
 
-import { Eye, MoreHorizontal, Pencil } from 'lucide-react';
+import { Archive, Eye, MoreHorizontal, Pencil, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,15 +14,21 @@ import { Can } from '@/lib/rbac';
 interface TaskRowActionsProps {
   readonly taskId: string;
   readonly taskTitle: string;
+  readonly isArchived: boolean;
   readonly disabled?: boolean;
   readonly onEdit: () => void;
+  readonly onArchive: () => void;
+  readonly onRestore: () => void;
 }
 
 export function TaskRowActions({
   taskId,
   taskTitle,
+  isArchived,
   disabled = false,
   onEdit,
+  onArchive,
+  onRestore,
 }: TaskRowActionsProps) {
   return (
     <DropdownMenu>
@@ -48,7 +54,7 @@ export function TaskRowActions({
         </Can>
         <Can permission="tasks.update">
           <DropdownMenuItem
-            disabled={disabled}
+            disabled={disabled || isArchived}
             className="gap-2"
             onSelect={() => {
               onEdit();
@@ -58,6 +64,33 @@ export function TaskRowActions({
             Edit
           </DropdownMenuItem>
         </Can>
+        {isArchived ? (
+          <Can permission="tasks.update">
+            <DropdownMenuItem
+              disabled={disabled}
+              className="gap-2"
+              onSelect={() => {
+                onRestore();
+              }}
+            >
+              <RotateCcw className="size-4" />
+              Restore
+            </DropdownMenuItem>
+          </Can>
+        ) : (
+          <Can permission="tasks.update">
+            <DropdownMenuItem
+              disabled={disabled}
+              className="gap-2 text-danger focus:text-danger"
+              onSelect={() => {
+                onArchive();
+              }}
+            >
+              <Archive className="size-4" />
+              Archive
+            </DropdownMenuItem>
+          </Can>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

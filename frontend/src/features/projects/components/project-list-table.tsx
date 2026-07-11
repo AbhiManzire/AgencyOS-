@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import type { SyntheticEvent } from 'react';
 import {
   Table,
   TableBody,
@@ -8,16 +10,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ProjectArchivedBadge } from '@/features/projects/components/project-archived-badge';
+import { ProjectPriorityBadge } from '@/features/projects/components/project-priority-badge';
 import { ProjectRowActions } from '@/features/projects/components/project-row-actions';
 import { ProjectStatusBadge } from '@/features/projects/components/project-status-badge';
 import { SortIndicator } from '@/features/projects/components/project-list-toolbar';
 import type { ProjectListItem, ProjectSortField, SortDirection } from '@/features/projects/types';
+import { cn } from '@/lib/utils';
 
 interface ProjectListTableProps {
   projects: readonly ProjectListItem[];
   sortField: ProjectSortField;
   sortDirection: SortDirection;
   onSortFieldChange: (field: ProjectSortField) => void;
+  onEditProject: (projectId: string) => void;
+  onArchiveProject: (projectId: string) => void;
+  onRestoreProject: (projectId: string) => void;
 }
 
 interface SortableHeaderProps {
@@ -55,13 +63,6 @@ function SortableHeader({
   );
 }
 
-const PRIORITY_LABELS: Record<ProjectListItem['priority'], string> = {
-  LOW: 'Low',
-  NORMAL: 'Normal',
-  HIGH: 'High',
-  URGENT: 'Urgent',
-};
-
 function formatDate(isoDate: string | null): string {
   if (isoDate === null) {
     return '—';
@@ -74,12 +75,21 @@ function formatDate(isoDate: string | null): string {
   }).format(new Date(isoDate));
 }
 
+function stopRowNavigation(event: SyntheticEvent): void {
+  event.stopPropagation();
+}
+
 export function ProjectListTable({
   projects,
   sortField,
   sortDirection,
   onSortFieldChange,
+  onEditProject,
+  onArchiveProject,
+  onRestoreProject,
 }: ProjectListTableProps) {
+  const router = useRouter();
+
   return (
     <div className="rounded-lg border border-border bg-card">
       <div className="max-h-[min(70vh,640px)] overflow-auto">
@@ -95,6 +105,7 @@ export function ProjectListTable({
               />
               <TableHead className="hidden md:table-cell">Client</TableHead>
               <TableHead className="hidden lg:table-cell">Code</TableHead>
+              <TableHead className="hidden xl:table-cell">Owner</TableHead>
               <SortableHeader
                 label="Status"
                 field="status"
@@ -131,24 +142,50 @@ export function ProjectListTable({
           </TableHeader>
           <TableBody>
             {projects.map((project) => (
-              <TableRow key={project.id}>
+              <TableRow
+                key={project.id}
+                className={cn(
+                  'cursor-pointer',
+                  project.isArchived ? 'bg-muted/40 text-muted-foreground' : undefined,
+                )}
+                onClick={() => {
+                  router.push(`/projects/${project.id}`);
+                }}
+              >
                 <TableCell>
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">{project.name}</p>
                     <p className="truncate text-xs text-muted-foreground md:hidden">
                       {project.clientName}
                     </p>
+                    {project.isArchived ? (
+                      <div className="mt-1 md:hidden">
+                        <ProjectArchivedBadge />
+                      </div>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell className="hidden max-w-[200px] truncate md:table-cell">
                   {project.clientName}
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">{project.code}</TableCell>
+                <TableCell className="hidden font-mono text-sm lg:table-cell">
+                  {project.code}
+                </TableCell>
+                <TableCell className="hidden max-w-[160px] truncate xl:table-cell">
+                  {project.projectManager}
+                </TableCell>
                 <TableCell>
-                  <ProjectStatusBadge status={project.status} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ProjectStatusBadge status={project.status} />
+                    {project.isArchived ? (
+                      <span className="hidden md:inline-flex">
+                        <ProjectArchivedBadge />
+                      </span>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
-                  {PRIORITY_LABELS[project.priority]}
+                  <ProjectPriorityBadge priority={project.priority} />
                 </TableCell>
                 <TableCell className="hidden xl:table-cell">
                   {formatDate(project.targetEndDate)}
@@ -156,11 +193,14 @@ export function ProjectListTable({
                 <TableCell className="hidden lg:table-cell">
                   {formatDate(project.updatedAt)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={stopRowNavigation}>
                   <ProjectRowActions
                     projectId={project.id}
                     projectName={project.name}
-                    canArchive={project.status !== 'CANCELLED'}
+                    isArchived={project.isArchived}
+                    onEdit={onEditProject}
+                    onArchive={onArchiveProject}
+                    onRestore={onRestoreProject}
                   />
                 </TableCell>
               </TableRow>
@@ -172,33 +212,70 @@ export function ProjectListTable({
   );
 }
 
+interface ProjectListMobileCardsProps {
+  readonly projects: readonly ProjectListItem[];
+  readonly onEditProject: (projectId: string) => void;
+  readonly onArchiveProject: (projectId: string) => void;
+  readonly onRestoreProject: (projectId: string) => void;
+}
+
 /** Compact card list for narrow viewports. */
-export function ProjectListMobileCards({ projects }: { projects: readonly ProjectListItem[] }) {
+export function ProjectListMobileCards({
+  projects,
+  onEditProject,
+  onArchiveProject,
+  onRestoreProject,
+}: ProjectListMobileCardsProps) {
+  const router = useRouter();
+
   return (
     <div className="space-y-3 md:hidden">
       {projects.map((project) => (
-        <div key={project.id} className="rounded-lg border border-border bg-card p-4">
+        <div
+          key={project.id}
+          role="button"
+          tabIndex={0}
+          className={cn(
+            'cursor-pointer rounded-lg border border-border bg-card p-4',
+            project.isArchived ? 'bg-muted/40 text-muted-foreground' : undefined,
+          )}
+          onClick={() => {
+            router.push(`/projects/${project.id}`);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              router.push(`/projects/${project.id}`);
+            }
+          }}
+        >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 space-y-2">
               <div>
                 <p className="font-medium text-foreground">{project.name}</p>
                 <p className="text-sm text-muted-foreground">{project.clientName}</p>
+                <p className="font-mono text-xs text-muted-foreground">{project.code}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <ProjectStatusBadge status={project.status} />
-                <span className="text-xs text-muted-foreground">
-                  {PRIORITY_LABELS[project.priority]}
-                </span>
+                <ProjectPriorityBadge priority={project.priority} />
+                {project.isArchived ? <ProjectArchivedBadge /> : null}
               </div>
+              <p className="text-sm text-muted-foreground">Owner: {project.projectManager}</p>
               <p className="text-sm text-muted-foreground">
                 Target end: {formatDate(project.targetEndDate)}
               </p>
             </div>
-            <ProjectRowActions
-              projectId={project.id}
-              projectName={project.name}
-              canArchive={project.status !== 'CANCELLED'}
-            />
+            <div onClick={stopRowNavigation} onKeyDown={stopRowNavigation}>
+              <ProjectRowActions
+                projectId={project.id}
+                projectName={project.name}
+                isArchived={project.isArchived}
+                onEdit={onEditProject}
+                onArchive={onArchiveProject}
+                onRestore={onRestoreProject}
+              />
+            </div>
           </div>
         </div>
       ))}

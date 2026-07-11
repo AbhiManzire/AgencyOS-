@@ -1,15 +1,22 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
+  BookOpen,
   Briefcase,
+  Building2,
   CheckSquare,
   DollarSign,
+  FileMinus2,
   FileText,
   LayoutDashboard,
+  Package,
   Receipt,
+  RefreshCw,
   Settings,
   ShoppingCart,
+  Target,
   Users,
+  Wallet,
 } from 'lucide-react';
 
 export interface AppNavItem {
@@ -26,6 +33,12 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   { title: 'Dashboard', href: '/', icon: LayoutDashboard, permission: 'dashboard.read' },
   { title: 'Clients', href: '/clients', icon: Users, permission: 'clients.read' },
   {
+    title: 'Leads',
+    href: '/sales/leads',
+    icon: Target,
+    permission: 'sales.read',
+  },
+  {
     title: 'Sales',
     href: '/sales/pipeline',
     icon: ShoppingCart,
@@ -35,8 +48,49 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   { title: 'Quotes', href: '/sales/quotes', icon: FileText, permission: 'quotes.read' },
   { title: 'Projects', href: '/projects', icon: Briefcase, permission: 'projects.read' },
   { title: 'Tasks', href: '/tasks', icon: CheckSquare, permission: 'tasks.read' },
-  { title: 'Finance', href: '/finance/invoices', icon: DollarSign, permission: 'invoices.read' },
+  {
+    title: 'Invoices',
+    href: '/finance/invoices',
+    icon: DollarSign,
+    permission: 'invoices.read',
+  },
   { title: 'Payments', href: '/finance/payments', icon: Receipt, permission: 'invoices.read' },
+  {
+    title: 'Expenses',
+    href: '/finance/expenses',
+    icon: Wallet,
+    permission: 'finance.expenses.read',
+  },
+  {
+    title: 'Vendors',
+    href: '/finance/vendors',
+    icon: Building2,
+    permission: 'finance.vendors.read',
+  },
+  {
+    title: 'Purchases',
+    href: '/finance/purchases',
+    icon: Package,
+    permission: 'finance.purchases.read',
+  },
+  {
+    title: 'Credit Notes',
+    href: '/finance/credit-notes',
+    icon: FileMinus2,
+    permission: 'finance.credit_notes.read',
+  },
+  {
+    title: 'Recurring',
+    href: '/finance/recurring',
+    icon: RefreshCw,
+    permission: 'finance.recurring.read',
+  },
+  {
+    title: 'Ledger',
+    href: '/finance/ledger',
+    icon: BookOpen,
+    permission: 'finance.ledger.read',
+  },
   { title: 'Reports', href: '/reports', icon: BarChart3, permission: 'reports.read' },
   {
     title: 'Settings',

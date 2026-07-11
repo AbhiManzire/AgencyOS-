@@ -1,14 +1,28 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { ActivityService } from '../../activities/services/activity.service';
+import {
+  CLIENT_REPOSITORY,
+  type ClientRepository,
+  type WorkspaceOwnerOption,
+} from '../../clients/repositories/client.repository.interface';
 import { ProjectDomainService } from '../domain/project-domain.service';
 import { PROJECT_DOMAIN_ERROR_CODES, ProjectDomainError } from '../domain/project-domain.errors';
+import type { ProjectMembershipContext } from '../domain/project-domain.types';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  PROJECT_MEMBER_REPOSITORY,
+  type ProjectMemberRepository,
+} from '../repositories/project-member.repository.interface';
 import {
   PROJECT_REPOSITORY,
   type CreateProjectData,
+  type DepartmentOption,
   type FindByIdOptions,
   type ProjectRepository,
   type ProjectScope,
+  type ProjectTransactionClient,
   type UpdateProjectData,
 } from '../repositories/project.repository.interface';
 import type {
@@ -18,6 +32,7 @@ import type {
   ListProjectsResult,
   ProjectApplicationContext,
   ProjectRecord,
+  RestoreProjectCommand,
   UpdateProjectCommand,
 } from './project-application.types';
 
@@ -30,7 +45,12 @@ export class ProjectService {
   constructor(
     @Inject(PROJECT_REPOSITORY)
     private readonly projectRepository: ProjectRepository,
+    @Inject(PROJECT_MEMBER_REPOSITORY)
+    private readonly projectMemberRepository: ProjectMemberRepository,
+    @Inject(CLIENT_REPOSITORY)
+    private readonly clientRepository: ClientRepository,
     private readonly projectDomainService: ProjectDomainService,
+    private readonly activityService: ActivityService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -39,16 +59,26 @@ export class ProjectService {
     command: CreateProjectCommand,
     context: ProjectApplicationContext,
   ): Promise<ProjectRecord> {
-    await this.projectDomainService.validateCreate(scope, {
-      tenantId: scope.tenantId,
-      workspaceId: scope.workspaceId,
-      name: command.name,
-      clientId: command.clientId,
-      code: command.code,
-      status: command.status,
-      startDate: command.startDate,
-      targetEndDate: command.targetEndDate,
-    });
+    const membership = await this.resolveMembership(scope);
+
+    await this.projectDomainService.validateCreate(
+      scope,
+      {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        name: command.name,
+        clientId: command.clientId,
+        projectManagerUserId: command.projectManagerUserId,
+        code: command.code,
+        status: command.status,
+        startDate: command.startDate,
+        targetEndDate: command.targetEndDate,
+        budgetAmount: command.budgetAmount,
+        estimatedHours: command.estimatedHours,
+        actualHours: command.actualHours,
+      },
+      membership,
+    );
 
     const now = new Date();
 
@@ -62,9 +92,13 @@ export class ProjectService {
       description: command.description,
       status: command.status ?? 'PLANNING',
       projectManagerUserId: command.projectManagerUserId,
+      departmentId: command.departmentId ?? null,
       priority: command.priority ?? 'NORMAL',
       startDate: command.startDate,
       targetEndDate: command.targetEndDate,
+      budgetAmount: command.budgetAmount ?? null,
+      estimatedHours: command.estimatedHours ?? null,
+      actualHours: command.actualHours ?? null,
       isBillable: command.isBillable ?? true,
       createdAt: now,
       updatedAt: now,
@@ -72,7 +106,19 @@ export class ProjectService {
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(() => this.projectRepository.create(data));
+    return this.runInTransaction(async (tx) => {
+      const created = await this.projectRepository.create(data, tx);
+      await this.emitActivity(
+        scope,
+        created.id,
+        'project.created',
+        'Project Created',
+        context,
+        undefined,
+        'Project was created.',
+      );
+      return created;
+    });
   }
 
   async updateProject(
@@ -82,17 +128,28 @@ export class ProjectService {
     context: ProjectApplicationContext,
   ): Promise<ProjectRecord> {
     const existing = await this.requireProject(scope, projectId, { includeArchived: true });
+    const membership = await this.resolveMembership(scope);
 
-    await this.projectDomainService.validateUpdate(scope, existing, {
-      name: command.name,
-      code: command.code,
-      status: command.status,
-      startDate: command.startDate,
-      targetEndDate: command.targetEndDate,
-    });
+    await this.projectDomainService.validateUpdate(
+      scope,
+      existing,
+      {
+        name: command.name,
+        code: command.code,
+        status: command.status,
+        startDate: command.startDate,
+        targetEndDate: command.targetEndDate,
+        budgetAmount: command.budgetAmount,
+        estimatedHours: command.estimatedHours,
+        actualHours: command.actualHours,
+        projectManagerUserId: command.projectManagerUserId,
+      },
+      membership,
+    );
 
     const now = new Date();
     const nextStatus = command.status ?? existing.status;
+    const statusChanged = command.status !== undefined && command.status !== existing.status;
 
     const data: UpdateProjectData = {
       ...(command.name !== undefined ? { name: command.name.trim() } : {}),
@@ -102,9 +159,13 @@ export class ProjectService {
       ...(command.projectManagerUserId !== undefined
         ? { projectManagerUserId: command.projectManagerUserId }
         : {}),
+      ...(command.departmentId !== undefined ? { departmentId: command.departmentId } : {}),
       ...(command.priority !== undefined ? { priority: command.priority } : {}),
       ...(command.startDate !== undefined ? { startDate: command.startDate } : {}),
       ...(command.targetEndDate !== undefined ? { targetEndDate: command.targetEndDate } : {}),
+      ...(command.budgetAmount !== undefined ? { budgetAmount: command.budgetAmount } : {}),
+      ...(command.estimatedHours !== undefined ? { estimatedHours: command.estimatedHours } : {}),
+      ...(command.actualHours !== undefined ? { actualHours: command.actualHours } : {}),
       ...(command.isBillable !== undefined ? { isBillable: command.isBillable } : {}),
       ...(nextStatus === 'COMPLETED' && existing.completedAt === null ? { completedAt: now } : {}),
       ...(nextStatus === 'INVOICE_READY' && existing.invoiceReadyAt === null
@@ -114,12 +175,34 @@ export class ProjectService {
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(async () => {
-      const updated = await this.projectRepository.update(scope, projectId, data);
+    return this.runInTransaction(async (tx) => {
+      const updated = await this.projectRepository.update(scope, projectId, data, tx);
       if (updated === null) {
         throw new ProjectDomainError(
           PROJECT_DOMAIN_ERROR_CODES.PROJECT_NOT_FOUND,
           'Project was not found.',
+        );
+      }
+
+      if (statusChanged) {
+        await this.emitActivity(
+          scope,
+          updated.id,
+          'project.status_changed',
+          'Status Changed',
+          context,
+          { from: existing.status, to: updated.status },
+          `Status changed from ${existing.status} to ${updated.status}.`,
+        );
+      } else {
+        await this.emitActivity(
+          scope,
+          updated.id,
+          'project.updated',
+          'Project Updated',
+          context,
+          undefined,
+          'Project details were updated.',
         );
       }
 
@@ -135,7 +218,43 @@ export class ProjectService {
     const existing = await this.requireProject(scope, projectId);
     this.projectDomainService.validateComplete(scope, existing);
 
-    return this.updateProject(scope, projectId, { status: 'COMPLETED' }, context);
+    const now = new Date();
+
+    return this.runInTransaction(async (tx) => {
+      const updated = await this.projectRepository.update(
+        scope,
+        projectId,
+        {
+          status: 'COMPLETED',
+          completedAt: existing.completedAt ?? now,
+          updatedAt: now,
+          updatedByUserId: context.actorUserId,
+        },
+        tx,
+      );
+
+      if (updated === null) {
+        throw new ProjectDomainError(
+          PROJECT_DOMAIN_ERROR_CODES.PROJECT_NOT_FOUND,
+          'Project was not found.',
+        );
+      }
+
+      await this.emitActivity(
+        scope,
+        updated.id,
+        'project.status_changed',
+        'Status Changed',
+        context,
+        {
+          from: existing.status,
+          to: 'COMPLETED',
+        },
+        `Status changed from ${existing.status} to COMPLETED.`,
+      );
+
+      return updated;
+    });
   }
 
   async markInvoiceReady(
@@ -146,7 +265,40 @@ export class ProjectService {
     const existing = await this.requireProject(scope, projectId);
     this.projectDomainService.validateInvoiceReady(scope, existing);
 
-    return this.updateProject(scope, projectId, { status: 'INVOICE_READY' }, context);
+    const now = new Date();
+
+    return this.runInTransaction(async (tx) => {
+      const updated = await this.projectRepository.update(
+        scope,
+        projectId,
+        {
+          status: 'INVOICE_READY',
+          invoiceReadyAt: existing.invoiceReadyAt ?? now,
+          updatedAt: now,
+          updatedByUserId: context.actorUserId,
+        },
+        tx,
+      );
+
+      if (updated === null) {
+        throw new ProjectDomainError(
+          PROJECT_DOMAIN_ERROR_CODES.PROJECT_NOT_FOUND,
+          'Project was not found.',
+        );
+      }
+
+      await this.emitActivity(
+        scope,
+        updated.id,
+        'project.status_changed',
+        'Status Changed',
+        context,
+        { from: existing.status, to: 'INVOICE_READY' },
+        `Status changed from ${existing.status} to INVOICE_READY.`,
+      );
+
+      return updated;
+    });
   }
 
   async archiveProject(
@@ -159,13 +311,19 @@ export class ProjectService {
 
     const now = new Date();
 
-    return this.runInTransaction(async () => {
-      const archived = await this.projectRepository.archive(scope, projectId, {
-        deletedAt: now,
-        deletedByUserId: context.actorUserId,
-        updatedAt: now,
-        updatedByUserId: context.actorUserId,
-      });
+    return this.runInTransaction(async (tx) => {
+      const archived = await this.projectRepository.archive(
+        scope,
+        projectId,
+        {
+          status: 'ARCHIVED',
+          deletedAt: now,
+          deletedByUserId: context.actorUserId,
+          updatedAt: now,
+          updatedByUserId: context.actorUserId,
+        },
+        tx,
+      );
 
       if (archived === null) {
         throw new ProjectDomainError(
@@ -174,6 +332,15 @@ export class ProjectService {
         );
       }
 
+      await this.emitActivity(
+        scope,
+        archived.id,
+        'project.archived',
+        'Archived',
+        context,
+        undefined,
+        'Project was archived.',
+      );
       return archived;
     });
   }
@@ -181,6 +348,7 @@ export class ProjectService {
   async restoreProject(
     scope: ProjectScope,
     projectId: string,
+    command: RestoreProjectCommand,
     context: ProjectApplicationContext,
   ): Promise<ProjectRecord> {
     const existing = await this.projectRepository.findById(scope, projectId, {
@@ -194,15 +362,24 @@ export class ProjectService {
       );
     }
 
-    this.projectDomainService.validateRestore(scope, existing);
+    this.projectDomainService.validateRestore(scope, existing, {
+      targetStatus: command.targetStatus,
+    });
 
     const now = new Date();
+    const targetStatus = command.targetStatus ?? 'ACTIVE';
 
-    return this.runInTransaction(async () => {
-      const restored = await this.projectRepository.restore(scope, projectId, {
-        updatedAt: now,
-        updatedByUserId: context.actorUserId,
-      });
+    return this.runInTransaction(async (tx) => {
+      const restored = await this.projectRepository.restore(
+        scope,
+        projectId,
+        {
+          status: targetStatus,
+          updatedAt: now,
+          updatedByUserId: context.actorUserId,
+        },
+        tx,
+      );
 
       if (restored === null) {
         throw new ProjectDomainError(
@@ -211,6 +388,15 @@ export class ProjectService {
         );
       }
 
+      await this.emitActivity(
+        scope,
+        restored.id,
+        'project.restored',
+        'Restored',
+        context,
+        undefined,
+        'Project was restored.',
+      );
       return restored;
     });
   }
@@ -246,11 +432,60 @@ export class ProjectService {
       status: query.status,
       clientId: query.clientId,
       includeArchived: query.includeArchived,
+      archivedOnly: query.archivedOnly,
+      q: query.q,
+      projectManagerUserId: query.projectManagerUserId,
+      departmentId: query.departmentId,
+      priority: query.priority,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
     });
   }
 
-  private async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
-    return this.prisma.$transaction(async () => work());
+  async listWorkspaceOwners(scope: ProjectScope): Promise<readonly WorkspaceOwnerOption[]> {
+    return this.clientRepository.listWorkspaceOwners(scope);
+  }
+
+  async listDepartments(scope: ProjectScope): Promise<readonly DepartmentOption[]> {
+    return this.projectRepository.listDepartments(scope);
+  }
+
+  private async runInTransaction<T>(
+    work: (tx: ProjectTransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(async (tx) => work(tx));
+  }
+
+  private async emitActivity(
+    scope: ProjectScope,
+    projectId: string,
+    type: string,
+    title: string,
+    context: ProjectApplicationContext,
+    metadata?: Prisma.InputJsonValue,
+    description?: string,
+  ): Promise<void> {
+    await this.activityService.createActivity(
+      scope,
+      {
+        entityType: 'project',
+        entityId: projectId,
+        type,
+        title,
+        ...(description !== undefined ? { description } : {}),
+        ...(metadata !== undefined ? { metadata } : {}),
+      },
+      { actorUserId: context.actorUserId },
+    );
+  }
+
+  private async resolveMembership(scope: ProjectScope): Promise<ProjectMembershipContext> {
+    const users = await this.projectMemberRepository.listWorkspaceUsers(scope);
+    const memberIds = new Set(users.map((user) => user.id));
+
+    return {
+      isWorkspaceMember: (userId: string) => memberIds.has(userId),
+    };
   }
 
   private async requireProject(

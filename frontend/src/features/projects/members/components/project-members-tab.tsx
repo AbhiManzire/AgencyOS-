@@ -21,10 +21,15 @@ import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 
 interface ProjectMembersTabProps {
   readonly projectId: string;
+  readonly projectOwnerUserId?: string | null;
   readonly readOnly?: boolean;
 }
 
-export function ProjectMembersTab({ projectId, readOnly = false }: ProjectMembersTabProps) {
+export function ProjectMembersTab({
+  projectId,
+  projectOwnerUserId = null,
+  readOnly = false,
+}: ProjectMembersTabProps) {
   const { showToast } = useToast();
   const { data, isLoading, error, refetch } = useProjectMembers(projectId);
   const { mutateAsync: createMember, isPending: isCreating } = useCreateProjectMember(projectId);
@@ -134,6 +139,7 @@ export function ProjectMembersTab({ projectId, readOnly = false }: ProjectMember
         <ProjectMembersTable
           members={members}
           readOnly={readOnly}
+          projectOwnerUserId={projectOwnerUserId}
           onEditMember={openEditDrawer}
           onDeleteMember={setDeleteMemberId}
         />

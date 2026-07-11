@@ -84,7 +84,11 @@ export default function InvoiceDetailPage() {
   }
 
   const canRecordPayment =
-    invoice.status === 'SENT' || invoice.status === 'OVERDUE' || invoice.status === 'PAID';
+    invoice.status === 'SENT' ||
+    invoice.status === 'VIEWED' ||
+    invoice.status === 'PARTIALLY_PAID' ||
+    invoice.status === 'OVERDUE' ||
+    invoice.status === 'PAID';
 
   return (
     <PageContainer size="lg">

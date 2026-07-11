@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, Pencil, XCircle } from 'lucide-react';
 import { Body, Caption } from '@/design-system/typography';
 import { Button } from '@/components/ui/button';
 import type { InvoiceRecord } from '@/features/finance/invoices/api/invoice.types';
@@ -12,8 +12,14 @@ import {
   formatInvoiceDate,
   INVOICE_STATUS_LABELS,
 } from '@/features/finance/invoices/forms/invoice-form.validation';
-import { calculateQuotePricingSummary } from '@/features/sales/pricing/pricing-engine';
+import {
+  useApproveInvoice,
+  useCancelInvoice,
+  useMarkInvoiceViewed,
+} from '@/features/finance/invoices/hooks/use-invoice-actions';
 import type { InvoiceLineItemListItem } from '@/features/finance/invoice-line-items/types';
+import { useToast } from '@/design-system';
+import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { Can } from '@/lib/rbac';
 
 interface InvoiceDetailHeaderProps {
@@ -31,7 +37,27 @@ export function InvoiceDetailHeader({
   outstandingAmount,
   onEdit,
 }: InvoiceDetailHeaderProps) {
-  const summary = calculateQuotePricingSummary(lineItems);
+  const { showToast } = useToast();
+  const { mutateAsync: markViewed, isPending: isMarkingViewed } = useMarkInvoiceViewed();
+  const { mutateAsync: cancel, isPending: isCancelling } = useCancelInvoice();
+  const { mutateAsync: approve, isPending: isApproving } = useApproveInvoice();
+
+  const canCancel =
+    invoice.status !== 'CANCELLED' && invoice.status !== 'VOID' && invoice.status !== 'PAID';
+  const canApprove = invoice.approvalStatus === 'PENDING';
+  const canMarkViewed = invoice.status === 'SENT' || invoice.viewedAt === null;
+
+  const runAction = async (
+    action: () => Promise<unknown>,
+    successMessage: string,
+  ): Promise<void> => {
+    try {
+      await action();
+      showToast(successMessage, 'success');
+    } catch (error) {
+      showToast(extractApiErrorMessage(error), 'error');
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4 border-b border-border pb-6">
@@ -73,13 +99,63 @@ export function InvoiceDetailHeader({
             invoiceNumber={invoice.invoiceNumber}
             hasLineItems={lineItems.length > 0}
           />
+
+          <Can permission="invoices.update">
+            <div className="flex flex-wrap gap-2">
+              {canMarkViewed ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={isMarkingViewed}
+                  onClick={() => {
+                    void runAction(() => markViewed(invoice.id), 'Invoice marked as viewed');
+                  }}
+                >
+                  <Eye className="size-4" />
+                  Mark viewed
+                </Button>
+              ) : null}
+              {canApprove ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={isApproving}
+                  onClick={() => {
+                    void runAction(() => approve(invoice.id), 'Invoice approved');
+                  }}
+                >
+                  <CheckCircle2 className="size-4" />
+                  Approve
+                </Button>
+              ) : null}
+              {canCancel ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={isCancelling}
+                  onClick={() => {
+                    void runAction(() => cancel(invoice.id), 'Invoice cancelled');
+                  }}
+                >
+                  <XCircle className="size-4" />
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
+          </Can>
         </div>
 
         <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
           <div>
             <Caption className="block uppercase tracking-wide">Total</Caption>
             <p className="mt-1 text-2xl font-semibold">
-              {formatInvoiceAmount(summary.grandTotal, invoice.currency)}
+              {formatInvoiceAmount(invoice.grandTotal, invoice.currency)}
             </p>
           </div>
           {amountPaid !== undefined ? (
@@ -90,14 +166,12 @@ export function InvoiceDetailHeader({
               </p>
             </div>
           ) : null}
-          {outstandingAmount !== undefined ? (
-            <div>
-              <Caption className="block uppercase tracking-wide">Outstanding</Caption>
-              <p className="mt-1 text-lg font-medium">
-                {formatInvoiceAmount(outstandingAmount, invoice.currency)}
-              </p>
-            </div>
-          ) : null}
+          <div>
+            <Caption className="block uppercase tracking-wide">Balance due</Caption>
+            <p className="mt-1 text-lg font-medium">
+              {formatInvoiceAmount(outstandingAmount ?? invoice.balanceDue, invoice.currency)}
+            </p>
+          </div>
           <Can permission="invoices.update" mode="disable">
             <Button type="button" variant="outline" className="mt-2 gap-2" onClick={onEdit}>
               <Pencil className="size-4" />

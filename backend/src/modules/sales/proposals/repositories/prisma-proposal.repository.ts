@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { type Deal, type Proposal, type Quote } from '@prisma/client';
+import { Prisma, type Deal, type Proposal, type Quote } from '@prisma/client';
 import { normalizeProposalSections } from '../domain/proposal-sections';
 import type {
   CreateProposalData,
   CreateProposalVersionData,
+  ListProposalsParams,
+  ListProposalsResult,
   ProposalRecord,
   ProposalRepository,
   ProposalScope,
@@ -26,6 +28,16 @@ export class PrismaProposalRepository implements ProposalRepository {
       data: {
         ...data,
         sections: data.sections,
+        amount:
+          data.amount === undefined || data.amount === null
+            ? null
+            : new Prisma.Decimal(data.amount),
+        tax: data.tax === undefined || data.tax === null ? null : new Prisma.Decimal(data.tax),
+        discount:
+          data.discount === undefined || data.discount === null
+            ? null
+            : new Prisma.Decimal(data.discount),
+        validUntil: data.validUntil ?? null,
       },
       include: proposalInclude,
     });
@@ -38,13 +50,20 @@ export class PrismaProposalRepository implements ProposalRepository {
     id: string,
     data: UpdateProposalData,
   ): Promise<ProposalRecord | null> {
-    const { sections, ...rest } = data;
+    const { sections, amount, tax, discount, ...rest } = data;
 
     const result = await this.prisma.proposal.updateMany({
       where: activeProposalWhere(scope, id),
       data: {
         ...rest,
         ...(sections !== undefined ? { sections } : {}),
+        ...(amount !== undefined
+          ? { amount: amount === null ? null : new Prisma.Decimal(amount) }
+          : {}),
+        ...(tax !== undefined ? { tax: tax === null ? null : new Prisma.Decimal(tax) } : {}),
+        ...(discount !== undefined
+          ? { discount: discount === null ? null : new Prisma.Decimal(discount) }
+          : {}),
       },
     });
 
@@ -67,6 +86,34 @@ export class PrismaProposalRepository implements ProposalRepository {
     });
 
     return proposal ? toProposalRecord(proposal) : null;
+  }
+
+  async list(params: ListProposalsParams): Promise<ListProposalsResult> {
+    const { scope, skip = 0, take = 25, dealId, status } = params;
+
+    const where: Prisma.ProposalWhereInput = {
+      tenantId: scope.tenantId,
+      workspaceId: scope.workspaceId,
+      deletedAt: null,
+      ...(dealId !== undefined ? { dealId } : {}),
+      ...(status !== undefined ? { status } : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.proposal.findMany({
+        where,
+        skip,
+        take,
+        include: proposalInclude,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.prisma.proposal.count({ where }),
+    ]);
+
+    return {
+      items: items.map(toProposalRecord),
+      total,
+    };
   }
 }
 
@@ -111,6 +158,10 @@ function toProposalRecord(proposal: ProposalWithRelations): ProposalRecord {
     version: proposal.version,
     status: proposal.status,
     sections: normalizeProposalSections(proposal.sections),
+    amount: proposal.amount?.toNumber() ?? null,
+    tax: proposal.tax?.toNumber() ?? null,
+    discount: proposal.discount?.toNumber() ?? null,
+    validUntil: proposal.validUntil,
     createdAt: proposal.createdAt,
     updatedAt: proposal.updatedAt,
     createdByUserId: proposal.createdByUserId,

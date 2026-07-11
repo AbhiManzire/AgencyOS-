@@ -23,6 +23,9 @@ import {
 import { useCreateDeal } from '@/features/sales/hooks/use-create-deal';
 import { useDeal } from '@/features/sales/hooks/use-deal';
 import { useUpdateDeal } from '@/features/sales/hooks/use-update-deal';
+import { useLeads } from '@/features/sales/leads/hooks/use-leads';
+import type { DealPriority } from '@/features/sales/types';
+import { DEAL_PRIORITY_LABELS } from '@/features/sales/utils/deal-display';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 
 export type DealDrawerMode = 'create' | 'edit';
@@ -90,6 +93,8 @@ export function DealFormDrawer({
     error: contactsError,
     refetch: refetchContacts,
   } = useClientContacts(values.clientId);
+
+  const { data: leadsData } = useLeads({ take: 100 }, { enabled: open });
 
   useEffect(() => {
     if (!open) {
@@ -321,6 +326,74 @@ export function DealFormDrawer({
                       }}
                       disabled={isFormDisabled}
                     />
+                  </FormField>
+
+                  <FormField label="Lead" htmlFor="leadId">
+                    <NativeSelect
+                      id="leadId"
+                      label="Lead"
+                      value={values.leadId}
+                      disabled={isFormDisabled}
+                      onChange={(event) => {
+                        updateField('leadId', event.target.value);
+                      }}
+                    >
+                      <option value="">No linked lead</option>
+                      {leadsData?.items.map((lead) => (
+                        <option key={lead.id} value={lead.id}>
+                          {lead.company}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormField>
+
+                  <FormField label="Service" htmlFor="service">
+                    <Input
+                      id="service"
+                      value={values.service}
+                      onChange={(event) => {
+                        updateField('service', event.target.value);
+                      }}
+                      placeholder="Website redesign"
+                      disabled={isFormDisabled}
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Probability (%)"
+                    htmlFor="probability"
+                    error={errors.probability}
+                  >
+                    <Input
+                      id="probability"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={values.probability}
+                      onChange={(event) => {
+                        updateField('probability', event.target.value);
+                      }}
+                      placeholder="50"
+                      disabled={isFormDisabled}
+                    />
+                  </FormField>
+
+                  <FormField label="Priority" htmlFor="priority">
+                    <NativeSelect
+                      id="priority"
+                      label="Priority"
+                      value={values.priority}
+                      disabled={isFormDisabled}
+                      onChange={(event) => {
+                        updateField('priority', event.target.value as DealPriority);
+                      }}
+                    >
+                      {(Object.keys(DEAL_PRIORITY_LABELS) as DealPriority[]).map((key) => (
+                        <option key={key} value={key}>
+                          {DEAL_PRIORITY_LABELS[key]}
+                        </option>
+                      ))}
+                    </NativeSelect>
                   </FormField>
                 </section>
               </div>

@@ -17,6 +17,11 @@ import {
   QUOTE_REPOSITORY,
   type QuoteRepository,
 } from '../sales/quotes/repositories/quote.repository.interface';
+import {
+  FINANCE_SPRINT5_CONTROLLERS,
+  FINANCE_SPRINT5_EXPORTS,
+  FINANCE_SPRINT5_PROVIDERS,
+} from './finance-sprint5.providers';
 import { InvoiceItemsController } from './invoice-line-items/controllers/invoice-items.controller';
 import { InvoiceLineItemsController } from './invoice-line-items/controllers/invoice-line-items.controller';
 import { InvoiceLineItemDomainService } from './invoice-line-items/domain/invoice-line-item-domain.service';
@@ -78,6 +83,7 @@ import { PaymentService } from './payments/services/payment.service';
     InvoiceLineItemService,
     InvoiceDeliveryService,
     PaymentService,
+    ...FINANCE_SPRINT5_PROVIDERS,
   ],
   controllers: [
     InvoiceDeliveryController,
@@ -86,6 +92,7 @@ import { PaymentService } from './payments/services/payment.service';
     InvoiceItemsController,
     PaymentsController,
     InvoicePaymentsController,
+    ...FINANCE_SPRINT5_CONTROLLERS,
   ],
   exports: [
     INVOICE_REPOSITORY,
@@ -98,6 +105,7 @@ import { PaymentService } from './payments/services/payment.service';
     InvoiceLineItemService,
     InvoiceDeliveryService,
     PaymentService,
+    ...FINANCE_SPRINT5_EXPORTS,
   ],
 })
 export class FinanceModule {}

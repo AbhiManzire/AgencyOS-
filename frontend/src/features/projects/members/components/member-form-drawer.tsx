@@ -53,6 +53,7 @@ export function MemberFormDrawer({
   const [errors, setErrors] = useState<MemberFormErrors>({});
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
 
   const isEditMode = mode === 'edit';
   const isSaving = isPending || isSubmitting;
@@ -61,9 +62,22 @@ export function MemberFormDrawer({
     [initialValues, values],
   );
 
+  const filteredUsers = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    if (query.length === 0) {
+      return availableUsers;
+    }
+
+    return availableUsers.filter(
+      (user) =>
+        user.displayName.toLowerCase().includes(query) || user.email.toLowerCase().includes(query),
+    );
+  }, [availableUsers, userSearch]);
+
   useEffect(() => {
     if (!open) {
       setShowDiscardConfirm(false);
+      setUserSearch('');
       return;
     }
 
@@ -157,31 +171,46 @@ export function MemberFormDrawer({
                 <Input id="memberUser" value={member?.userDisplayName ?? ''} disabled />
               </ContactFormField>
             ) : (
-              <ContactFormField
-                label="Workspace User"
-                htmlFor="userId"
-                required
-                error={errors.userId}
-              >
-                <NativeSelect
-                  id="userId"
+              <>
+                <ContactFormField label="Search users" htmlFor="userSearch">
+                  <Input
+                    id="userSearch"
+                    type="search"
+                    value={userSearch}
+                    onChange={(event) => {
+                      setUserSearch(event.target.value);
+                    }}
+                    placeholder="Search by name or email"
+                    disabled={isSaving}
+                  />
+                </ContactFormField>
+
+                <ContactFormField
                   label="Workspace User"
-                  value={values.userId}
-                  disabled={isSaving || availableUsers.length === 0}
-                  onChange={(event) => {
-                    updateField('userId', event.target.value);
-                  }}
+                  htmlFor="userId"
+                  required
+                  error={errors.userId}
                 >
-                  <option value="">
-                    {availableUsers.length === 0 ? 'No workspace users available' : 'Select a user'}
-                  </option>
-                  {availableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.displayName} ({user.email})
+                  <NativeSelect
+                    id="userId"
+                    label="Workspace User"
+                    value={values.userId}
+                    disabled={isSaving || filteredUsers.length === 0}
+                    onChange={(event) => {
+                      updateField('userId', event.target.value);
+                    }}
+                  >
+                    <option value="">
+                      {filteredUsers.length === 0 ? 'No matching workspace users' : 'Select a user'}
                     </option>
-                  ))}
-                </NativeSelect>
-              </ContactFormField>
+                    {filteredUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.displayName} ({user.email})
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </ContactFormField>
+              </>
             )}
 
             <ContactFormField label="Role" htmlFor="role">
@@ -194,8 +223,10 @@ export function MemberFormDrawer({
                   updateField('role', event.target.value as ProjectMemberRole);
                 }}
               >
-                <option value="LEAD">Lead</option>
-                <option value="MEMBER">Member</option>
+                <option value="MANAGER">Manager</option>
+                <option value="DEVELOPER">Developer</option>
+                <option value="DESIGNER">Designer</option>
+                <option value="QA">QA</option>
                 <option value="VIEWER">Viewer</option>
               </NativeSelect>
             </ContactFormField>

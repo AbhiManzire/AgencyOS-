@@ -2,9 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { calculateQuotePricingSummary } from '../../../sales/pricing/pricing-engine';
+import { calculateQuotePricingSummary, roundMoney } from '../../../sales/pricing/pricing-engine';
 import {
   INVOICE_REPOSITORY,
+  type InvoiceRecord,
   type InvoiceRepository,
   type InvoiceScope,
 } from '../../invoices/repositories/invoice.repository.interface';
@@ -12,6 +13,7 @@ import {
   INVOICE_LINE_ITEM_REPOSITORY,
   type InvoiceLineItemRepository,
 } from '../../invoice-line-items/repositories/invoice-line-item.repository.interface';
+import { LedgerPostingService } from '../../ledger/services/ledger-posting.service';
 import { PaymentDomainService } from '../domain/payment-domain.service';
 import { PAYMENT_DOMAIN_ERROR_CODES, PaymentDomainError } from '../domain/payment-domain.errors';
 import {
@@ -40,6 +42,7 @@ export class PaymentService {
     private readonly invoiceLineItemRepository: InvoiceLineItemRepository,
     private readonly paymentDomainService: PaymentDomainService,
     private readonly activityService: ActivityService,
+    private readonly ledgerPostingService: LedgerPostingService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -75,7 +78,7 @@ export class PaymentService {
     const invoice = await this.requireInvoice(scope, invoiceId);
     const { grandTotal, amountPaid, outstandingAmount } = await this.computeBalances(
       scope,
-      invoiceId,
+      invoice,
     );
 
     return {
@@ -100,7 +103,7 @@ export class PaymentService {
     const currency = (command.currency ?? invoice.currency).trim().toUpperCase();
     this.paymentDomainService.assertCurrencyMatch(currency, invoice.currency);
 
-    const { outstandingAmount } = await this.computeBalances(scope, invoice.id);
+    const { outstandingAmount } = await this.computeBalances(scope, invoice);
     this.paymentDomainService.assertWithinOutstanding(command.amount, outstandingAmount);
 
     const now = new Date();
@@ -116,6 +119,7 @@ export class PaymentService {
       paidAt: command.paidAt,
       reference: this.paymentDomainService.normalizeOptionalText(command.reference),
       notes: this.paymentDomainService.normalizeOptionalText(command.notes),
+      approvalStatus: command.approvalStatus ?? 'NOT_REQUIRED',
       createdAt: now,
       updatedAt: now,
       createdByUserId: context.actorUserId,
@@ -137,6 +141,36 @@ export class PaymentService {
             amount: payment.amount,
             method: payment.method,
           },
+        },
+        { actorUserId: context.actorUserId },
+      );
+      await this.activityService.createActivity(
+        scope,
+        {
+          entityType: 'payment',
+          entityId: payment.id,
+          type: 'payment.received',
+          title: 'Payment received',
+          description: `Payment of ${payment.amount.toFixed(2)} ${payment.currency} received.`,
+          metadata: {
+            invoiceId: invoice.id,
+            amount: payment.amount,
+            method: payment.method,
+          },
+        },
+        { actorUserId: context.actorUserId },
+      );
+      await this.ledgerPostingService.postPaymentReceived(
+        scope,
+        {
+          entryDate: payment.paidAt,
+          entityType: 'payment',
+          entityId: payment.id,
+          clientId: invoice.clientId,
+          amount: payment.amount,
+          description: `Payment received for invoice ${invoice.invoiceNumber}`,
+          referenceType: 'invoice',
+          referenceId: invoice.id,
         },
         { actorUserId: context.actorUserId },
       );
@@ -193,19 +227,21 @@ export class PaymentService {
     context: PaymentApplicationContext,
   ): Promise<void> {
     const invoice = await this.requireInvoice(scope, invoiceId);
-    const { outstandingAmount } = await this.computeBalances(scope, invoiceId);
+    const { outstandingAmount, amountPaid, grandTotal } = await this.computeBalances(
+      scope,
+      invoice,
+    );
     const nextStatus = this.paymentDomainService.resolveInvoiceStatusAfterPayment({
       currentStatus: invoice.status,
       dueDate: invoice.dueDate,
       outstanding: outstandingAmount,
+      amountPaid,
     });
-
-    if (nextStatus === invoice.status) {
-      return;
-    }
 
     await this.invoiceRepository.update(scope, invoiceId, {
       status: nextStatus,
+      balanceDue: outstandingAmount,
+      grandTotal: invoice.grandTotal > 0 ? invoice.grandTotal : grandTotal,
       updatedAt: new Date(),
       updatedByUserId: context.actorUserId,
     });
@@ -213,15 +249,15 @@ export class PaymentService {
 
   private async computeBalances(
     scope: PaymentScope,
-    invoiceId: string,
+    invoice: InvoiceRecord,
   ): Promise<{ grandTotal: number; amountPaid: number; outstandingAmount: number }> {
     const [lineItems, amountPaid] = await Promise.all([
       this.invoiceLineItemRepository.listByInvoice({
         tenantId: scope.tenantId,
         workspaceId: scope.workspaceId,
-        invoiceId,
+        invoiceId: invoice.id,
       }),
-      this.paymentRepository.sumCompletedAmount(scope, invoiceId),
+      this.paymentRepository.sumCompletedAmount(scope, invoice.id),
     ]);
     const summary = calculateQuotePricingSummary(
       lineItems.map((item) => ({
@@ -232,13 +268,12 @@ export class PaymentService {
         total: item.total,
       })),
     );
-    const outstandingAmount = Math.max(
-      0,
-      Math.round((summary.grandTotal - amountPaid) * 100) / 100,
-    );
+    const computedGrandTotal = roundMoney(Math.max(0, summary.grandTotal - invoice.discountAmount));
+    const grandTotal = invoice.grandTotal > 0 ? invoice.grandTotal : computedGrandTotal;
+    const outstandingAmount = roundMoney(Math.max(0, grandTotal - amountPaid));
 
     return {
-      grandTotal: summary.grandTotal,
+      grandTotal,
       amountPaid,
       outstandingAmount,
     };

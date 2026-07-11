@@ -2,8 +2,10 @@ import { StatusBadge } from '@/design-system';
 import type { ProjectMemberRole } from '@/features/projects/members/types';
 
 const ROLE_LABELS: Record<ProjectMemberRole, string> = {
-  LEAD: 'Lead',
-  MEMBER: 'Member',
+  MANAGER: 'Manager',
+  DEVELOPER: 'Developer',
+  DESIGNER: 'Designer',
+  QA: 'QA',
   VIEWER: 'Viewer',
 };
 
@@ -11,9 +13,11 @@ const ROLE_VARIANTS: Record<
   ProjectMemberRole,
   'primary' | 'success' | 'warning' | 'danger' | 'neutral'
 > = {
-  LEAD: 'primary',
-  MEMBER: 'neutral',
-  VIEWER: 'warning',
+  MANAGER: 'primary',
+  DEVELOPER: 'neutral',
+  DESIGNER: 'success',
+  QA: 'warning',
+  VIEWER: 'neutral',
 };
 
 interface MemberRoleBadgeProps {

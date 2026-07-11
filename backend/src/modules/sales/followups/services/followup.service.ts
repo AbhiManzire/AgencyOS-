@@ -68,6 +68,8 @@ export class FollowUpService {
       scheduledAt: command.scheduledAt,
       notes: this.followUpDomainService.normalizeOptionalNotes(command.notes),
       reminderAt: command.reminderAt ?? null,
+      outcome: this.followUpDomainService.normalizeOptionalNotes(command.outcome),
+      nextFollowUpAt: command.nextFollowUpAt ?? null,
       ownerUserId: command.ownerUserId ?? null,
       status: command.status ?? 'PENDING',
       createdAt: now,
@@ -106,6 +108,10 @@ export class FollowUpService {
         ? { notes: this.followUpDomainService.normalizeOptionalNotes(command.notes) }
         : {}),
       ...(command.reminderAt !== undefined ? { reminderAt: command.reminderAt } : {}),
+      ...(command.outcome !== undefined
+        ? { outcome: this.followUpDomainService.normalizeOptionalNotes(command.outcome) }
+        : {}),
+      ...(command.nextFollowUpAt !== undefined ? { nextFollowUpAt: command.nextFollowUpAt } : {}),
       ...(command.ownerUserId !== undefined ? { ownerUserId: command.ownerUserId } : {}),
       ...(command.status !== undefined ? { status: command.status } : {}),
       updatedAt: now,

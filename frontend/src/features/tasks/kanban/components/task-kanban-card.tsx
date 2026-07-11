@@ -22,6 +22,7 @@ export function TaskKanbanCard({ task, isDragging = false, onOpen }: TaskKanbanC
 
   return (
     <article
+      data-kanban-card="true"
       draggable={canDrag}
       onDragStart={(event) => {
         didDragRef.current = true;

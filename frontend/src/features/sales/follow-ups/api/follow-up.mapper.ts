@@ -11,6 +11,8 @@ export function followUpRecordToListItem(record: FollowUpRecord): FollowUpListIt
     scheduledAt: record.scheduledAt,
     notes: record.notes,
     reminderAt: record.reminderAt,
+    outcome: record.outcome,
+    nextFollowUpAt: record.nextFollowUpAt,
     ownerUserId: record.ownerUserId,
     ownerName: formatDealOwner(record.ownerDisplayName, record.ownerEmail, record.ownerUserId),
     status: record.status,

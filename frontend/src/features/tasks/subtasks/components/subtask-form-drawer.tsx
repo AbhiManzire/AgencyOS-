@@ -42,10 +42,12 @@ interface SubtaskFormDrawerProps {
 }
 
 const STATUS_LABELS: Record<(typeof TASK_STATUS_OPTIONS)[number], string> = {
+  BACKLOG: 'Backlog',
   TODO: 'To Do',
   IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
+  REVIEW: 'Review',
+  BLOCKED: 'Blocked',
+  COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
 };
 

@@ -3,7 +3,7 @@
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
-import type { AssigneeFilterOption } from '@/features/tasks/components/task-list-toolbar';
+import type { FilterOption } from '@/features/tasks/components/task-list-toolbar';
 
 interface ProjectFilterOption {
   readonly id: string;
@@ -15,7 +15,7 @@ interface TaskKanbanToolbarProps {
   readonly projectFilter: string;
   readonly assigneeFilter: string;
   readonly projectOptions: readonly ProjectFilterOption[];
-  readonly assigneeOptions: readonly AssigneeFilterOption[];
+  readonly assigneeOptions: readonly FilterOption[];
   readonly onSearchChange: (value: string) => void;
   readonly onProjectFilterChange: (value: string) => void;
   readonly onAssigneeFilterChange: (value: string) => void;

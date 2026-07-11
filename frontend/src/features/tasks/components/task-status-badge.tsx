@@ -1,23 +1,29 @@
 import { StatusBadge } from '@/design-system';
 import type { TaskStatus } from '@/features/tasks/types';
 
-const STATUS_LABELS: Record<TaskStatus, string> = {
+export const STATUS_LABELS: Record<TaskStatus, string> = {
+  BACKLOG: 'Backlog',
   TODO: 'To Do',
   IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
+  REVIEW: 'Review',
+  BLOCKED: 'Blocked',
+  COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
+  ARCHIVED: 'Archived',
 };
 
 const STATUS_VARIANTS: Record<
   TaskStatus,
   'primary' | 'success' | 'warning' | 'danger' | 'neutral'
 > = {
+  BACKLOG: 'neutral',
   TODO: 'neutral',
   IN_PROGRESS: 'primary',
-  IN_REVIEW: 'warning',
-  DONE: 'success',
+  REVIEW: 'warning',
+  BLOCKED: 'danger',
+  COMPLETED: 'success',
   CANCELLED: 'danger',
+  ARCHIVED: 'neutral',
 };
 
 interface TaskStatusBadgeProps {

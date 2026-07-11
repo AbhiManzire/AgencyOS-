@@ -12,12 +12,17 @@ import {
 import { successResponse } from '../../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../../common/http/api-response.types';
 import { RequirePermissions } from '../../../rbac/decorators/require-permissions.decorator';
+import { ConvertDealToInvoiceDto } from '../dto/convert-deal-to-invoice.dto';
 import { CreateDealDto } from '../dto/create-deal.dto';
 import { ListDealsQueryDto } from '../dto/list-deals-query.dto';
 import { UpdateDealDto } from '../dto/update-deal.dto';
 import { DealMapper } from '../mappers/deal.mapper';
 import type { DealRecord } from '../repositories/deal.repository.interface';
-import type { DealApplicationContext, DealScope } from '../services/deal-application.types';
+import type {
+  ConvertedInvoiceRecord,
+  DealApplicationContext,
+  DealScope,
+} from '../services/deal-application.types';
 import { DealService } from '../services/deal.service';
 
 const TENANT_HEADER = 'x-tenant-id';
@@ -84,6 +89,60 @@ export class DealsController {
     const deal = await this.dealService.updateDeal(scope, id, command, context);
 
     return successResponse(deal);
+  }
+
+  @Post(':id/archive')
+  @RequirePermissions('sales.update')
+  async archive(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<DealRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const deal = await this.dealService.archiveDeal(scope, id, context);
+
+    return successResponse(deal);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions('sales.update')
+  async restore(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<DealRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const deal = await this.dealService.restoreDeal(scope, id, context);
+
+    return successResponse(deal);
+  }
+
+  @Post(':id/convert-to-project')
+  @RequirePermissions('sales.update')
+  async convertToProject(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<DealRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const deal = await this.dealService.convertToProject(scope, id, context);
+
+    return successResponse(deal);
+  }
+
+  @Post(':id/convert-to-invoice')
+  @RequirePermissions('sales.update')
+  async convertToInvoice(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConvertDealToInvoiceDto,
+  ): Promise<ApiSuccessResponse<ConvertedInvoiceRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const command = DealMapper.toConvertDealToInvoiceCommand(dto);
+    const invoice = await this.dealService.convertToInvoice(scope, id, command, context);
+
+    return successResponse(invoice);
   }
 
   private resolveScope(headers: Record<string, string | string[] | undefined>): DealScope {

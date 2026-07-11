@@ -5,11 +5,14 @@ import { formatDealStage } from '@/features/sales/utils/deal-display';
 const STAGE_VARIANTS: Record<DealStage, 'primary' | 'success' | 'warning' | 'danger' | 'neutral'> =
   {
     NEW: 'neutral',
+    CONTACTED: 'primary',
     QUALIFIED: 'primary',
+    DISCOVERY: 'primary',
     PROPOSAL: 'primary',
     NEGOTIATION: 'warning',
     WON: 'success',
     LOST: 'danger',
+    ARCHIVED: 'neutral',
   };
 
 interface DealStageBadgeProps {

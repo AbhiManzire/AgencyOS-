@@ -1,12 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { ActivityService } from '../../activities/services/activity.service';
 import { TaskDomainService } from '../domain/task-domain.service';
 import { TASK_DOMAIN_ERROR_CODES, TaskDomainError } from '../domain/task-domain.errors';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  TASK_DEPENDENCY_REPOSITORY,
   TASK_REPOSITORY,
   type CreateTaskData,
   type FindTaskByIdOptions,
+  type TaskDependencyRecord,
+  type TaskDependencyRepository,
   type TaskRepository,
   type TaskScope,
   type UpdateTaskData,
@@ -28,7 +33,10 @@ export class TaskService {
   constructor(
     @Inject(TASK_REPOSITORY)
     private readonly taskRepository: TaskRepository,
+    @Inject(TASK_DEPENDENCY_REPOSITORY)
+    private readonly taskDependencyRepository: TaskDependencyRepository,
     private readonly taskDomainService: TaskDomainService,
+    private readonly activityService: ActivityService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -43,12 +51,17 @@ export class TaskService {
       title: command.title,
       projectId: command.projectId,
       milestoneId: command.milestoneId,
+      code: command.code,
       status: command.status,
       priority: command.priority,
+      type: command.type,
       assigneeUserId: command.assigneeUserId,
+      reporterUserId: command.reporterUserId,
       startDate: command.startDate,
       dueDate: command.dueDate,
       estimatedHours: command.estimatedHours,
+      actualHours: command.actualHours,
+      boardOrder: command.boardOrder,
     });
 
     const now = new Date();
@@ -60,21 +73,51 @@ export class TaskService {
       projectId: command.projectId,
       milestoneId: command.milestoneId ?? null,
       parentTaskId: null,
+      code: normalizeOptionalCode(command.code),
       title: command.title.trim(),
       description: command.description ?? null,
       status: command.status ?? 'TODO',
-      priority: command.priority ?? 'NORMAL',
+      priority: command.priority ?? 'MEDIUM',
+      type: command.type ?? 'FEATURE',
       assigneeUserId: command.assigneeUserId ?? null,
+      reporterUserId: command.reporterUserId ?? context.actorUserId,
       startDate: command.startDate ?? null,
       dueDate: command.dueDate ?? null,
       estimatedHours: command.estimatedHours ?? null,
+      actualHours: command.actualHours ?? null,
+      boardOrder: command.boardOrder ?? 0,
       createdAt: now,
       updatedAt: now,
       createdByUserId: context.actorUserId,
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(() => this.taskRepository.create(data));
+    return this.runInTransaction(async () => {
+      const created = await this.taskRepository.create(data);
+      await this.emitActivity(
+        scope,
+        created.id,
+        'task.created',
+        'Task Created',
+        context,
+        undefined,
+        'Task was created.',
+      );
+
+      if (created.assigneeUserId !== null) {
+        await this.emitActivity(
+          scope,
+          created.id,
+          'task.assigned',
+          'Task Assigned',
+          context,
+          { assigneeUserId: created.assigneeUserId },
+          'Task was assigned.',
+        );
+      }
+
+      return created;
+    });
   }
 
   async updateTask(
@@ -88,25 +131,49 @@ export class TaskService {
     await this.taskDomainService.validateUpdate(scope, existing, {
       title: command.title,
       milestoneId: command.milestoneId,
+      code: command.code,
       status: command.status,
       priority: command.priority,
+      type: command.type,
       assigneeUserId: command.assigneeUserId,
+      reporterUserId: command.reporterUserId,
       startDate: command.startDate,
       dueDate: command.dueDate,
       estimatedHours: command.estimatedHours,
+      actualHours: command.actualHours,
+      boardOrder: command.boardOrder,
     });
 
     const now = new Date();
+    const nextStatus = command.status;
+    let completedAt: Date | null | undefined;
+
+    if (nextStatus === 'COMPLETED' && existing.status !== 'COMPLETED') {
+      completedAt = existing.completedAt ?? now;
+    } else if (
+      nextStatus !== undefined &&
+      nextStatus !== 'COMPLETED' &&
+      existing.status === 'COMPLETED'
+    ) {
+      completedAt = null;
+    }
+
     const data: UpdateTaskData = {
       ...(command.title !== undefined ? { title: command.title.trim() } : {}),
       ...(command.description !== undefined ? { description: command.description } : {}),
       ...(command.milestoneId !== undefined ? { milestoneId: command.milestoneId } : {}),
+      ...(command.code !== undefined ? { code: normalizeOptionalCode(command.code) } : {}),
       ...(command.status !== undefined ? { status: command.status } : {}),
       ...(command.priority !== undefined ? { priority: command.priority } : {}),
+      ...(command.type !== undefined ? { type: command.type } : {}),
       ...(command.assigneeUserId !== undefined ? { assigneeUserId: command.assigneeUserId } : {}),
+      ...(command.reporterUserId !== undefined ? { reporterUserId: command.reporterUserId } : {}),
       ...(command.startDate !== undefined ? { startDate: command.startDate } : {}),
       ...(command.dueDate !== undefined ? { dueDate: command.dueDate } : {}),
       ...(command.estimatedHours !== undefined ? { estimatedHours: command.estimatedHours } : {}),
+      ...(command.actualHours !== undefined ? { actualHours: command.actualHours } : {}),
+      ...(command.boardOrder !== undefined ? { boardOrder: command.boardOrder } : {}),
+      ...(completedAt !== undefined ? { completedAt } : {}),
       updatedAt: now,
       updatedByUserId: context.actorUserId,
     };
@@ -117,7 +184,150 @@ export class TaskService {
         throw new TaskDomainError(TASK_DOMAIN_ERROR_CODES.TASK_NOT_FOUND, 'Task was not found.');
       }
 
+      const statusChanged = command.status !== undefined && command.status !== existing.status;
+
+      if (statusChanged) {
+        await this.emitActivity(
+          scope,
+          updated.id,
+          'task.status_changed',
+          'Status Changed',
+          context,
+          { from: existing.status, to: command.status },
+          `Status changed from ${existing.status} to ${command.status}.`,
+        );
+
+        if (command.status === 'COMPLETED') {
+          await this.emitActivity(
+            scope,
+            updated.id,
+            'task.completed',
+            'Task Completed',
+            context,
+            undefined,
+            'Task was completed.',
+          );
+        }
+      } else {
+        await this.emitActivity(
+          scope,
+          updated.id,
+          'task.updated',
+          'Task Updated',
+          context,
+          undefined,
+          'Task details were updated.',
+        );
+      }
+
+      if (
+        command.assigneeUserId !== undefined &&
+        command.assigneeUserId !== existing.assigneeUserId
+      ) {
+        if (existing.assigneeUserId !== null && command.assigneeUserId !== null) {
+          await this.emitActivity(
+            scope,
+            updated.id,
+            'task.reassigned',
+            'Task Reassigned',
+            context,
+            {
+              from: existing.assigneeUserId,
+              to: command.assigneeUserId,
+            },
+            'Task was reassigned.',
+          );
+        } else if (command.assigneeUserId !== null) {
+          await this.emitActivity(
+            scope,
+            updated.id,
+            'task.assigned',
+            'Task Assigned',
+            context,
+            { assigneeUserId: command.assigneeUserId },
+            'Task was assigned.',
+          );
+        }
+      }
+
       return updated;
+    });
+  }
+
+  async archiveTask(
+    scope: TaskScope,
+    taskId: string,
+    context: TaskApplicationContext,
+  ): Promise<TaskRecord> {
+    const existing = await this.requireTask(scope, taskId);
+    this.taskDomainService.validateArchive(scope, existing);
+
+    const now = new Date();
+
+    return this.runInTransaction(async () => {
+      const archived = await this.taskRepository.softDelete(scope, taskId, {
+        status: 'ARCHIVED',
+        deletedAt: now,
+        deletedByUserId: context.actorUserId,
+        updatedAt: now,
+        updatedByUserId: context.actorUserId,
+      });
+
+      if (archived === null) {
+        throw new TaskDomainError(TASK_DOMAIN_ERROR_CODES.TASK_NOT_FOUND, 'Task was not found.');
+      }
+
+      await this.emitActivity(
+        scope,
+        archived.id,
+        'task.archived',
+        'Archived',
+        context,
+        undefined,
+        'Task was archived.',
+      );
+      return archived;
+    });
+  }
+
+  async restoreTask(
+    scope: TaskScope,
+    taskId: string,
+    context: TaskApplicationContext,
+  ): Promise<TaskRecord> {
+    const existing = await this.taskRepository.findById(scope, taskId, {
+      includeArchived: true,
+    });
+
+    if (existing === null) {
+      throw new TaskDomainError(TASK_DOMAIN_ERROR_CODES.TASK_NOT_FOUND, 'Task was not found.');
+    }
+
+    this.taskDomainService.validateRestore(scope, existing);
+
+    const now = new Date();
+
+    return this.runInTransaction(async () => {
+      const restored = await this.taskRepository.restore(scope, taskId, {
+        status: 'TODO',
+        updatedAt: now,
+        updatedByUserId: context.actorUserId,
+      });
+
+      if (restored === null) {
+        throw new TaskDomainError(TASK_DOMAIN_ERROR_CODES.TASK_NOT_FOUND, 'Task was not found.');
+      }
+
+      await this.emitActivity(
+        scope,
+        restored.id,
+        'task.restored',
+        'Restored',
+        context,
+        undefined,
+        'Task was restored.',
+      );
+      return restored;
     });
   }
 
@@ -146,8 +356,19 @@ export class TaskService {
       projectId: query.projectId,
       milestoneId: query.milestoneId,
       status: query.status,
+      priority: query.priority,
+      type: query.type,
       assigneeUserId: query.assigneeUserId,
+      reporterUserId: query.reporterUserId,
+      q: query.q,
+      dueFrom: query.dueFrom,
+      dueTo: query.dueTo,
+      boardOrderFrom: query.boardOrderFrom,
+      boardOrderTo: query.boardOrderTo,
       includeArchived: query.includeArchived,
+      archivedOnly: query.archivedOnly,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
       topLevelOnly: true,
     });
   }
@@ -193,18 +414,34 @@ export class TaskService {
       title: command.title.trim(),
       description: null,
       status: command.status ?? 'TODO',
-      priority: command.priority ?? 'NORMAL',
+      priority: command.priority ?? 'MEDIUM',
+      type: 'FEATURE',
       assigneeUserId: command.assigneeUserId ?? null,
+      reporterUserId: context.actorUserId,
       startDate: null,
       dueDate: command.dueDate ?? null,
       estimatedHours: null,
+      actualHours: null,
+      boardOrder: 0,
       createdAt: now,
       updatedAt: now,
       createdByUserId: context.actorUserId,
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(() => this.taskRepository.create(data));
+    return this.runInTransaction(async () => {
+      const created = await this.taskRepository.create(data);
+      await this.emitActivity(
+        scope,
+        created.id,
+        'task.created',
+        'Subtask Created',
+        context,
+        { parentTaskId },
+        'Subtask was created.',
+      );
+      return created;
+    });
   }
 
   async updateSubtask(
@@ -226,12 +463,25 @@ export class TaskService {
     });
 
     const now = new Date();
+    let completedAt: Date | null | undefined;
+
+    if (command.status === 'COMPLETED' && existing.status !== 'COMPLETED') {
+      completedAt = existing.completedAt ?? now;
+    } else if (
+      command.status !== undefined &&
+      command.status !== 'COMPLETED' &&
+      existing.status === 'COMPLETED'
+    ) {
+      completedAt = null;
+    }
+
     const data: UpdateTaskData = {
       ...(command.title !== undefined ? { title: command.title.trim() } : {}),
       ...(command.status !== undefined ? { status: command.status } : {}),
       ...(command.priority !== undefined ? { priority: command.priority } : {}),
       ...(command.assigneeUserId !== undefined ? { assigneeUserId: command.assigneeUserId } : {}),
       ...(command.dueDate !== undefined ? { dueDate: command.dueDate } : {}),
+      ...(completedAt !== undefined ? { completedAt } : {}),
       updatedAt: now,
       updatedByUserId: context.actorUserId,
     };
@@ -240,6 +490,30 @@ export class TaskService {
       const updated = await this.taskRepository.update(scope, subtaskId, data);
       if (updated === null) {
         throw new TaskDomainError(TASK_DOMAIN_ERROR_CODES.TASK_NOT_FOUND, 'Subtask was not found.');
+      }
+
+      if (command.status !== undefined && command.status !== existing.status) {
+        await this.emitActivity(
+          scope,
+          updated.id,
+          'task.status_changed',
+          'Status Changed',
+          context,
+          { from: existing.status, to: command.status },
+          `Status changed from ${existing.status} to ${command.status}.`,
+        );
+
+        if (command.status === 'COMPLETED') {
+          await this.emitActivity(
+            scope,
+            updated.id,
+            'task.completed',
+            'Task Completed',
+            context,
+            undefined,
+            'Subtask was completed.',
+          );
+        }
       }
 
       return updated;
@@ -261,6 +535,7 @@ export class TaskService {
 
     return this.runInTransaction(async () => {
       const deleted = await this.taskRepository.softDelete(scope, subtaskId, {
+        status: 'ARCHIVED',
         deletedAt: now,
         deletedByUserId: context.actorUserId,
         updatedAt: now,
@@ -271,12 +546,100 @@ export class TaskService {
         throw new TaskDomainError(TASK_DOMAIN_ERROR_CODES.TASK_NOT_FOUND, 'Subtask was not found.');
       }
 
+      await this.emitActivity(
+        scope,
+        deleted.id,
+        'task.archived',
+        'Archived',
+        context,
+        { parentTaskId },
+        'Subtask was archived.',
+      );
+
       return deleted;
     });
   }
 
+  async listDependencies(
+    scope: TaskScope,
+    taskId: string,
+  ): Promise<readonly TaskDependencyRecord[]> {
+    await this.requireTask(scope, taskId);
+    return this.taskDependencyRepository.listBlockedBy(scope, taskId);
+  }
+
+  async addDependency(
+    scope: TaskScope,
+    taskId: string,
+    dependsOnTaskId: string,
+    context: TaskApplicationContext,
+  ): Promise<TaskDependencyRecord> {
+    const task = await this.requireTask(scope, taskId);
+    await this.taskDomainService.validateAddDependency(scope, task, dependsOnTaskId);
+
+    const now = new Date();
+
+    return this.runInTransaction(async () => {
+      const created = await this.taskDependencyRepository.create({
+        id: randomUUID(),
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        taskId,
+        dependsOnTaskId,
+        createdAt: now,
+      });
+
+      await this.emitActivity(
+        scope,
+        taskId,
+        'task.dependency_added',
+        'Dependency Added',
+        context,
+        { dependsOnTaskId },
+        'Task dependency was added.',
+      );
+
+      return created;
+    });
+  }
+
+  async removeDependency(scope: TaskScope, taskId: string, dependencyId: string): Promise<void> {
+    await this.requireTask(scope, taskId);
+    const removed = await this.taskDependencyRepository.delete(scope, taskId, dependencyId);
+
+    if (!removed) {
+      throw new TaskDomainError(
+        TASK_DOMAIN_ERROR_CODES.DEPENDENCY_NOT_FOUND,
+        'Task dependency was not found.',
+      );
+    }
+  }
+
   private async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async () => work());
+  }
+
+  private async emitActivity(
+    scope: TaskScope,
+    taskId: string,
+    type: string,
+    title: string,
+    context: TaskApplicationContext,
+    metadata?: Prisma.InputJsonValue,
+    description?: string,
+  ): Promise<void> {
+    await this.activityService.createActivity(
+      scope,
+      {
+        entityType: 'task',
+        entityId: taskId,
+        type,
+        title,
+        ...(description !== undefined ? { description } : {}),
+        ...(metadata !== undefined ? { metadata } : {}),
+      },
+      { actorUserId: context.actorUserId },
+    );
   }
 
   private async requireParentTask(scope: TaskScope, parentTaskId: string): Promise<TaskRecord> {
@@ -286,13 +649,6 @@ export class TaskService {
       throw new TaskDomainError(
         TASK_DOMAIN_ERROR_CODES.PARENT_TASK_NOT_FOUND,
         'Parent task was not found.',
-      );
-    }
-
-    if (parentTask.parentTaskId !== null) {
-      throw new TaskDomainError(
-        TASK_DOMAIN_ERROR_CODES.NESTED_SUBTASKS_NOT_ALLOWED,
-        'Subtasks cannot be created under another subtask.',
       );
     }
 
@@ -312,4 +668,13 @@ export class TaskService {
 
     return task;
   }
+}
+
+function normalizeOptionalCode(code?: string | null): string | null {
+  if (code === undefined || code === null) {
+    return null;
+  }
+
+  const trimmed = code.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }

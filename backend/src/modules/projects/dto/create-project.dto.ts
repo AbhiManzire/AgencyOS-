@@ -5,10 +5,12 @@ import {
   IsDate,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 export class CreateProjectDto {
@@ -34,9 +36,12 @@ export class CreateProjectDto {
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
 
+  @IsUUID()
+  projectManagerUserId!: string;
+
   @IsOptional()
   @IsUUID()
-  projectManagerUserId?: string;
+  departmentId?: string;
 
   @IsOptional()
   @IsEnum(ProjectPriority)
@@ -51,6 +56,24 @@ export class CreateProjectDto {
   @Type(() => Date)
   @IsDate()
   targetEndDate?: Date;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  budgetAmount?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  estimatedHours?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  actualHours?: number;
 
   @IsOptional()
   @IsBoolean()

@@ -15,6 +15,10 @@ export interface ProposalRecord {
   readonly version: number;
   readonly status: ProposalStatus;
   readonly sections: ProposalSections;
+  readonly amount: number | null;
+  readonly tax: number | null;
+  readonly discount: number | null;
+  readonly validUntil: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly createdByUserId: string | null;
@@ -23,12 +27,30 @@ export interface ProposalRecord {
   readonly deletedByUserId: string | null;
 }
 
+export interface ListProposalsParams {
+  readonly skip?: number;
+  readonly take?: number;
+  readonly dealId?: string;
+  readonly status?: ProposalStatus;
+}
+
+export interface ListProposalsResult {
+  readonly items: readonly ProposalRecord[];
+  readonly total: number;
+  readonly skip: number;
+  readonly take: number;
+}
+
 export interface CreateProposalPayload {
   readonly dealId: string;
   readonly quoteId?: string | null;
   readonly title: string;
   readonly status?: ProposalStatus;
   readonly sections?: ProposalSections;
+  readonly amount?: number | null;
+  readonly tax?: number | null;
+  readonly discount?: number | null;
+  readonly validUntil?: string | null;
 }
 
 export interface UpdateProposalPayload {
@@ -37,4 +59,8 @@ export interface UpdateProposalPayload {
   readonly status?: ProposalStatus;
   readonly sections?: Partial<ProposalSections>;
   readonly incrementVersion?: boolean;
+  readonly amount?: number | null;
+  readonly tax?: number | null;
+  readonly discount?: number | null;
+  readonly validUntil?: string | null;
 }

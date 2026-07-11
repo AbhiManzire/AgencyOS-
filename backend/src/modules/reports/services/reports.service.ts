@@ -13,6 +13,21 @@ const REPORT_TYPES: readonly ReportType[] = [
   'projects',
   'tasks',
   'invoices',
+  'sales_pipeline',
+  'sales_conversion',
+  'sales_forecast',
+  'sales_lead_source',
+  'sales_performance',
+  'profit_loss',
+  'cash_flow',
+  'receivables',
+  'payables',
+  'gst_summary',
+  'sales_register',
+  'purchase_register',
+  'outstanding',
+  'client_ledger',
+  'vendor_ledger',
 ] as const;
 
 @Injectable()

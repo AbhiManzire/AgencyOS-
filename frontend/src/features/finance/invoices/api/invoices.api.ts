@@ -42,3 +42,27 @@ export async function updateInvoice(
   );
   return response.data.data;
 }
+
+export async function markInvoiceViewed(invoiceId: string): Promise<InvoiceRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<InvoiceRecord>>(
+    `/invoices/${invoiceId}/mark-viewed`,
+    {},
+  );
+  return response.data.data;
+}
+
+export async function cancelInvoice(invoiceId: string): Promise<InvoiceRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<InvoiceRecord>>(
+    `/invoices/${invoiceId}/cancel`,
+    {},
+  );
+  return response.data.data;
+}
+
+export async function approveInvoice(invoiceId: string): Promise<InvoiceRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<InvoiceRecord>>(
+    `/invoices/${invoiceId}/approve`,
+    {},
+  );
+  return response.data.data;
+}

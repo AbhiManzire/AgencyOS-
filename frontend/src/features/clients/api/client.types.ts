@@ -84,6 +84,8 @@ export interface ClientRecord {
   readonly gstin: string | null;
   readonly pan: string | null;
   readonly currency: string | null;
+  readonly paymentTermsDays?: number | null;
+  readonly creditLimit?: number | null;
   readonly addressLine1: string | null;
   readonly addressLine2: string | null;
   readonly city: string | null;

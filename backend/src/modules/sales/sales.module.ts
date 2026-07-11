@@ -9,6 +9,7 @@ import {
   CLIENT_REPOSITORY,
   type ClientRepository,
 } from '../clients/repositories/client.repository.interface';
+import { ProjectsModule } from '../projects/projects.module';
 import { DealsController } from './deals/controllers/deals.controller';
 import { DealDomainService } from './deals/domain/deal-domain.service';
 import {
@@ -23,6 +24,15 @@ import { FollowUpDomainService } from './followups/domain/followup-domain.servic
 import { FOLLOWUP_REPOSITORY } from './followups/repositories/followup.repository.interface';
 import { PrismaFollowUpRepository } from './followups/repositories/prisma-followup.repository';
 import { FollowUpService } from './followups/services/followup.service';
+import { LeadTagsController } from './leads/controllers/lead-tags.controller';
+import { LeadsController } from './leads/controllers/leads.controller';
+import { LeadDomainService } from './leads/domain/lead-domain.service';
+import { LEAD_TAG_REPOSITORY } from './leads/repositories/lead-tag.repository.interface';
+import { PrismaLeadTagRepository } from './leads/repositories/prisma-lead-tag.repository';
+import { LEAD_REPOSITORY } from './leads/repositories/lead.repository.interface';
+import { PrismaLeadRepository } from './leads/repositories/prisma-lead.repository';
+import { LeadTagService } from './leads/services/lead-tag.service';
+import { LeadService } from './leads/services/lead.service';
 import { QuoteItemsController } from './quote-line-items/controllers/quote-items.controller';
 import { QuoteLineItemsController } from './quote-line-items/controllers/quote-line-items.controller';
 import { QuoteLineItemDomainService } from './quote-line-items/domain/quote-line-item-domain.service';
@@ -50,7 +60,7 @@ import { PrismaQuoteRepository } from './quotes/repositories/prisma-quote.reposi
 import { QuoteService } from './quotes/services/quote.service';
 
 @Module({
-  imports: [ClientsModule, ActivitiesModule],
+  imports: [ClientsModule, ActivitiesModule, ProjectsModule],
   providers: [
     {
       provide: DEAL_REPOSITORY,
@@ -77,6 +87,14 @@ import { QuoteService } from './quotes/services/quote.service';
       useClass: PrismaProposalVersionRepository,
     },
     {
+      provide: LEAD_REPOSITORY,
+      useClass: PrismaLeadRepository,
+    },
+    {
+      provide: LEAD_TAG_REPOSITORY,
+      useClass: PrismaLeadTagRepository,
+    },
+    {
       provide: DealDomainService,
       useFactory: (
         clientRepository: ClientRepository,
@@ -98,11 +116,14 @@ import { QuoteService } from './quotes/services/quote.service';
     },
     FollowUpDomainService,
     QuoteLineItemDomainService,
+    LeadDomainService,
     DealService,
     FollowUpService,
     QuoteService,
     QuoteLineItemService,
     ProposalService,
+    LeadService,
+    LeadTagService,
   ],
   controllers: [
     DealsController,
@@ -112,6 +133,8 @@ import { QuoteService } from './quotes/services/quote.service';
     QuoteLineItemsController,
     QuoteItemsController,
     ProposalsController,
+    LeadsController,
+    LeadTagsController,
   ],
   exports: [
     DEAL_REPOSITORY,
@@ -120,16 +143,21 @@ import { QuoteService } from './quotes/services/quote.service';
     QUOTE_LINE_ITEM_REPOSITORY,
     PROPOSAL_REPOSITORY,
     PROPOSAL_VERSION_REPOSITORY,
+    LEAD_REPOSITORY,
+    LEAD_TAG_REPOSITORY,
     DealDomainService,
     FollowUpDomainService,
     QuoteDomainService,
     QuoteLineItemDomainService,
     ProposalDomainService,
+    LeadDomainService,
     DealService,
     FollowUpService,
     QuoteService,
     QuoteLineItemService,
     ProposalService,
+    LeadService,
+    LeadTagService,
   ],
 })
 export class SalesModule {}

@@ -19,8 +19,10 @@ const VALID_STATUSES: readonly ProposalStatus[] = [
   'DRAFT',
   'REVIEW',
   'SENT',
+  'VIEWED',
   'ACCEPTED',
   'DECLINED',
+  'EXPIRED',
 ];
 
 export class ProposalDomainService {

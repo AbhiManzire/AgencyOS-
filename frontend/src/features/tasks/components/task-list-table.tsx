@@ -14,6 +14,7 @@ import {
 } from '@/features/tasks/components/task-priority-badge';
 import { TaskRowActions } from '@/features/tasks/components/task-row-actions';
 import { TaskStatusBadge } from '@/features/tasks/components/task-status-badge';
+import { TaskTypeBadge } from '@/features/tasks/components/task-type-badge';
 import type { TaskListItem } from '@/features/tasks/types';
 
 function formatDate(isoDate: string | null): string {
@@ -32,9 +33,17 @@ interface TaskListTableProps {
   tasks: readonly TaskListItem[];
   readOnly?: boolean;
   onEditTask: (taskId: string) => void;
+  onArchiveTask: (taskId: string) => void;
+  onRestoreTask: (taskId: string) => void;
 }
 
-export function TaskListTable({ tasks, readOnly = false, onEditTask }: TaskListTableProps) {
+export function TaskListTable({
+  tasks,
+  readOnly = false,
+  onEditTask,
+  onArchiveTask,
+  onRestoreTask,
+}: TaskListTableProps) {
   return (
     <div className="rounded-lg border border-border bg-card">
       <div className="max-h-[min(70vh,640px)] overflow-auto">
@@ -43,7 +52,7 @@ export function TaskListTable({ tasks, readOnly = false, onEditTask }: TaskListT
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead className="hidden md:table-cell">Project</TableHead>
-              <TableHead className="hidden lg:table-cell">Milestone</TableHead>
+              <TableHead className="hidden xl:table-cell">Type</TableHead>
               <TableHead className="hidden md:table-cell">Assignee</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
@@ -56,7 +65,9 @@ export function TaskListTable({ tasks, readOnly = false, onEditTask }: TaskListT
               <TableRow key={task.id}>
                 <TableCell>
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-foreground">{task.title}</p>
+                    <p className="truncate font-medium text-foreground">
+                      {task.code ? `${task.code} · ${task.title}` : task.title}
+                    </p>
                     <p className="truncate text-xs text-muted-foreground md:hidden">
                       {task.projectName}
                     </p>
@@ -65,8 +76,8 @@ export function TaskListTable({ tasks, readOnly = false, onEditTask }: TaskListT
                 <TableCell className="hidden max-w-[180px] truncate md:table-cell">
                   {task.projectName}
                 </TableCell>
-                <TableCell className="hidden max-w-[160px] truncate lg:table-cell">
-                  {task.milestoneName}
+                <TableCell className="hidden xl:table-cell">
+                  <TaskTypeBadge type={task.type} />
                 </TableCell>
                 <TableCell className="hidden max-w-[160px] truncate md:table-cell">
                   {task.assigneeName}
@@ -82,9 +93,16 @@ export function TaskListTable({ tasks, readOnly = false, onEditTask }: TaskListT
                   <TaskRowActions
                     taskId={task.id}
                     taskTitle={task.title}
+                    isArchived={task.isArchived}
                     disabled={readOnly}
                     onEdit={() => {
                       onEditTask(task.id);
+                    }}
+                    onArchive={() => {
+                      onArchiveTask(task.id);
+                    }}
+                    onRestore={() => {
+                      onRestoreTask(task.id);
                     }}
                   />
                 </TableCell>
@@ -102,10 +120,14 @@ export function TaskListMobileCards({
   tasks,
   readOnly = false,
   onEditTask,
+  onArchiveTask,
+  onRestoreTask,
 }: {
   tasks: readonly TaskListItem[];
   readOnly?: boolean;
   onEditTask: (taskId: string) => void;
+  onArchiveTask: (taskId: string) => void;
+  onRestoreTask: (taskId: string) => void;
 }) {
   return (
     <div className="space-y-3 md:hidden">
@@ -114,7 +136,9 @@ export function TaskListMobileCards({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1 space-y-2">
               <div>
-                <p className="font-medium text-foreground">{task.title}</p>
+                <p className="font-medium text-foreground">
+                  {task.code ? `${task.code} · ${task.title}` : task.title}
+                </p>
                 <p className="text-sm text-muted-foreground">{task.projectName}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -124,17 +148,21 @@ export function TaskListMobileCards({
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">Assignee: {task.assigneeName}</p>
-              {task.milestoneName !== '—' ? (
-                <p className="text-sm text-muted-foreground">Milestone: {task.milestoneName}</p>
-              ) : null}
               <p className="text-sm text-muted-foreground">Due: {formatDate(task.dueDate)}</p>
             </div>
             <TaskRowActions
               taskId={task.id}
               taskTitle={task.title}
+              isArchived={task.isArchived}
               disabled={readOnly}
               onEdit={() => {
                 onEditTask(task.id);
+              }}
+              onArchive={() => {
+                onArchiveTask(task.id);
+              }}
+              onRestore={() => {
+                onRestoreTask(task.id);
               }}
             />
           </div>

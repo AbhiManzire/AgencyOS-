@@ -68,6 +68,141 @@ export class ReportsController {
     return this.getTypedReport('invoices', headers, query);
   }
 
+  @Get('sales-pipeline')
+  @RequirePermissions('reports.read')
+  async getSalesPipelineReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('sales_pipeline', headers, query);
+  }
+
+  @Get('sales-conversion')
+  @RequirePermissions('reports.read')
+  async getSalesConversionReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('sales_conversion', headers, query);
+  }
+
+  @Get('sales-forecast')
+  @RequirePermissions('reports.read')
+  async getSalesForecastReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('sales_forecast', headers, query);
+  }
+
+  @Get('sales-lead-source')
+  @RequirePermissions('reports.read')
+  async getSalesLeadSourceReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('sales_lead_source', headers, query);
+  }
+
+  @Get('sales-performance')
+  @RequirePermissions('reports.read')
+  async getSalesPerformanceReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('sales_performance', headers, query);
+  }
+
+  @Get('profit-loss')
+  @RequirePermissions('reports.read')
+  async getProfitLossReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('profit_loss', headers, query);
+  }
+
+  @Get('cash-flow')
+  @RequirePermissions('reports.read')
+  async getCashFlowReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('cash_flow', headers, query);
+  }
+
+  @Get('receivables')
+  @RequirePermissions('reports.read')
+  async getReceivablesReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('receivables', headers, query);
+  }
+
+  @Get('payables')
+  @RequirePermissions('reports.read')
+  async getPayablesReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('payables', headers, query);
+  }
+
+  @Get('gst-summary')
+  @RequirePermissions('reports.read')
+  async getGstSummaryReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('gst_summary', headers, query);
+  }
+
+  @Get('sales-register')
+  @RequirePermissions('reports.read')
+  async getSalesRegisterReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('sales_register', headers, query);
+  }
+
+  @Get('purchase-register')
+  @RequirePermissions('reports.read')
+  async getPurchaseRegisterReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('purchase_register', headers, query);
+  }
+
+  @Get('outstanding')
+  @RequirePermissions('reports.read')
+  async getOutstandingReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('outstanding', headers, query);
+  }
+
+  @Get('client-ledger')
+  @RequirePermissions('reports.read')
+  async getClientLedgerReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('client_ledger', headers, query);
+  }
+
+  @Get('vendor-ledger')
+  @RequirePermissions('reports.read')
+  async getVendorLedgerReport(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() query: ReportDateRangeQueryDto,
+  ): Promise<ApiSuccessResponse<FounderReport>> {
+    return this.getTypedReport('vendor_ledger', headers, query);
+  }
+
   @Get(':reportType/export')
   @RequirePermissions('reports.read')
   @Header('Content-Type', 'text/csv; charset=utf-8')

@@ -6,6 +6,7 @@ export interface ProjectRecord {
   readonly tenantId: string;
   readonly workspaceId: string;
   readonly clientId: string;
+  readonly departmentId: string | null;
   readonly name: string;
   readonly code: string | null;
   readonly description: string | null;
@@ -14,6 +15,9 @@ export interface ProjectRecord {
   readonly priority: ProjectPriority;
   readonly startDate: string | null;
   readonly targetEndDate: string | null;
+  readonly budgetAmount: number | null;
+  readonly estimatedHours: number | null;
+  readonly actualHours: number | null;
   readonly completedAt: string | null;
   readonly invoiceReadyAt: string | null;
   readonly isBillable: boolean;
@@ -31,6 +35,13 @@ export interface ListProjectsParams {
   readonly status?: ProjectStatus;
   readonly clientId?: string;
   readonly includeArchived?: boolean;
+  readonly archivedOnly?: boolean;
+  readonly q?: string;
+  readonly projectManagerUserId?: string;
+  readonly departmentId?: string;
+  readonly priority?: ProjectPriority;
+  readonly sortBy?: 'updatedAt' | 'name' | 'status' | 'priority' | 'targetEndDate' | 'createdAt';
+  readonly sortOrder?: 'asc' | 'desc';
 }
 
 export interface ListProjectsResult {
@@ -44,21 +55,33 @@ export interface ListProjectsResult {
 export interface CreateProjectPayload {
   readonly clientId: string;
   readonly name: string;
+  readonly code?: string;
   readonly description?: string;
   readonly status?: ProjectStatus;
-  readonly projectManagerUserId?: string;
+  readonly projectManagerUserId: string;
+  readonly departmentId?: string;
+  readonly priority?: ProjectPriority;
   readonly startDate?: string;
   readonly targetEndDate?: string;
+  readonly budgetAmount?: number;
+  readonly estimatedHours?: number;
+  readonly actualHours?: number;
   readonly isBillable?: boolean;
 }
 
 /** Request body for PATCH /projects/:id — mirrors backend UpdateProjectDto. */
 export interface UpdateProjectPayload {
   readonly name?: string;
+  readonly code?: string | null;
   readonly description?: string | null;
   readonly status?: ProjectStatus;
-  readonly projectManagerUserId?: string | null;
+  readonly projectManagerUserId?: string;
+  readonly departmentId?: string | null;
+  readonly priority?: ProjectPriority;
   readonly startDate?: string | null;
   readonly targetEndDate?: string | null;
+  readonly budgetAmount?: number | null;
+  readonly estimatedHours?: number | null;
+  readonly actualHours?: number | null;
   readonly isBillable?: boolean;
 }

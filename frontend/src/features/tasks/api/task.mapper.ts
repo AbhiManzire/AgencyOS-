@@ -22,17 +22,27 @@ export function mapTaskRecordToListItem(
     record.assigneeEmail ??
     (record.assigneeUserId !== null ? '—' : 'Unassigned');
 
+  const reporterName =
+    record.reporterDisplayName ??
+    record.reporterEmail ??
+    (record.reporterUserId !== null ? '—' : '—');
+
   return {
     id: record.id,
+    code: record.code,
     title: record.title,
+    type: record.type,
     projectId: record.projectId,
     projectName,
     milestoneId: record.milestoneId,
     milestoneName,
     assigneeUserId: record.assigneeUserId,
     assigneeName,
+    reporterUserId: record.reporterUserId,
+    reporterName,
     priority: record.priority,
     status: record.status,
     dueDate: record.dueDate,
+    isArchived: record.deletedAt !== null,
   };
 }

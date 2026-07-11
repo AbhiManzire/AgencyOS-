@@ -36,6 +36,8 @@ export function FollowUpsTable({
               <TableHead>Subject</TableHead>
               <TableHead className="hidden md:table-cell">Type</TableHead>
               <TableHead>Scheduled Date</TableHead>
+              <TableHead className="hidden xl:table-cell">Outcome</TableHead>
+              <TableHead className="hidden xl:table-cell">Next follow-up</TableHead>
               <TableHead className="hidden lg:table-cell">Owner</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-12 text-right">Actions</TableHead>
@@ -56,6 +58,12 @@ export function FollowUpsTable({
                   {formatFollowUpType(followUp.type)}
                 </TableCell>
                 <TableCell>{formatFollowUpDateTime(followUp.scheduledAt)}</TableCell>
+                <TableCell className="hidden max-w-[180px] truncate xl:table-cell">
+                  {followUp.outcome ?? '—'}
+                </TableCell>
+                <TableCell className="hidden xl:table-cell">
+                  {formatFollowUpDateTime(followUp.nextFollowUpAt)}
+                </TableCell>
                 <TableCell className="hidden max-w-[180px] truncate lg:table-cell">
                   {followUp.ownerName}
                 </TableCell>

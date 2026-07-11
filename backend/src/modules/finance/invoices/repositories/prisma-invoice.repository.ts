@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { type Client, type Invoice, type Project, type Quote } from '@prisma/client';
+import { Prisma, type Client, type Invoice, type Project, type Quote } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
   CreateInvoiceData,
@@ -24,7 +24,34 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
 
   async create(data: CreateInvoiceData): Promise<InvoiceRecord> {
     const invoice = await this.prisma.invoice.create({
-      data,
+      data: {
+        id: data.id,
+        tenantId: data.tenantId,
+        workspaceId: data.workspaceId,
+        clientId: data.clientId,
+        projectId: data.projectId,
+        quoteId: data.quoteId ?? null,
+        dealId: data.dealId ?? null,
+        invoiceNumber: data.invoiceNumber,
+        status: data.status ?? 'DRAFT',
+        issueDate: data.issueDate,
+        dueDate: data.dueDate,
+        currency: data.currency ?? 'USD',
+        notes: data.notes ?? null,
+        terms: data.terms ?? null,
+        discountAmount: new Prisma.Decimal(data.discountAmount ?? 0),
+        taxAmount: new Prisma.Decimal(data.taxAmount ?? 0),
+        subtotal: new Prisma.Decimal(data.subtotal ?? 0),
+        grandTotal: new Prisma.Decimal(data.grandTotal ?? 0),
+        balanceDue: new Prisma.Decimal(data.balanceDue ?? 0),
+        taxMode: data.taxMode ?? 'TAX_EXCLUSIVE',
+        viewedAt: data.viewedAt ?? null,
+        approvalStatus: data.approvalStatus ?? 'NOT_REQUIRED',
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        createdByUserId: data.createdByUserId ?? null,
+        updatedByUserId: data.updatedByUserId ?? null,
+      },
       include: invoiceInclude,
     });
 
@@ -36,9 +63,20 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
     id: string,
     data: UpdateInvoiceData,
   ): Promise<InvoiceRecord | null> {
+    const { discountAmount, taxAmount, subtotal, grandTotal, balanceDue, ...rest } = data;
+
     const result = await this.prisma.invoice.updateMany({
       where: activeInvoiceWhere(scope, id),
-      data,
+      data: {
+        ...rest,
+        ...(discountAmount !== undefined
+          ? { discountAmount: new Prisma.Decimal(discountAmount) }
+          : {}),
+        ...(taxAmount !== undefined ? { taxAmount: new Prisma.Decimal(taxAmount) } : {}),
+        ...(subtotal !== undefined ? { subtotal: new Prisma.Decimal(subtotal) } : {}),
+        ...(grandTotal !== undefined ? { grandTotal: new Prisma.Decimal(grandTotal) } : {}),
+        ...(balanceDue !== undefined ? { balanceDue: new Prisma.Decimal(balanceDue) } : {}),
+      },
     });
 
     if (result.count === 0) {
@@ -138,6 +176,13 @@ function activeInvoiceWhere(scope: InvoiceScope, id: string) {
   };
 }
 
+function decimalToNumber(value: Prisma.Decimal | null | undefined): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  return value.toNumber();
+}
+
 function toInvoiceRecord(invoice: InvoiceWithRelations): InvoiceRecord {
   return {
     id: invoice.id,
@@ -149,12 +194,22 @@ function toInvoiceRecord(invoice: InvoiceWithRelations): InvoiceRecord {
     projectName: invoice.project.name,
     quoteId: invoice.quoteId,
     quoteNumber: invoice.quote?.quoteNumber ?? null,
+    dealId: invoice.dealId,
     invoiceNumber: invoice.invoiceNumber,
     status: invoice.status,
     issueDate: invoice.issueDate,
     dueDate: invoice.dueDate,
     currency: invoice.currency,
     notes: invoice.notes,
+    terms: invoice.terms,
+    discountAmount: decimalToNumber(invoice.discountAmount),
+    taxAmount: decimalToNumber(invoice.taxAmount),
+    subtotal: decimalToNumber(invoice.subtotal),
+    grandTotal: decimalToNumber(invoice.grandTotal),
+    balanceDue: decimalToNumber(invoice.balanceDue),
+    taxMode: invoice.taxMode,
+    viewedAt: invoice.viewedAt,
+    approvalStatus: invoice.approvalStatus,
     createdAt: invoice.createdAt,
     updatedAt: invoice.updatedAt,
     createdByUserId: invoice.createdByUserId,

@@ -1,4 +1,4 @@
-export type ProjectMemberRole = 'LEAD' | 'MEMBER' | 'VIEWER';
+export type ProjectMemberRole = 'MANAGER' | 'DEVELOPER' | 'DESIGNER' | 'QA' | 'VIEWER';
 export type ProjectMemberStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface ProjectMemberListItem {

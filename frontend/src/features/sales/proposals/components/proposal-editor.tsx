@@ -34,20 +34,40 @@ export function ProposalEditor({ proposal }: ProposalEditorProps) {
 
   const [title, setTitle] = useState(proposal.title);
   const [sections, setSections] = useState<ProposalSections>(proposal.sections);
+  const [amount, setAmount] = useState(proposal.amount !== null ? String(proposal.amount) : '');
+  const [tax, setTax] = useState(proposal.tax !== null ? String(proposal.tax) : '');
+  const [discount, setDiscount] = useState(
+    proposal.discount !== null ? String(proposal.discount) : '',
+  );
+  const [validUntil, setValidUntil] = useState(
+    proposal.validUntil !== null ? proposal.validUntil.slice(0, 10) : '',
+  );
   const [activeSection, setActiveSection] = useState<ProposalSectionKey>('cover');
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [serverSnapshot, setServerSnapshot] = useState({
     title: proposal.title,
     sections: proposal.sections,
+    amount: proposal.amount !== null ? String(proposal.amount) : '',
+    tax: proposal.tax !== null ? String(proposal.tax) : '',
+    discount: proposal.discount !== null ? String(proposal.discount) : '',
+    validUntil: proposal.validUntil !== null ? proposal.validUntil.slice(0, 10) : '',
     version: proposal.version,
   });
 
   useEffect(() => {
     setTitle(proposal.title);
     setSections(proposal.sections);
+    setAmount(proposal.amount !== null ? String(proposal.amount) : '');
+    setTax(proposal.tax !== null ? String(proposal.tax) : '');
+    setDiscount(proposal.discount !== null ? String(proposal.discount) : '');
+    setValidUntil(proposal.validUntil !== null ? proposal.validUntil.slice(0, 10) : '');
     setServerSnapshot({
       title: proposal.title,
       sections: proposal.sections,
+      amount: proposal.amount !== null ? String(proposal.amount) : '',
+      tax: proposal.tax !== null ? String(proposal.tax) : '',
+      discount: proposal.discount !== null ? String(proposal.discount) : '',
+      validUntil: proposal.validUntil !== null ? proposal.validUntil.slice(0, 10) : '',
       version: proposal.version,
     });
   }, [proposal]);
@@ -55,9 +75,35 @@ export function ProposalEditor({ proposal }: ProposalEditorProps) {
   const isDirty = useMemo(
     () =>
       title !== serverSnapshot.title ||
-      !areProposalSectionsEqual(sections, serverSnapshot.sections),
-    [sections, serverSnapshot.sections, serverSnapshot.title, title],
+      !areProposalSectionsEqual(sections, serverSnapshot.sections) ||
+      amount !== serverSnapshot.amount ||
+      tax !== serverSnapshot.tax ||
+      discount !== serverSnapshot.discount ||
+      validUntil !== serverSnapshot.validUntil,
+    [
+      amount,
+      discount,
+      sections,
+      serverSnapshot.amount,
+      serverSnapshot.discount,
+      serverSnapshot.sections,
+      serverSnapshot.tax,
+      serverSnapshot.title,
+      serverSnapshot.validUntil,
+      tax,
+      title,
+      validUntil,
+    ],
   );
+
+  const commercialPayload = useCallback(() => {
+    return {
+      amount: amount.trim().length > 0 ? Number(amount) : null,
+      tax: tax.trim().length > 0 ? Number(tax) : null,
+      discount: discount.trim().length > 0 ? Number(discount) : null,
+      validUntil: validUntil.trim().length > 0 ? validUntil : null,
+    };
+  }, [amount, discount, tax, validUntil]);
 
   const saveDraft = useCallback(async (): Promise<void> => {
     if (!canEdit || !isDirty) {
@@ -67,14 +113,19 @@ export function ProposalEditor({ proposal }: ProposalEditorProps) {
     const updated = await updateProposal({
       title,
       sections,
+      ...commercialPayload(),
     });
 
     setServerSnapshot({
       title: updated.title,
       sections: updated.sections,
+      amount: updated.amount !== null ? String(updated.amount) : '',
+      tax: updated.tax !== null ? String(updated.tax) : '',
+      discount: updated.discount !== null ? String(updated.discount) : '',
+      validUntil: updated.validUntil !== null ? updated.validUntil.slice(0, 10) : '',
       version: updated.version,
     });
-  }, [canEdit, isDirty, sections, title, updateProposal]);
+  }, [canEdit, commercialPayload, isDirty, sections, title, updateProposal]);
 
   const { state: autosaveState } = useAutosave({
     enabled: canEdit && mode === 'edit',
@@ -92,6 +143,10 @@ export function ProposalEditor({ proposal }: ProposalEditorProps) {
       setServerSnapshot({
         title: updated.title,
         sections: updated.sections,
+        amount: updated.amount !== null ? String(updated.amount) : '',
+        tax: updated.tax !== null ? String(updated.tax) : '',
+        discount: updated.discount !== null ? String(updated.discount) : '',
+        validUntil: updated.validUntil !== null ? updated.validUntil.slice(0, 10) : '',
         version: updated.version,
       });
       showToast(`Saved as version ${String(updated.version)}`, 'success');
@@ -176,6 +231,73 @@ export function ProposalEditor({ proposal }: ProposalEditorProps) {
           </Button>
         </div>
       </div>
+
+      {mode === 'edit' ? (
+        <div className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1.5">
+            <label htmlFor="proposal-amount" className="text-sm font-medium">
+              Amount
+            </label>
+            <Input
+              id="proposal-amount"
+              type="number"
+              min={0}
+              step="0.01"
+              value={amount}
+              disabled={!canEdit}
+              onChange={(event) => {
+                setAmount(event.target.value);
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="proposal-tax" className="text-sm font-medium">
+              Tax
+            </label>
+            <Input
+              id="proposal-tax"
+              type="number"
+              min={0}
+              step="0.01"
+              value={tax}
+              disabled={!canEdit}
+              onChange={(event) => {
+                setTax(event.target.value);
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="proposal-discount" className="text-sm font-medium">
+              Discount
+            </label>
+            <Input
+              id="proposal-discount"
+              type="number"
+              min={0}
+              step="0.01"
+              value={discount}
+              disabled={!canEdit}
+              onChange={(event) => {
+                setDiscount(event.target.value);
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="proposal-valid-until" className="text-sm font-medium">
+              Valid until
+            </label>
+            <Input
+              id="proposal-valid-until"
+              type="date"
+              value={validUntil}
+              disabled={!canEdit}
+              onChange={(event) => {
+                setValidUntil(event.target.value);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {mode === 'preview' ? (
         <ProposalPreview title={title} sections={sections} quoteId={proposal.quoteId} />

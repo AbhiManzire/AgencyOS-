@@ -17,6 +17,8 @@ import {
 } from '../repositories/proposal.repository.interface';
 import type {
   CreateProposalCommand,
+  ListProposalsQuery,
+  ListProposalsResult,
   ProposalApplicationContext,
   ProposalRecord,
   UpdateProposalCommand,
@@ -72,6 +74,10 @@ export class ProposalService {
       version: 1,
       status: command.status ?? 'DRAFT',
       sections,
+      amount: command.amount ?? null,
+      tax: command.tax ?? null,
+      discount: command.discount ?? null,
+      validUntil: command.validUntil ?? null,
       createdAt: now,
       updatedAt: now,
       createdByUserId: context.actorUserId,
@@ -133,6 +139,8 @@ export class ProposalService {
     const now = new Date();
     const shouldIncrementVersion = command.incrementVersion === true;
     const nextVersion = shouldIncrementVersion ? existing.version + 1 : existing.version;
+    const statusChangedToSent =
+      command.status !== undefined && command.status === 'SENT' && existing.status !== 'SENT';
 
     const data: UpdateProposalData = {
       ...(command.quoteId !== undefined ? { quoteId: command.quoteId } : {}),
@@ -141,6 +149,10 @@ export class ProposalService {
         : {}),
       ...(command.status !== undefined ? { status: command.status } : {}),
       ...(command.sections !== undefined ? { sections: nextSections } : {}),
+      ...(command.amount !== undefined ? { amount: command.amount } : {}),
+      ...(command.tax !== undefined ? { tax: command.tax } : {}),
+      ...(command.discount !== undefined ? { discount: command.discount } : {}),
+      ...(command.validUntil !== undefined ? { validUntil: command.validUntil } : {}),
       ...(shouldIncrementVersion ? { version: nextVersion } : {}),
       updatedAt: now,
       updatedByUserId: context.actorUserId,
@@ -183,7 +195,31 @@ export class ProposalService {
         metadata: { proposalId: updated.id, version: updated.version },
       });
 
+      if (statusChangedToSent) {
+        await this.logActivity(scope, context, {
+          entityType: 'deal',
+          entityId: updated.dealId,
+          type: 'proposal.sent',
+          title: 'Proposal sent',
+          description: `${updated.title} (v${String(updated.version)}) was sent.`,
+          metadata: { proposalId: updated.id, version: updated.version },
+        });
+      }
+
       return updated;
+    });
+  }
+
+  async listProposals(
+    scope: ProposalScope,
+    query: ListProposalsQuery = {},
+  ): Promise<ListProposalsResult> {
+    return this.proposalRepository.list({
+      scope,
+      skip: query.skip,
+      take: query.take,
+      dealId: query.dealId,
+      status: query.status,
     });
   }
 

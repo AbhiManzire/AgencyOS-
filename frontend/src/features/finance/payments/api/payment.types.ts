@@ -1,5 +1,15 @@
-export type PaymentStatus = 'COMPLETED' | 'VOIDED';
-export type PaymentMethod = 'BANK_TRANSFER' | 'CARD' | 'CASH' | 'CHECK' | 'OTHER';
+import type {
+  ApprovalStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from '@/features/finance/shared/finance.types';
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_STATUS_LABELS,
+} from '@/features/finance/shared/finance.types';
+
+export type { ApprovalStatus, PaymentMethod, PaymentStatus };
+export { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS };
 
 export interface PaymentRecord {
   readonly id: string;
@@ -15,6 +25,7 @@ export interface PaymentRecord {
   readonly paidAt: string;
   readonly reference: string | null;
   readonly notes: string | null;
+  readonly approvalStatus: ApprovalStatus;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly createdByUserId: string | null;
@@ -31,6 +42,7 @@ export interface CreatePaymentPayload {
   readonly currency?: string;
   readonly reference?: string | null;
   readonly notes?: string | null;
+  readonly approvalStatus?: ApprovalStatus;
 }
 
 export interface ListPaymentsParams {
@@ -55,16 +67,3 @@ export interface InvoicePaymentSummary {
   readonly outstandingAmount: number;
   readonly invoiceStatus: string;
 }
-
-export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  COMPLETED: 'Completed',
-  VOIDED: 'Voided',
-};
-
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  BANK_TRANSFER: 'Bank transfer',
-  CARD: 'Card',
-  CASH: 'Cash',
-  CHECK: 'Check',
-  OTHER: 'Other',
-};

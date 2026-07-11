@@ -14,9 +14,14 @@ import type { ApiSuccessResponse } from '../../../common/http/api-response.types
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { ListProjectsQueryDto } from '../dto/list-projects-query.dto';
+import { RestoreProjectDto } from '../dto/restore-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 import { ProjectMapper } from '../mappers/project.mapper';
-import type { ProjectRecord } from '../repositories/project.repository.interface';
+import type {
+  DepartmentOption,
+  ProjectRecord,
+  WorkspaceOwnerOption,
+} from '../repositories/project.repository.interface';
 import type {
   ProjectApplicationContext,
   ProjectScope,
@@ -60,6 +65,26 @@ export class ProjectsController {
       skip: query.skip ?? 0,
       take: query.take ?? 25,
     });
+  }
+
+  @Get('workspace-owners')
+  @RequirePermissions('projects.read')
+  async listWorkspaceOwners(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ): Promise<ApiSuccessResponse<readonly WorkspaceOwnerOption[]>> {
+    const scope = this.resolveScope(headers);
+    const owners = await this.projectService.listWorkspaceOwners(scope);
+    return successResponse(owners);
+  }
+
+  @Get('departments')
+  @RequirePermissions('projects.read')
+  async listDepartments(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ): Promise<ApiSuccessResponse<readonly DepartmentOption[]>> {
+    const scope = this.resolveScope(headers);
+    const departments = await this.projectService.listDepartments(scope);
+    return successResponse(departments);
   }
 
   @Get(':id')
@@ -133,10 +158,12 @@ export class ProjectsController {
   async restore(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RestoreProjectDto,
   ): Promise<ApiSuccessResponse<ProjectRecord>> {
     const scope = this.resolveScope(headers);
     const context = this.resolveContext(headers);
-    const project = await this.projectService.restoreProject(scope, id, context);
+    const command = ProjectMapper.toRestoreProjectCommand(dto);
+    const project = await this.projectService.restoreProject(scope, id, command, context);
 
     return successResponse(project);
   }

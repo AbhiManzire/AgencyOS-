@@ -15,5 +15,7 @@ export function mapDealRecordToPipelineCard(record: DealRecord): PipelineDealCar
     ownerUserId: record.ownerUserId,
     ownerName: formatDealOwner(record.ownerDisplayName, record.ownerEmail, record.ownerUserId),
     stage: record.stage,
+    probability: record.probability,
+    priority: record.priority,
   };
 }

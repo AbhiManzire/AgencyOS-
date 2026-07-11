@@ -4,6 +4,7 @@ import { BarChart3, CheckSquare, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/design-system';
 import { Caption, CardTitle } from '@/design-system/typography';
+import { useDashboardSummary } from '@/features/dashboard/hooks/use-dashboard-summary';
 import { Can } from '@/lib/rbac';
 
 interface UpcomingPanelProps {
@@ -32,12 +33,19 @@ function UpcomingPanel({ title, description, icon: Icon, href }: UpcomingPanelPr
 }
 
 export function DashboardUpcoming() {
+  const { summary } = useDashboardSummary();
+  const myTasks = summary?.tasks.myTasks;
+  const tasksDescription =
+    myTasks === undefined
+      ? 'View and manage workspace tasks.'
+      : `${String(myTasks.openTotal)} open · ${String(myTasks.dueToday)} due today · ${String(myTasks.overdue)} overdue`;
+
   return (
     <div className="space-y-3">
       <Can permission="tasks.read" mode="hide">
         <UpcomingPanel
-          title="Tasks"
-          description="View and manage workspace tasks."
+          title="My Tasks"
+          description={tasksDescription}
           icon={CheckSquare}
           href="/tasks"
         />

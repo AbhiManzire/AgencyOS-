@@ -6,15 +6,19 @@ import type {
   FindTaskByIdOptions,
   ListTasksParams,
   ListTasksResult,
+  RestoreTaskData,
   SoftDeleteTaskData,
   TaskRecord,
   TaskRepository,
   TaskScope,
+  TaskSortBy,
   UpdateTaskData,
 } from './task.repository.interface';
 
 type TaskWithRelations = Task & {
+  project?: { clientId: string } | null;
   assigneeUser: Pick<User, 'displayName' | 'email' | 'firstName' | 'lastName'> | null;
+  reporterUser?: Pick<User, 'displayName' | 'email' | 'firstName' | 'lastName'> | null;
   createdByUser: Pick<User, 'displayName' | 'email' | 'firstName' | 'lastName'> | null;
   _count?: {
     subtasks: number;
@@ -29,29 +33,26 @@ export class PrismaTaskRepository implements TaskRepository {
     const task = await this.prisma.task.create({
       data: {
         ...data,
-        estimatedHours:
-          data.estimatedHours === undefined || data.estimatedHours === null
-            ? null
-            : new Prisma.Decimal(data.estimatedHours),
+        estimatedHours: toDecimalOrNull(data.estimatedHours),
+        actualHours: toDecimalOrNull(data.actualHours),
       },
-      include: taskRelationsInclude,
+      include: detailInclude,
     });
 
     return toTaskRecord(task);
   }
 
   async update(scope: TaskScope, id: string, data: UpdateTaskData): Promise<TaskRecord | null> {
-    const { estimatedHours, ...rest } = data;
+    const { estimatedHours, actualHours, ...rest } = data;
 
     const result = await this.prisma.task.updateMany({
       where: activeTaskWhere(scope, id),
       data: {
         ...rest,
         ...(estimatedHours !== undefined
-          ? {
-              estimatedHours: estimatedHours === null ? null : new Prisma.Decimal(estimatedHours),
-            }
+          ? { estimatedHours: toDecimalOrNull(estimatedHours) }
           : {}),
+        ...(actualHours !== undefined ? { actualHours: toDecimalOrNull(actualHours) } : {}),
       },
     });
 
@@ -79,6 +80,30 @@ export class PrismaTaskRepository implements TaskRepository {
     return this.findById(scope, id, { includeArchived: true });
   }
 
+  async restore(scope: TaskScope, id: string, data: RestoreTaskData): Promise<TaskRecord | null> {
+    const result = await this.prisma.task.updateMany({
+      where: {
+        id,
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        deletedAt: { not: null },
+      },
+      data: {
+        status: data.status,
+        deletedAt: null,
+        deletedByUserId: null,
+        updatedAt: data.updatedAt,
+        updatedByUserId: data.updatedByUserId ?? null,
+      },
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return this.findById(scope, id);
+  }
+
   async findById(
     scope: TaskScope,
     id: string,
@@ -97,6 +122,20 @@ export class PrismaTaskRepository implements TaskRepository {
     return task ? toTaskRecord(task) : null;
   }
 
+  async findByCode(scope: TaskScope, code: string): Promise<TaskRecord | null> {
+    const task = await this.prisma.task.findFirst({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        code,
+        deletedAt: null,
+      },
+      include: detailInclude,
+    });
+
+    return task ? toTaskRecord(task) : null;
+  }
+
   async list(params: ListTasksParams): Promise<ListTasksResult> {
     const {
       scope,
@@ -107,20 +146,59 @@ export class PrismaTaskRepository implements TaskRepository {
       parentTaskId,
       topLevelOnly = parentTaskId === undefined,
       status,
+      priority,
+      type,
       assigneeUserId,
+      reporterUserId,
+      q,
+      dueFrom,
+      dueTo,
+      boardOrderFrom,
+      boardOrderTo,
       includeArchived = false,
+      archivedOnly = false,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc',
     } = params;
 
-    const where = {
+    const where: Prisma.TaskWhereInput = {
       tenantId: scope.tenantId,
       workspaceId: scope.workspaceId,
-      ...(includeArchived ? {} : { deletedAt: null }),
+      ...(archivedOnly ? { deletedAt: { not: null } } : includeArchived ? {} : { deletedAt: null }),
       ...(projectId !== undefined ? { projectId } : {}),
       ...(milestoneId !== undefined ? { milestoneId } : {}),
       ...(parentTaskId !== undefined ? { parentTaskId } : {}),
       ...(topLevelOnly && parentTaskId === undefined ? { parentTaskId: null } : {}),
       ...(status !== undefined ? { status } : {}),
+      ...(priority !== undefined ? { priority } : {}),
+      ...(type !== undefined ? { type } : {}),
       ...(assigneeUserId !== undefined ? { assigneeUserId } : {}),
+      ...(reporterUserId !== undefined ? { reporterUserId } : {}),
+      ...(q !== undefined && q.trim().length > 0
+        ? {
+            OR: [
+              { title: { contains: q.trim(), mode: 'insensitive' } },
+              { description: { contains: q.trim(), mode: 'insensitive' } },
+              { code: { contains: q.trim(), mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(dueFrom !== undefined || dueTo !== undefined
+        ? {
+            dueDate: {
+              ...(dueFrom !== undefined ? { gte: dueFrom } : {}),
+              ...(dueTo !== undefined ? { lte: dueTo } : {}),
+            },
+          }
+        : {}),
+      ...(boardOrderFrom !== undefined || boardOrderTo !== undefined
+        ? {
+            boardOrder: {
+              ...(boardOrderFrom !== undefined ? { gte: boardOrderFrom } : {}),
+              ...(boardOrderTo !== undefined ? { lte: boardOrderTo } : {}),
+            },
+          }
+        : {}),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -129,7 +207,7 @@ export class PrismaTaskRepository implements TaskRepository {
         skip,
         take,
         include: listInclude,
-        orderBy: { updatedAt: 'desc' },
+        orderBy: resolveOrderBy(sortBy, sortOrder),
       }),
       this.prisma.task.count({ where }),
     ]);
@@ -138,6 +216,18 @@ export class PrismaTaskRepository implements TaskRepository {
       items: items.map(toTaskRecord),
       total,
     };
+  }
+
+  async countOpenSubtasks(scope: TaskScope, parentTaskId: string): Promise<number> {
+    return this.prisma.task.count({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        parentTaskId,
+        deletedAt: null,
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'ARCHIVED'] },
+      },
+    });
   }
 
   async isWorkspaceUser(scope: TaskScope, userId: string): Promise<boolean> {
@@ -164,7 +254,13 @@ const userSelect = {
 } as const;
 
 const taskRelationsInclude = {
+  project: {
+    select: { clientId: true },
+  },
   assigneeUser: {
+    select: userSelect,
+  },
+  reporterUser: {
     select: userSelect,
   },
   createdByUser: {
@@ -201,6 +297,29 @@ function activeTaskWhere(scope: TaskScope, id: string) {
   };
 }
 
+function resolveOrderBy(
+  sortBy: TaskSortBy,
+  sortOrder: 'asc' | 'desc',
+): Prisma.TaskOrderByWithRelationInput {
+  switch (sortBy) {
+    case 'dueDate':
+      return { dueDate: sortOrder };
+    case 'priority':
+      return { priority: sortOrder };
+    case 'status':
+      return { status: sortOrder };
+    case 'title':
+      return { title: sortOrder };
+    case 'boardOrder':
+      return { boardOrder: sortOrder };
+    case 'createdAt':
+      return { createdAt: sortOrder };
+    case 'updatedAt':
+    default:
+      return { updatedAt: sortOrder };
+  }
+}
+
 function resolveUserDisplayName(
   user: Pick<User, 'displayName' | 'email' | 'firstName' | 'lastName'>,
 ): string {
@@ -212,7 +331,15 @@ function resolveUserDisplayName(
   return name.length > 0 ? name : user.email;
 }
 
-function toEstimatedHours(value: Prisma.Decimal | null): number | null {
+function toDecimalOrNull(value?: number | null): Prisma.Decimal | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return new Prisma.Decimal(value);
+}
+
+function toHours(value: Prisma.Decimal | null): number | null {
   if (value === null) {
     return null;
   }
@@ -226,19 +353,31 @@ function toTaskRecord(task: TaskWithRelations): TaskRecord {
     tenantId: task.tenantId,
     workspaceId: task.workspaceId,
     projectId: task.projectId,
+    clientId: task.project?.clientId ?? null,
     milestoneId: task.milestoneId,
     parentTaskId: task.parentTaskId,
+    code: task.code,
     title: task.title,
     description: task.description,
     status: task.status,
     priority: task.priority,
+    type: task.type,
     assigneeUserId: task.assigneeUserId,
     assigneeDisplayName:
       task.assigneeUser === null ? null : resolveUserDisplayName(task.assigneeUser),
     assigneeEmail: task.assigneeUser?.email ?? null,
+    reporterUserId: task.reporterUserId,
+    reporterDisplayName:
+      task.reporterUser === null || task.reporterUser === undefined
+        ? null
+        : resolveUserDisplayName(task.reporterUser),
+    reporterEmail: task.reporterUser?.email ?? null,
     startDate: task.startDate,
     dueDate: task.dueDate,
-    estimatedHours: toEstimatedHours(task.estimatedHours),
+    estimatedHours: toHours(task.estimatedHours),
+    actualHours: toHours(task.actualHours),
+    completedAt: task.completedAt,
+    boardOrder: task.boardOrder,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     createdByUserId: task.createdByUserId,

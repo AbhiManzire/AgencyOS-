@@ -12,17 +12,21 @@ import type {
 import { PROJECT_DOMAIN_ERROR_CODES, ProjectDomainError } from './project-domain.errors';
 import {
   PROJECT_CREATABLE_STATUSES,
+  PROJECT_RESTORABLE_STATUSES,
   type CreateProjectValidationInput,
+  type ProjectMembershipContext,
+  type RestoreProjectValidationInput,
   type UpdateProjectValidationInput,
 } from './project-domain.types';
 
 const STATUS_TRANSITIONS: Readonly<Record<ProjectStatus, readonly ProjectStatus[]>> = {
-  PLANNING: ['ACTIVE', 'CANCELLED'],
-  ACTIVE: ['ON_HOLD', 'COMPLETED', 'CANCELLED'],
-  ON_HOLD: ['ACTIVE', 'CANCELLED'],
-  COMPLETED: ['INVOICE_READY'],
-  INVOICE_READY: [],
-  CANCELLED: [],
+  PLANNING: ['ACTIVE', 'CANCELLED', 'ARCHIVED'],
+  ACTIVE: ['ON_HOLD', 'COMPLETED', 'CANCELLED', 'ARCHIVED'],
+  ON_HOLD: ['ACTIVE', 'CANCELLED', 'ARCHIVED'],
+  COMPLETED: ['INVOICE_READY', 'ARCHIVED'],
+  INVOICE_READY: ['ARCHIVED'],
+  CANCELLED: ['ARCHIVED'],
+  ARCHIVED: [],
 };
 
 /**
@@ -35,13 +39,23 @@ export class ProjectDomainService {
     private readonly clientRepository: ClientRepository,
   ) {}
 
-  async validateCreate(scope: ProjectScope, input: CreateProjectValidationInput): Promise<void> {
+  async validateCreate(
+    scope: ProjectScope,
+    input: CreateProjectValidationInput,
+    membership: ProjectMembershipContext,
+  ): Promise<void> {
     this.assertScopeAlignment(scope, input.tenantId, input.workspaceId);
     this.assertNameRequired(input.name);
+    this.assertClientIdRequired(input.clientId);
+    this.assertOwnerRequired(input.projectManagerUserId);
+    this.assertOwnerIsWorkspaceMember(input.projectManagerUserId, membership);
 
     const status = input.status ?? 'PLANNING';
     this.assertCreatableStatus(status);
     this.assertDateRange(input.startDate, input.targetEndDate);
+    this.assertNonNegativeAmount(input.budgetAmount, 'budget');
+    this.assertNonNegativeAmount(input.estimatedHours, 'estimatedHours');
+    this.assertNonNegativeAmount(input.actualHours, 'actualHours');
 
     await this.assertClientEligible(scope, input.clientId);
 
@@ -54,6 +68,7 @@ export class ProjectDomainService {
     scope: ProjectScope,
     project: ProjectRecord,
     input: UpdateProjectValidationInput,
+    membership?: ProjectMembershipContext,
   ): Promise<void> {
     this.ensureWorkspaceOwnership(scope, project);
     this.assertProjectIsActive(project);
@@ -67,10 +82,24 @@ export class ProjectDomainService {
       this.assertStatusTransition(project.status, input.status);
     }
 
+    if (input.projectManagerUserId !== undefined) {
+      this.assertOwnerRequired(input.projectManagerUserId);
+      if (membership === undefined) {
+        throw new ProjectDomainError(
+          PROJECT_DOMAIN_ERROR_CODES.PROJECT_OWNER_NOT_WORKSPACE_MEMBER,
+          'Unable to validate project owner membership.',
+        );
+      }
+      this.assertOwnerIsWorkspaceMember(input.projectManagerUserId, membership);
+    }
+
     const startDate = input.startDate !== undefined ? input.startDate : project.startDate;
     const targetEndDate =
       input.targetEndDate !== undefined ? input.targetEndDate : project.targetEndDate;
     this.assertDateRange(startDate, targetEndDate);
+    this.assertNonNegativeAmount(input.budgetAmount, 'budget');
+    this.assertNonNegativeAmount(input.estimatedHours, 'estimatedHours');
+    this.assertNonNegativeAmount(input.actualHours, 'actualHours');
 
     if (input.code !== undefined && input.code !== null) {
       await this.assertCodeAvailable(scope, input.code, project.id);
@@ -89,15 +118,28 @@ export class ProjectDomainService {
   validateArchive(scope: ProjectScope, project: ProjectRecord): void {
     this.ensureWorkspaceOwnership(scope, project);
     this.assertProjectIsActive(project);
+    this.assertStatusTransition(project.status, 'ARCHIVED');
   }
 
-  validateRestore(scope: ProjectScope, project: ProjectRecord): void {
+  validateRestore(
+    scope: ProjectScope,
+    project: ProjectRecord,
+    input: RestoreProjectValidationInput = {},
+  ): void {
     this.ensureWorkspaceOwnership(scope, project);
 
-    if (project.deletedAt === null) {
+    if (project.deletedAt === null && project.status !== 'ARCHIVED') {
       throw new ProjectDomainError(
         PROJECT_DOMAIN_ERROR_CODES.INVALID_STATUS,
         'Project is not archived.',
+      );
+    }
+
+    const targetStatus = input.targetStatus ?? 'ACTIVE';
+    if (!PROJECT_RESTORABLE_STATUSES.includes(targetStatus)) {
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.INVALID_STATUS,
+        `Status "${targetStatus}" is not allowed when restoring a project.`,
       );
     }
   }
@@ -135,6 +177,36 @@ export class ProjectDomainService {
       throw new ProjectDomainError(
         PROJECT_DOMAIN_ERROR_CODES.PROJECT_NAME_REQUIRED,
         'Project name is required.',
+      );
+    }
+  }
+
+  private assertClientIdRequired(clientId: string): void {
+    if (clientId.trim().length === 0) {
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.CLIENT_REQUIRED,
+        'Client is required.',
+      );
+    }
+  }
+
+  private assertOwnerRequired(projectManagerUserId: string): void {
+    if (projectManagerUserId.trim().length === 0) {
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.PROJECT_OWNER_REQUIRED,
+        'Project owner is required.',
+      );
+    }
+  }
+
+  private assertOwnerIsWorkspaceMember(
+    projectManagerUserId: string,
+    membership: ProjectMembershipContext,
+  ): void {
+    if (!membership.isWorkspaceMember(projectManagerUserId)) {
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.PROJECT_OWNER_NOT_WORKSPACE_MEMBER,
+        'Project owner must be an active workspace member.',
       );
     }
   }
@@ -189,8 +261,38 @@ export class ProjectDomainService {
     }
   }
 
+  private assertNonNegativeAmount(
+    value: number | null | undefined,
+    kind: 'budget' | 'estimatedHours' | 'actualHours',
+  ): void {
+    if (value === undefined || value === null) {
+      return;
+    }
+
+    if (!Number.isFinite(value) || value < 0) {
+      if (kind === 'budget') {
+        throw new ProjectDomainError(
+          PROJECT_DOMAIN_ERROR_CODES.INVALID_BUDGET_AMOUNT,
+          'Budget amount must be greater than or equal to zero.',
+        );
+      }
+
+      if (kind === 'actualHours') {
+        throw new ProjectDomainError(
+          PROJECT_DOMAIN_ERROR_CODES.INVALID_ACTUAL_HOURS,
+          'Actual hours must be greater than or equal to zero.',
+        );
+      }
+
+      throw new ProjectDomainError(
+        PROJECT_DOMAIN_ERROR_CODES.INVALID_ESTIMATED_HOURS,
+        'Estimated hours must be greater than or equal to zero.',
+      );
+    }
+  }
+
   private assertProjectIsActive(project: ProjectRecord): void {
-    if (project.deletedAt !== null) {
+    if (project.deletedAt !== null || project.status === 'ARCHIVED') {
       throw new ProjectDomainError(
         PROJECT_DOMAIN_ERROR_CODES.PROJECT_ARCHIVED,
         'Project is archived and cannot be modified.',
@@ -249,6 +351,7 @@ function isProjectStatus(value: string): value is ProjectStatus {
     value === 'ON_HOLD' ||
     value === 'COMPLETED' ||
     value === 'INVOICE_READY' ||
-    value === 'CANCELLED'
+    value === 'CANCELLED' ||
+    value === 'ARCHIVED'
   );
 }

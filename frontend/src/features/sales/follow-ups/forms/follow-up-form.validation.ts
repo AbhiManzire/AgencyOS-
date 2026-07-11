@@ -16,10 +16,18 @@ export const DEFAULT_FOLLOW_UP_FORM_VALUES: FollowUpFormValues = {
   scheduledAt: '',
   notes: '',
   reminderAt: '',
+  outcome: '',
+  nextFollowUpAt: '',
   status: 'PENDING',
 };
 
-const FOLLOW_UP_TYPES: readonly FollowUpType[] = ['CALL', 'MEETING', 'EMAIL', 'WHATSAPP'];
+const FOLLOW_UP_TYPES: readonly FollowUpType[] = [
+  'CALL',
+  'MEETING',
+  'EMAIL',
+  'WHATSAPP',
+  'REMINDER',
+];
 const FOLLOW_UP_STATUSES: readonly FollowUpStatus[] = ['PENDING', 'COMPLETED', 'CANCELLED'];
 
 export const FOLLOW_UP_TYPE_LABELS: Record<FollowUpType, string> = {
@@ -27,6 +35,7 @@ export const FOLLOW_UP_TYPE_LABELS: Record<FollowUpType, string> = {
   MEETING: 'Meeting',
   EMAIL: 'Email',
   WHATSAPP: 'WhatsApp',
+  REMINDER: 'Reminder',
 };
 
 export const FOLLOW_UP_STATUS_LABELS: Record<FollowUpStatus, string> = {
@@ -75,6 +84,8 @@ export function followUpToFormValues(followUp: FollowUpListItem): FollowUpFormVa
     scheduledAt: toDatetimeLocalValue(followUp.scheduledAt),
     notes: followUp.notes ?? '',
     reminderAt: toDatetimeLocalValue(followUp.reminderAt),
+    outcome: followUp.outcome ?? '',
+    nextFollowUpAt: toDatetimeLocalValue(followUp.nextFollowUpAt),
     status: followUp.status,
   };
 }
@@ -89,6 +100,8 @@ export function areFollowUpFormValuesEqual(
     left.scheduledAt === right.scheduledAt &&
     left.notes === right.notes &&
     left.reminderAt === right.reminderAt &&
+    left.outcome === right.outcome &&
+    left.nextFollowUpAt === right.nextFollowUpAt &&
     left.status === right.status
   );
 }
@@ -132,6 +145,8 @@ export function toCreateFollowUpPayload(
     scheduledAt,
     notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
     reminderAt: fromDatetimeLocalValue(values.reminderAt),
+    outcome: values.outcome.trim().length > 0 ? values.outcome.trim() : null,
+    nextFollowUpAt: fromDatetimeLocalValue(values.nextFollowUpAt),
     ownerUserId,
     status: values.status,
   };
@@ -149,6 +164,8 @@ export function toUpdateFollowUpPayload(values: FollowUpFormValues): UpdateFollo
     scheduledAt,
     notes: values.notes.trim().length > 0 ? values.notes.trim() : null,
     reminderAt: fromDatetimeLocalValue(values.reminderAt),
+    outcome: values.outcome.trim().length > 0 ? values.outcome.trim() : null,
+    nextFollowUpAt: fromDatetimeLocalValue(values.nextFollowUpAt),
     status: values.status,
   };
 }

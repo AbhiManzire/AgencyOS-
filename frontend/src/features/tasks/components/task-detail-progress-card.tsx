@@ -43,7 +43,7 @@ export function TaskDetailProgressCard({
   const { data: entries = [], isLoading: isTimeLoading } = useTaskTimeEntries(taskId);
 
   const doneSubtasks = useMemo(
-    () => subtasks.filter((subtask) => subtask.status === 'DONE').length,
+    () => subtasks.filter((subtask) => subtask.status === 'COMPLETED').length,
     [subtasks],
   );
 

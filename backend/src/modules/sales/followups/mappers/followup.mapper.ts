@@ -13,6 +13,8 @@ export const FollowUpMapper = {
       scheduledAt: dto.scheduledAt,
       notes: dto.notes,
       reminderAt: dto.reminderAt,
+      outcome: dto.outcome,
+      nextFollowUpAt: dto.nextFollowUpAt,
       ownerUserId: dto.ownerUserId,
       status: dto.status,
     };
@@ -25,6 +27,8 @@ export const FollowUpMapper = {
       scheduledAt: dto.scheduledAt,
       notes: dto.notes,
       reminderAt: dto.reminderAt,
+      outcome: dto.outcome,
+      nextFollowUpAt: dto.nextFollowUpAt,
       ownerUserId: dto.ownerUserId,
       status: dto.status,
     };

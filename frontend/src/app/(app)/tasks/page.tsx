@@ -4,47 +4,81 @@ import { CheckSquare, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState, LoadingState, PageContainer, PageHeader } from '@/design-system';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageContainer,
+  PageHeader,
+  useToast,
+} from '@/design-system';
+import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owners';
 import { mapProjectRecordToListItem } from '@/features/projects/api/project.mapper';
 import { listProjectMilestones } from '@/features/projects/milestones/api/milestones.api';
 import { projectMilestonesQueryKeys } from '@/features/projects/milestones/hooks/project-milestones-query-keys';
 import { useProjects } from '@/features/projects/hooks/use-projects';
 import { mapTaskRecordToListItem } from '@/features/tasks/api/task.mapper';
+import { ArchiveTaskDialog } from '@/features/tasks/components/archive-task-dialog';
 import { TaskFormDrawer } from '@/features/tasks/components/task-form-drawer';
 import { TaskListMobileCards, TaskListTable } from '@/features/tasks/components/task-list-table';
 import { TaskListPagination } from '@/features/tasks/components/task-list-pagination';
 import { TaskListToolbar } from '@/features/tasks/components/task-list-toolbar';
 import { TaskViewSwitcher } from '@/features/tasks/kanban/components/task-view-switcher';
+import { useArchiveTask } from '@/features/tasks/hooks/use-archive-task';
+import { useRestoreTask } from '@/features/tasks/hooks/use-restore-task';
 import { useTasks } from '@/features/tasks/hooks/use-tasks';
 import type {
+  SortDirection,
+  TaskListArchivedFilter,
+  TaskListDueFilter,
   TaskListItem,
   TaskListPriorityFilter,
   TaskListStatusFilter,
+  TaskSortField,
 } from '@/features/tasks/types';
 import { resolveListTasksQuery } from '@/features/tasks/utils/list-tasks-query';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { Can } from '@/lib/rbac';
 
 export default function TasksPage() {
+  const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskListStatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<TaskListPriorityFilter>('all');
+  const [projectFilter, setProjectFilter] = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [reporterFilter, setReporterFilter] = useState('all');
+  const [archivedFilter, setArchivedFilter] = useState<TaskListArchivedFilter>('active');
+  const [dueFilter, setDueFilter] = useState<TaskListDueFilter>('all');
+  const [sortField, setSortField] = useState<TaskSortField>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create');
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<TaskListItem | null>(null);
 
-  const { params: listParams, usesClientSideListProcessing } = resolveListTasksQuery(
+  const { params: listParams } = resolveListTasksQuery({
     statusFilter,
-    assigneeFilter,
+    priorityFilter,
+    archivedFilter,
+    dueFilter,
     page,
     pageSize,
-  );
+    search,
+    projectId: projectFilter !== 'all' ? projectFilter : undefined,
+    assigneeUserId: assigneeFilter !== 'all' ? assigneeFilter : undefined,
+    reporterUserId: reporterFilter !== 'all' ? reporterFilter : undefined,
+    sortField,
+    sortDirection,
+  });
 
   const { data, isLoading, isFetching, error, refetch } = useTasks(listParams);
   const { data: projectsData } = useProjects({ take: 100 });
+  const { data: owners = [] } = useWorkspaceOwners();
+  const { mutateAsync: archiveTask, isPending: isArchiving } = useArchiveTask();
+  const { mutateAsync: restoreTaskMutation } = useRestoreTask();
 
   const activeTask = useMemo(
     () => data?.items.find((task) => task.id === activeTaskId),
@@ -63,6 +97,16 @@ export default function TasksPage() {
 
     return map;
   }, [projectsData]);
+
+  const projectOptions = useMemo(
+    () =>
+      [...projectNamesById.entries()]
+        .map(([id, label]) => ({ id, label }))
+        .sort((left, right) =>
+          left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }),
+        ),
+    [projectNamesById],
+  );
 
   const projectIdsWithMilestones = useMemo(() => {
     if (!data) {
@@ -102,83 +146,39 @@ export default function TasksPage() {
     return map;
   }, [milestoneQueries]);
 
-  const assigneeOptions = useMemo(() => {
+  const ownerOptions = useMemo(
+    () =>
+      owners
+        .map((owner) => ({
+          id: owner.id,
+          label: owner.displayName || owner.email || owner.id,
+        }))
+        .sort((left, right) =>
+          left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }),
+        ),
+    [owners],
+  );
+
+  const tasks = useMemo((): TaskListItem[] => {
     if (!data) {
       return [];
     }
 
-    const options = new Map<string, string>();
+    return data.items.map((record) =>
+      mapTaskRecordToListItem(record, { projectNamesById, milestoneNamesById }),
+    );
+  }, [data, milestoneNamesById, projectNamesById]);
 
-    for (const task of data.items) {
-      if (task.assigneeUserId === null) {
-        continue;
-      }
-
-      const label = task.assigneeDisplayName ?? task.assigneeEmail ?? task.assigneeUserId;
-      options.set(task.assigneeUserId, label);
-    }
-
-    return [...options.entries()]
-      .map(([id, label]) => ({ id, label }))
-      .sort((left, right) =>
-        left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }),
-      );
-  }, [data]);
-
-  const matchingTasks = useMemo((): TaskListItem[] => {
-    if (!data) {
-      return [];
-    }
-
-    const query = search.trim().toLowerCase();
-
-    return data.items
-      .map((record) => mapTaskRecordToListItem(record, { projectNamesById, milestoneNamesById }))
-      .filter((task) => {
-        if (assigneeFilter === 'unassigned' && task.assigneeUserId !== null) {
-          return false;
-        }
-
-        if (
-          assigneeFilter !== 'all' &&
-          assigneeFilter !== 'unassigned' &&
-          task.assigneeUserId !== assigneeFilter
-        ) {
-          return false;
-        }
-
-        if (priorityFilter !== 'all' && task.priority !== priorityFilter) {
-          return false;
-        }
-
-        if (query.length === 0) {
-          return true;
-        }
-
-        return (
-          task.title.toLowerCase().includes(query) ||
-          task.projectName.toLowerCase().includes(query) ||
-          task.milestoneName.toLowerCase().includes(query) ||
-          task.assigneeName.toLowerCase().includes(query)
-        );
-      });
-  }, [assigneeFilter, data, milestoneNamesById, priorityFilter, projectNamesById, search]);
-
-  const filteredTasks = useMemo((): TaskListItem[] => {
-    if (!usesClientSideListProcessing) {
-      return matchingTasks;
-    }
-
-    const start = (page - 1) * pageSize;
-    return matchingTasks.slice(start, start + pageSize);
-  }, [matchingTasks, page, pageSize, usesClientSideListProcessing]);
-
-  const totalItems = matchingTasks.length;
+  const totalItems = data?.total ?? 0;
   const hasActiveFilters =
     search.trim().length > 0 ||
     statusFilter !== 'all' ||
     priorityFilter !== 'all' ||
-    assigneeFilter !== 'all';
+    projectFilter !== 'all' ||
+    assigneeFilter !== 'all' ||
+    reporterFilter !== 'all' ||
+    archivedFilter !== 'active' ||
+    dueFilter !== 'all';
   const errorMessage = error ? extractApiErrorMessage(error) : null;
 
   const openCreateDrawer = (): void => {
@@ -197,12 +197,41 @@ export default function TasksPage() {
     setSearch('');
     setStatusFilter('all');
     setPriorityFilter('all');
+    setProjectFilter('all');
     setAssigneeFilter('all');
+    setReporterFilter('all');
+    setArchivedFilter('active');
+    setDueFilter('all');
+    setSortField('updatedAt');
+    setSortDirection('desc');
     setPage(1);
   };
 
   const handleRefresh = (): void => {
     void refetch();
+  };
+
+  const handleArchiveConfirm = async (): Promise<void> => {
+    if (archiveTarget === null) {
+      return;
+    }
+
+    try {
+      await archiveTask(archiveTarget.id);
+      showToast('Task archived');
+      setArchiveTarget(null);
+    } catch (archiveError) {
+      showToast(extractApiErrorMessage(archiveError), 'error');
+    }
+  };
+
+  const handleRestore = async (taskId: string): Promise<void> => {
+    try {
+      await restoreTaskMutation(taskId);
+      showToast('Task restored');
+    } catch (restoreError) {
+      showToast(extractApiErrorMessage(restoreError), 'error');
+    }
   };
 
   return (
@@ -230,13 +259,32 @@ export default function TasksPage() {
         onOpenChange={setDrawerOpen}
       />
 
+      <ArchiveTaskDialog
+        open={archiveTarget !== null}
+        isPending={isArchiving}
+        onCancel={() => {
+          setArchiveTarget(null);
+        }}
+        onConfirm={() => {
+          void handleArchiveConfirm();
+        }}
+      />
+
       <div className="space-y-4">
         <TaskListToolbar
           search={search}
           statusFilter={statusFilter}
           priorityFilter={priorityFilter}
+          projectFilter={projectFilter}
           assigneeFilter={assigneeFilter}
-          assigneeOptions={assigneeOptions}
+          reporterFilter={reporterFilter}
+          archivedFilter={archivedFilter}
+          dueFilter={dueFilter}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          projectOptions={projectOptions}
+          assigneeOptions={ownerOptions}
+          reporterOptions={ownerOptions}
           isRefreshing={isFetching && !isLoading}
           onSearchChange={(value) => {
             setSearch(value);
@@ -250,8 +298,32 @@ export default function TasksPage() {
             setPriorityFilter(value);
             setPage(1);
           }}
+          onProjectFilterChange={(value) => {
+            setProjectFilter(value);
+            setPage(1);
+          }}
           onAssigneeFilterChange={(value) => {
             setAssigneeFilter(value);
+            setPage(1);
+          }}
+          onReporterFilterChange={(value) => {
+            setReporterFilter(value);
+            setPage(1);
+          }}
+          onArchivedFilterChange={(value) => {
+            setArchivedFilter(value);
+            setPage(1);
+          }}
+          onDueFilterChange={(value) => {
+            setDueFilter(value);
+            setPage(1);
+          }}
+          onSortFieldChange={(value) => {
+            setSortField(value);
+            setPage(1);
+          }}
+          onSortDirectionChange={(value) => {
+            setSortDirection(value);
             setPage(1);
           }}
           onRefresh={handleRefresh}
@@ -268,7 +340,7 @@ export default function TasksPage() {
           />
         ) : isLoading ? (
           <LoadingState label="Loading tasks..." />
-        ) : filteredTasks.length === 0 ? (
+        ) : tasks.length === 0 ? (
           <EmptyState
             icon={CheckSquare}
             title={hasActiveFilters ? 'No tasks match your filters' : 'No tasks yet'}
@@ -294,9 +366,29 @@ export default function TasksPage() {
           />
         ) : (
           <>
-            <TaskListMobileCards tasks={filteredTasks} onEditTask={openEditDrawer} />
+            <TaskListMobileCards
+              tasks={tasks}
+              onEditTask={openEditDrawer}
+              onArchiveTask={(taskId) => {
+                const task = tasks.find((item) => item.id === taskId) ?? null;
+                setArchiveTarget(task);
+              }}
+              onRestoreTask={(taskId) => {
+                void handleRestore(taskId);
+              }}
+            />
             <div className="hidden md:block">
-              <TaskListTable tasks={filteredTasks} onEditTask={openEditDrawer} />
+              <TaskListTable
+                tasks={tasks}
+                onEditTask={openEditDrawer}
+                onArchiveTask={(taskId) => {
+                  const task = tasks.find((item) => item.id === taskId) ?? null;
+                  setArchiveTarget(task);
+                }}
+                onRestoreTask={(taskId) => {
+                  void handleRestore(taskId);
+                }}
+              />
             </div>
             <TaskListPagination
               page={page}

@@ -257,6 +257,38 @@ export function FollowUpFormDrawer({
                 </div>
 
                 <div className="space-y-1.5">
+                  <label htmlFor="outcome" className="text-sm font-medium text-foreground">
+                    Outcome
+                  </label>
+                  <textarea
+                    id="outcome"
+                    value={values.outcome}
+                    disabled={isSaving}
+                    rows={3}
+                    onChange={(event) => {
+                      updateField('outcome', event.target.value);
+                    }}
+                    placeholder="Result of the follow-up"
+                    className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="nextFollowUpAt" className="text-sm font-medium text-foreground">
+                    Next follow-up
+                  </label>
+                  <Input
+                    id="nextFollowUpAt"
+                    type="datetime-local"
+                    value={values.nextFollowUpAt}
+                    disabled={isSaving}
+                    onChange={(event) => {
+                      updateField('nextFollowUpAt', event.target.value);
+                    }}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <label htmlFor="status" className="text-sm font-medium text-foreground">
                     Status
                   </label>

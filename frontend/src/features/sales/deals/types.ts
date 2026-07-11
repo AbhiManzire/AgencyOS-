@@ -1,1 +1,12 @@
-export type DealStage = 'NEW' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'WON' | 'LOST';
+export type DealStage =
+  | 'NEW'
+  | 'CONTACTED'
+  | 'QUALIFIED'
+  | 'DISCOVERY'
+  | 'PROPOSAL'
+  | 'NEGOTIATION'
+  | 'WON'
+  | 'LOST'
+  | 'ARCHIVED';
+
+export type DealPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';

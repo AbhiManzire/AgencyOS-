@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -82,6 +83,32 @@ export class TasksController {
     const context = this.resolveContext(headers);
     const command = TaskMapper.toUpdateTaskCommand(dto);
     const task = await this.taskService.updateTask(scope, id, command, context);
+
+    return successResponse(task);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('tasks.update')
+  async archive(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<TaskRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const task = await this.taskService.archiveTask(scope, id, context);
+
+    return successResponse(task);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions('tasks.update')
+  async restore(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<TaskRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const task = await this.taskService.restoreTask(scope, id, context);
 
     return successResponse(task);
   }

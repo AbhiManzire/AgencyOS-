@@ -12,6 +12,7 @@ import {
 interface MemberRowActionsProps {
   readonly memberName: string;
   readonly disabled?: boolean;
+  readonly canRemove?: boolean;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
 }
@@ -19,6 +20,7 @@ interface MemberRowActionsProps {
 export function MemberRowActions({
   memberName,
   disabled = false,
+  canRemove = true,
   onEdit,
   onDelete,
 }: MemberRowActionsProps) {
@@ -47,7 +49,7 @@ export function MemberRowActions({
           Edit
         </DropdownMenuItem>
         <DropdownMenuItem
-          disabled={disabled}
+          disabled={disabled || !canRemove}
           className="gap-2 text-danger focus:text-danger"
           onSelect={() => {
             onDelete();

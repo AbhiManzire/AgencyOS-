@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { ActivityService } from '../../../activities/services/activity.service';
 import type { ClientScope } from '../../../clients/repositories/client.repository.interface';
 import { QuoteDomainService } from '../domain/quote-domain.service';
 import { QUOTE_DOMAIN_ERROR_CODES, QuoteDomainError } from '../domain/quote-domain.errors';
@@ -17,6 +19,7 @@ import type {
   ListQuotesResult,
   QuoteApplicationContext,
   QuoteRecord,
+  QuoteRevisionRecord,
   UpdateQuoteCommand,
 } from './quote-application.types';
 
@@ -26,6 +29,7 @@ export class QuoteService {
     @Inject(QUOTE_REPOSITORY)
     private readonly quoteRepository: QuoteRepository,
     private readonly quoteDomainService: QuoteDomainService,
+    private readonly activityService: ActivityService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -72,7 +76,21 @@ export class QuoteService {
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(() => this.quoteRepository.create(data));
+    return this.runInTransaction(async () => {
+      const created = await this.quoteRepository.create(data);
+
+      await this.emitActivity(
+        scope,
+        created.dealId,
+        'quote.created',
+        'Quote Created',
+        context,
+        { quoteId: created.id, quoteNumber: created.quoteNumber },
+        `Quote ${created.quoteNumber} was created.`,
+      );
+
+      return created;
+    });
   }
 
   async updateQuote(
@@ -129,7 +147,15 @@ export class QuoteService {
       updatedByUserId: context.actorUserId,
     };
 
+    const totalAmountChanged =
+      command.totalAmount !== undefined && command.totalAmount !== existing.totalAmount;
+    const statusChanged = command.status !== undefined && command.status !== existing.status;
+
     return this.runInTransaction(async () => {
+      if (totalAmountChanged || statusChanged) {
+        await this.createRevisionSnapshot(scope, existing, context);
+      }
+
       const updated = await this.quoteRepository.update(scope, quoteId, data);
 
       if (updated === null) {
@@ -139,12 +165,74 @@ export class QuoteService {
         );
       }
 
+      await this.emitActivity(
+        scope,
+        updated.dealId,
+        'quote.updated',
+        'Quote Updated',
+        context,
+        { quoteId: updated.id, quoteNumber: updated.quoteNumber },
+        `Quote ${updated.quoteNumber} was updated.`,
+      );
+
+      if (statusChanged && updated.status === 'SENT') {
+        await this.emitActivity(
+          scope,
+          updated.dealId,
+          'quote.sent',
+          'Quote Sent',
+          context,
+          { quoteId: updated.id, quoteNumber: updated.quoteNumber },
+          `Quote ${updated.quoteNumber} was sent.`,
+        );
+
+        await this.emitActivity(
+          scope,
+          updated.dealId,
+          'quote.generated',
+          'Quote Generated',
+          context,
+          { quoteId: updated.id, quoteNumber: updated.quoteNumber },
+          `Quote ${updated.quoteNumber} was generated.`,
+        );
+      }
+
       return updated;
     });
   }
 
   async getQuote(scope: QuoteScope, quoteId: string): Promise<QuoteRecord> {
     return this.requireQuote(scope, quoteId);
+  }
+
+  async listQuoteRevisions(
+    scope: QuoteScope,
+    quoteId: string,
+  ): Promise<readonly QuoteRevisionRecord[]> {
+    await this.requireQuote(scope, quoteId, { includeArchived: true });
+
+    const revisions = await this.prisma.quoteRevision.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        quoteId,
+      },
+      orderBy: { revision: 'desc' },
+    });
+
+    return revisions.map((revision) => ({
+      id: revision.id,
+      quoteId: revision.quoteId,
+      revision: revision.revision,
+      title: revision.title,
+      status: revision.status,
+      totalAmount: revision.totalAmount.toNumber(),
+      currency: revision.currency,
+      validUntil: revision.validUntil,
+      lineItemsJson: revision.lineItemsJson,
+      createdAt: revision.createdAt,
+      createdByUserId: revision.createdByUserId,
+    }));
   }
 
   async listQuotes(scope: QuoteScope, query: ListQuotesQuery = {}): Promise<ListQuotesResult> {
@@ -186,6 +274,85 @@ export class QuoteService {
     }
 
     return quote;
+  }
+
+  private async createRevisionSnapshot(
+    scope: QuoteScope,
+    quote: QuoteRecord,
+    context: QuoteApplicationContext,
+  ): Promise<void> {
+    const lineItems = await this.prisma.quoteLineItem.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        quoteId: quote.id,
+        deletedAt: null,
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    const lastRevision = await this.prisma.quoteRevision.findFirst({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        quoteId: quote.id,
+      },
+      orderBy: { revision: 'desc' },
+    });
+
+    const nextRevision = (lastRevision?.revision ?? 0) + 1;
+
+    await this.prisma.quoteRevision.create({
+      data: {
+        id: randomUUID(),
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        quoteId: quote.id,
+        revision: nextRevision,
+        title: quote.title,
+        status: quote.status,
+        totalAmount: quote.totalAmount,
+        currency: quote.currency,
+        validUntil: quote.validUntil,
+        lineItemsJson: lineItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          quantity: item.quantity.toNumber(),
+          unit: item.unit,
+          unitPrice: item.unitPrice.toNumber(),
+          discount: item.discount.toNumber(),
+          tax: item.tax.toNumber(),
+          total: item.total.toNumber(),
+          sortOrder: item.sortOrder,
+        })),
+        createdAt: new Date(),
+        createdByUserId: context.actorUserId,
+      },
+    });
+  }
+
+  private async emitActivity(
+    scope: QuoteScope,
+    dealId: string,
+    type: string,
+    title: string,
+    context: QuoteApplicationContext,
+    metadata: Prisma.InputJsonValue,
+    description: string,
+  ): Promise<void> {
+    await this.activityService.createActivity(
+      scope,
+      {
+        entityType: 'deal',
+        entityId: dealId,
+        type,
+        title,
+        description,
+        metadata,
+      },
+      { actorUserId: context.actorUserId },
+    );
   }
 
   private async runInTransaction<T>(work: () => Promise<T>): Promise<T> {

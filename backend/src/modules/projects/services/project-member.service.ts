@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { ActivityService } from '../../activities/services/activity.service';
 import { ProjectMemberDomainService } from '../domain/project-member-domain.service';
 import {
   PROJECT_MEMBER_DOMAIN_ERROR_CODES,
@@ -17,6 +18,7 @@ import {
 } from '../repositories/project-member.repository.interface';
 import {
   PROJECT_REPOSITORY,
+  type ProjectRecord,
   type ProjectRepository,
   type ProjectScope,
 } from '../repositories/project.repository.interface';
@@ -35,6 +37,7 @@ export class ProjectMemberService {
     @Inject(PROJECT_MEMBER_REPOSITORY)
     private readonly projectMemberRepository: ProjectMemberRepository,
     private readonly projectMemberDomainService: ProjectMemberDomainService,
+    private readonly activityService: ActivityService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -85,17 +88,7 @@ export class ProjectMemberService {
       );
     }
 
-    const role = command.role ?? 'MEMBER';
-    if (role === 'LEAD') {
-      const existingLead = await this.projectMemberRepository.findActiveLead(memberScope);
-      if (existingLead !== null) {
-        throw new ProjectMemberDomainError(
-          PROJECT_MEMBER_DOMAIN_ERROR_CODES.LEAD_ALREADY_EXISTS,
-          'This project already has a lead assigned.',
-        );
-      }
-    }
-
+    const role = command.role ?? 'DEVELOPER';
     const now = new Date();
     const data: CreateProjectMemberData = {
       id: randomUUID(),
@@ -113,7 +106,22 @@ export class ProjectMemberService {
       updatedByUserId: context.actorUserId,
     };
 
-    return this.prisma.$transaction(async () => this.projectMemberRepository.create(data));
+    return this.prisma.$transaction(async () => {
+      const created = await this.projectMemberRepository.create(data);
+      await this.activityService.createActivity(
+        scope,
+        {
+          entityType: 'project',
+          entityId: projectId,
+          type: 'project.member_added',
+          title: 'Member Added',
+          description: `Member assigned with role ${created.role}.`,
+          metadata: { memberId: created.id, userId: created.userId, role: created.role },
+        },
+        { actorUserId: context.actorUserId },
+      );
+      return created;
+    });
   }
 
   async updateMember(
@@ -123,7 +131,7 @@ export class ProjectMemberService {
     command: UpdateProjectMemberCommand,
     context: ProjectMemberApplicationContext,
   ): Promise<ProjectMemberRecord> {
-    await this.requireProjectForMutation(scope, projectId);
+    const project = await this.requireProjectForMutation(scope, projectId);
 
     const memberScope = this.toMemberScope(scope, projectId);
     const existing = await this.requireMember(memberScope, memberId);
@@ -134,14 +142,28 @@ export class ProjectMemberService {
       status: command.status,
     });
 
-    if (command.role === 'LEAD' && existing.role !== 'LEAD') {
-      const existingLead = await this.projectMemberRepository.findActiveLead(memberScope, memberId);
-      if (existingLead !== null) {
+    if (existing.role === 'MANAGER' && command.role !== undefined && command.role !== 'MANAGER') {
+      const otherManager = await this.projectMemberRepository.findActiveManager(
+        memberScope,
+        memberId,
+      );
+      if (otherManager === null) {
         throw new ProjectMemberDomainError(
-          PROJECT_MEMBER_DOMAIN_ERROR_CODES.LEAD_ALREADY_EXISTS,
-          'This project already has a lead assigned.',
+          PROJECT_MEMBER_DOMAIN_ERROR_CODES.LAST_MANAGER_REQUIRED,
+          'At least one manager must remain on the project.',
         );
       }
+    }
+
+    if (
+      project.projectManagerUserId !== null &&
+      existing.userId === project.projectManagerUserId &&
+      command.status === 'INACTIVE'
+    ) {
+      throw new ProjectMemberDomainError(
+        PROJECT_MEMBER_DOMAIN_ERROR_CODES.PROJECT_OWNER_CANNOT_BE_REMOVED,
+        'Project owner cannot be removed from the project.',
+      );
     }
 
     const now = new Date();
@@ -175,10 +197,30 @@ export class ProjectMemberService {
     memberId: string,
     context: ProjectMemberApplicationContext,
   ): Promise<ProjectMemberRecord> {
-    await this.requireProjectForMutation(scope, projectId);
+    const project = await this.requireProjectForMutation(scope, projectId);
 
     const memberScope = this.toMemberScope(scope, projectId);
-    await this.requireMember(memberScope, memberId);
+    const existing = await this.requireMember(memberScope, memberId);
+
+    if (project.projectManagerUserId !== null && existing.userId === project.projectManagerUserId) {
+      throw new ProjectMemberDomainError(
+        PROJECT_MEMBER_DOMAIN_ERROR_CODES.PROJECT_OWNER_CANNOT_BE_REMOVED,
+        'Project owner cannot be removed from the project.',
+      );
+    }
+
+    if (existing.role === 'MANAGER') {
+      const otherManager = await this.projectMemberRepository.findActiveManager(
+        memberScope,
+        memberId,
+      );
+      if (otherManager === null) {
+        throw new ProjectMemberDomainError(
+          PROJECT_MEMBER_DOMAIN_ERROR_CODES.LAST_MANAGER_REQUIRED,
+          'At least one manager must remain on the project.',
+        );
+      }
+    }
 
     const now = new Date();
 
@@ -198,6 +240,19 @@ export class ProjectMemberService {
         );
       }
 
+      await this.activityService.createActivity(
+        scope,
+        {
+          entityType: 'project',
+          entityId: projectId,
+          type: 'project.member_removed',
+          title: 'Member Removed',
+          description: `Member with role ${existing.role} was removed.`,
+          metadata: { memberId: existing.id, userId: existing.userId, role: existing.role },
+        },
+        { actorUserId: context.actorUserId },
+      );
+
       return deleted;
     });
   }
@@ -212,7 +267,10 @@ export class ProjectMemberService {
     }
   }
 
-  private async requireProjectForMutation(scope: ProjectScope, projectId: string): Promise<void> {
+  private async requireProjectForMutation(
+    scope: ProjectScope,
+    projectId: string,
+  ): Promise<ProjectRecord> {
     const project = await this.projectRepository.findById(scope, projectId);
     if (project === null) {
       throw new ProjectMemberDomainError(
@@ -221,12 +279,14 @@ export class ProjectMemberService {
       );
     }
 
-    if (project.deletedAt !== null) {
+    if (project.deletedAt !== null || project.status === 'ARCHIVED') {
       throw new ProjectDomainError(
         PROJECT_DOMAIN_ERROR_CODES.PROJECT_ARCHIVED,
         'Project is archived and cannot be modified.',
       );
     }
+
+    return project;
   }
 
   private async requireMember(

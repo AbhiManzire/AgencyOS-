@@ -3,7 +3,7 @@ import type { ProjectMemberListItem } from '@/features/projects/members/types';
 
 export const DEFAULT_MEMBER_FORM_VALUES: MemberFormValues = {
   userId: '',
-  role: 'MEMBER',
+  role: 'DEVELOPER',
   allocationPercent: '',
   startDate: '',
 };

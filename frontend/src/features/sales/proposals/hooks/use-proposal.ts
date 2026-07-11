@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { getProposal } from '@/features/sales/proposals/api/proposals.api';
+import type { ListProposalsParams } from '@/features/sales/proposals/api/proposal.types';
 import { normalizeProposalSections } from '@/features/sales/proposals/proposal-sections';
 
 export const proposalsQueryKeys = {
   all: ['proposals'] as const,
+  list: (params: ListProposalsParams) => [...proposalsQueryKeys.all, 'list', params] as const,
   detail: (id: string) => [...proposalsQueryKeys.all, 'detail', id] as const,
 };
 

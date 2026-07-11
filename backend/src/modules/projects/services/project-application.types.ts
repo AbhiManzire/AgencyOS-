@@ -1,8 +1,11 @@
 import type { ProjectPriority, ProjectStatus } from '@prisma/client';
 import type {
+  DepartmentOption,
   ListProjectsResult,
+  ProjectListSortField,
   ProjectRecord,
   ProjectScope,
+  WorkspaceOwnerOption,
 } from '../repositories/project.repository.interface';
 
 export interface ProjectApplicationContext {
@@ -15,10 +18,14 @@ export interface CreateProjectCommand {
   readonly code?: string | null;
   readonly description?: string | null;
   readonly status?: ProjectStatus;
-  readonly projectManagerUserId?: string | null;
+  readonly projectManagerUserId: string;
+  readonly departmentId?: string | null;
   readonly priority?: ProjectPriority;
   readonly startDate?: Date | null;
   readonly targetEndDate?: Date | null;
+  readonly budgetAmount?: number | null;
+  readonly estimatedHours?: number | null;
+  readonly actualHours?: number | null;
   readonly isBillable?: boolean;
 }
 
@@ -27,11 +34,19 @@ export interface UpdateProjectCommand {
   readonly code?: string | null;
   readonly description?: string | null;
   readonly status?: ProjectStatus;
-  readonly projectManagerUserId?: string | null;
+  readonly projectManagerUserId?: string;
+  readonly departmentId?: string | null;
   readonly priority?: ProjectPriority;
   readonly startDate?: Date | null;
   readonly targetEndDate?: Date | null;
+  readonly budgetAmount?: number | null;
+  readonly estimatedHours?: number | null;
+  readonly actualHours?: number | null;
   readonly isBillable?: boolean;
+}
+
+export interface RestoreProjectCommand {
+  readonly targetStatus?: ProjectStatus;
 }
 
 export interface GetProjectOptions {
@@ -44,6 +59,19 @@ export interface ListProjectsQuery {
   readonly status?: ProjectStatus;
   readonly clientId?: string;
   readonly includeArchived?: boolean;
+  readonly archivedOnly?: boolean;
+  readonly q?: string;
+  readonly projectManagerUserId?: string;
+  readonly departmentId?: string;
+  readonly priority?: ProjectPriority;
+  readonly sortBy?: ProjectListSortField;
+  readonly sortOrder?: 'asc' | 'desc';
 }
 
-export type { ListProjectsResult, ProjectRecord, ProjectScope };
+export type {
+  DepartmentOption,
+  ListProjectsResult,
+  ProjectRecord,
+  ProjectScope,
+  WorkspaceOwnerOption,
+};

@@ -18,7 +18,16 @@ import type {
   UpdateInvoiceValidationInput,
 } from './invoice-domain.types';
 
-const VALID_STATUSES: readonly InvoiceStatus[] = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'VOID'];
+const VALID_STATUSES: readonly InvoiceStatus[] = [
+  'DRAFT',
+  'SENT',
+  'VIEWED',
+  'PARTIALLY_PAID',
+  'PAID',
+  'OVERDUE',
+  'CANCELLED',
+  'VOID',
+];
 
 export class InvoiceDomainService {
   constructor(
@@ -51,6 +60,42 @@ export class InvoiceDomainService {
 
     if (input.status !== undefined) {
       this.assertStatusValid(input.status);
+    }
+  }
+
+  assertCanMarkViewed(invoice: InvoiceRecord): void {
+    this.assertInvoiceIsActive(invoice);
+    if (invoice.status === 'CANCELLED' || invoice.status === 'VOID') {
+      throw new InvoiceDomainError(
+        INVOICE_DOMAIN_ERROR_CODES.INVALID_STATUS_TRANSITION,
+        `Cannot mark invoices in "${invoice.status}" status as viewed.`,
+      );
+    }
+  }
+
+  assertCanCancel(invoice: InvoiceRecord): void {
+    this.assertInvoiceIsActive(invoice);
+    if (invoice.status === 'CANCELLED') {
+      throw new InvoiceDomainError(
+        INVOICE_DOMAIN_ERROR_CODES.ALREADY_CANCELLED,
+        'Invoice is already cancelled.',
+      );
+    }
+    if (invoice.status === 'VOID' || invoice.status === 'PAID') {
+      throw new InvoiceDomainError(
+        INVOICE_DOMAIN_ERROR_CODES.INVALID_STATUS_TRANSITION,
+        `Cannot cancel invoices in "${invoice.status}" status.`,
+      );
+    }
+  }
+
+  assertCanApprove(invoice: InvoiceRecord): void {
+    this.assertInvoiceIsActive(invoice);
+    if (invoice.approvalStatus === 'APPROVED') {
+      throw new InvoiceDomainError(
+        INVOICE_DOMAIN_ERROR_CODES.ALREADY_APPROVED,
+        'Invoice is already approved.',
+      );
     }
   }
 
@@ -118,6 +163,15 @@ export class InvoiceDomainService {
     }
 
     const trimmed = notes.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  normalizeOptionalTerms(terms: string | null | undefined): string | null {
+    if (terms === undefined || terms === null) {
+      return null;
+    }
+
+    const trimmed = terms.trim();
     return trimmed.length > 0 ? trimmed : null;
   }
 

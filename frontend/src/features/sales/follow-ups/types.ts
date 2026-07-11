@@ -1,4 +1,4 @@
-export type FollowUpType = 'CALL' | 'MEETING' | 'EMAIL' | 'WHATSAPP';
+export type FollowUpType = 'CALL' | 'MEETING' | 'EMAIL' | 'WHATSAPP' | 'REMINDER';
 
 export type FollowUpStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED';
 
@@ -8,6 +8,8 @@ export interface FollowUpFormValues {
   scheduledAt: string;
   notes: string;
   reminderAt: string;
+  outcome: string;
+  nextFollowUpAt: string;
   status: FollowUpStatus;
 }
 
@@ -26,6 +28,8 @@ export interface FollowUpListItem {
   readonly scheduledAt: string;
   readonly notes: string | null;
   readonly reminderAt: string | null;
+  readonly outcome: string | null;
+  readonly nextFollowUpAt: string | null;
   readonly ownerUserId: string | null;
   readonly ownerName: string;
   readonly status: FollowUpStatus;

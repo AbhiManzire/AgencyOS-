@@ -15,7 +15,7 @@ export function formatTaskDate(value: string | null | undefined): string {
   return formatShortDate(value);
 }
 
-/** Formats estimated hours for display. */
+/** Formats estimated/actual hours for display. */
 export function formatTaskEstimatedHours(value: number | null | undefined): string {
   if (value === null || value === undefined) {
     return '—';
@@ -37,13 +37,17 @@ export function getTaskCompletionPercent(
   }
 
   switch (status) {
-    case 'DONE':
+    case 'COMPLETED':
       return 100;
-    case 'IN_REVIEW':
+    case 'REVIEW':
       return 75;
     case 'IN_PROGRESS':
       return 50;
+    case 'BLOCKED':
+      return 40;
     case 'CANCELLED':
+    case 'ARCHIVED':
+    case 'BACKLOG':
     case 'TODO':
     default:
       return 0;

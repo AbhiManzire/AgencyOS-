@@ -1,6 +1,6 @@
-import type { DealStage } from '@/features/sales/types';
+import type { DealPriority, DealStage } from '@/features/sales/types';
 
-export type PipelineColumnStage = DealStage;
+export type PipelineColumnStage = Exclude<DealStage, 'ARCHIVED'>;
 
 export interface PipelineColumnDefinition {
   readonly id: PipelineColumnStage;
@@ -10,7 +10,9 @@ export interface PipelineColumnDefinition {
 
 export const PIPELINE_COLUMNS: readonly PipelineColumnDefinition[] = [
   { id: 'NEW', label: 'New', stage: 'NEW' },
+  { id: 'CONTACTED', label: 'Contacted', stage: 'CONTACTED' },
   { id: 'QUALIFIED', label: 'Qualified', stage: 'QUALIFIED' },
+  { id: 'DISCOVERY', label: 'Discovery', stage: 'DISCOVERY' },
   { id: 'PROPOSAL', label: 'Proposal', stage: 'PROPOSAL' },
   { id: 'NEGOTIATION', label: 'Negotiation', stage: 'NEGOTIATION' },
   { id: 'WON', label: 'Won', stage: 'WON' },
@@ -29,6 +31,8 @@ export interface PipelineDealCard {
   readonly ownerUserId: string | null;
   readonly ownerName: string;
   readonly stage: DealStage;
+  readonly probability: number | null;
+  readonly priority: DealPriority;
 }
 
 export const PIPELINE_LIST_PARAMS = {

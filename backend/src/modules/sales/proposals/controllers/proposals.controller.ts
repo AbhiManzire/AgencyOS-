@@ -1,8 +1,19 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { successResponse } from '../../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../../common/http/api-response.types';
 import { RequirePermissions } from '../../../rbac/decorators/require-permissions.decorator';
 import { CreateProposalDto } from '../dto/create-proposal.dto';
+import { ListProposalsQueryDto } from '../dto/list-proposals-query.dto';
 import { UpdateProposalDto } from '../dto/update-proposal.dto';
 import { ProposalMapper } from '../mappers/proposal.mapper';
 import type { ProposalRecord } from '../repositories/proposal.repository.interface';
@@ -32,6 +43,23 @@ export class ProposalsController {
     const proposal = await this.proposalService.createProposal(scope, command, context);
 
     return successResponse(proposal);
+  }
+
+  @Get()
+  @RequirePermissions('proposals.read')
+  async list(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() queryDto: ListProposalsQueryDto,
+  ): Promise<ApiSuccessResponse<readonly ProposalRecord[]>> {
+    const scope = this.resolveScope(headers);
+    const query = ProposalMapper.toListProposalsQuery(queryDto);
+    const result = await this.proposalService.listProposals(scope, query);
+
+    return successResponse(result.items, {
+      total: result.total,
+      skip: query.skip ?? 0,
+      take: query.take ?? 25,
+    });
   }
 
   @Get(':id')

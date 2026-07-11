@@ -1,6 +1,6 @@
 import { StatusBadge } from '@/design-system';
 import type { InvoiceStatus } from '@/features/finance/invoices/types';
-import { INVOICE_STATUS_LABELS } from '@/features/finance/invoices/forms/invoice-form.validation';
+import { INVOICE_STATUS_LABELS } from '@/features/finance/shared/finance.types';
 
 const STATUS_VARIANTS: Record<
   InvoiceStatus,
@@ -8,8 +8,11 @@ const STATUS_VARIANTS: Record<
 > = {
   DRAFT: 'neutral',
   SENT: 'primary',
+  VIEWED: 'primary',
+  PARTIALLY_PAID: 'warning',
   PAID: 'success',
   OVERDUE: 'warning',
+  CANCELLED: 'danger',
   VOID: 'danger',
 };
 

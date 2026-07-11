@@ -1,23 +1,36 @@
-import type { DealStage } from '@/features/sales/types';
+import type { DealPriority, DealStage } from '@/features/sales/types';
 import { formatShortDate } from '@/lib/format/date';
 import { formatMoney } from '@/lib/format/money';
 
 const STAGE_LABELS: Record<DealStage, string> = {
   NEW: 'New',
+  CONTACTED: 'Contacted',
   QUALIFIED: 'Qualified',
+  DISCOVERY: 'Discovery',
   PROPOSAL: 'Proposal',
   NEGOTIATION: 'Negotiation',
   WON: 'Won',
   LOST: 'Lost',
+  ARCHIVED: 'Archived',
 };
 
 const STAGE_PROBABILITY: Record<DealStage, number> = {
   NEW: 10,
+  CONTACTED: 15,
   QUALIFIED: 25,
+  DISCOVERY: 35,
   PROPOSAL: 50,
   NEGOTIATION: 75,
   WON: 100,
   LOST: 0,
+  ARCHIVED: 0,
+};
+
+export const DEAL_PRIORITY_LABELS: Record<DealPriority, string> = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+  URGENT: 'Urgent',
 };
 
 /** Returns a display label for a deal pipeline stage. */
@@ -25,8 +38,11 @@ export function formatDealStage(stage: DealStage): string {
   return STAGE_LABELS[stage];
 }
 
-/** Returns default win probability for a deal stage. */
-export function formatDealProbability(stage: DealStage): string {
+/** Returns win probability for a deal — prefers stored value, else stage default. */
+export function formatDealProbability(stage: DealStage, probability?: number | null): string {
+  if (probability !== null && probability !== undefined) {
+    return `${String(probability)}%`;
+  }
   return `${String(STAGE_PROBABILITY[stage])}%`;
 }
 

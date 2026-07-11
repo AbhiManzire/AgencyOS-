@@ -8,6 +8,7 @@ import {
   DashboardQuickActions,
   DashboardRecentActivity,
   DashboardRecentClients,
+  DashboardRecentProjects,
   DashboardSection,
   DashboardUpcoming,
 } from '@/features/dashboard/components';
@@ -42,6 +43,13 @@ export default function DashboardPage() {
 
               <DashboardSection title="Recent Clients" description="Latest client accounts added.">
                 <DashboardRecentClients />
+              </DashboardSection>
+
+              <DashboardSection
+                title="Recent Projects"
+                description="Latest delivery engagements updated."
+              >
+                <DashboardRecentProjects />
               </DashboardSection>
             </div>
 

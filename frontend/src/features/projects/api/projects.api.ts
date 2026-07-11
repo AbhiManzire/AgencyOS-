@@ -7,6 +7,7 @@ import type {
   ProjectRecord,
   UpdateProjectPayload,
 } from '@/features/projects/api/project.types';
+import type { DepartmentOption, WorkspaceOwnerOption } from '@/features/projects/types';
 
 /** Fetches a paginated list of projects for the active workspace. */
 export async function listProjects(params: ListProjectsParams): Promise<ListProjectsResult> {
@@ -76,6 +77,22 @@ export async function archiveProject(id: string): Promise<ProjectRecord> {
 export async function restoreProject(id: string): Promise<ProjectRecord> {
   const response = await apiClient.post<ApiSuccessResponse<ProjectRecord>>(
     `/projects/${id}/restore`,
+    { targetStatus: 'ACTIVE' },
   );
+  return response.data.data;
+}
+
+/** Lists workspace members available as project owners. */
+export async function listProjectWorkspaceOwners(): Promise<readonly WorkspaceOwnerOption[]> {
+  const response = await apiClient.get<ApiSuccessResponse<WorkspaceOwnerOption[]>>(
+    '/projects/workspace-owners',
+  );
+  return response.data.data;
+}
+
+/** Lists active departments for the project picker. */
+export async function listProjectDepartments(): Promise<readonly DepartmentOption[]> {
+  const response =
+    await apiClient.get<ApiSuccessResponse<DepartmentOption[]>>('/projects/departments');
   return response.data.data;
 }

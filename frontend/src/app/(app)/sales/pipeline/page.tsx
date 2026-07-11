@@ -61,22 +61,25 @@ export default function SalesPipelinePage() {
 
     const query = search.trim().toLowerCase();
 
-    return data.items.map(mapDealRecordToPipelineCard).filter((deal) => {
-      if (ownerFilter === 'unassigned' && deal.ownerUserId !== null) {
-        return false;
-      }
+    return data.items
+      .map(mapDealRecordToPipelineCard)
+      .filter((deal) => deal.stage !== 'ARCHIVED')
+      .filter((deal) => {
+        if (ownerFilter === 'unassigned' && deal.ownerUserId !== null) {
+          return false;
+        }
 
-      if (query.length === 0) {
-        return true;
-      }
+        if (query.length === 0) {
+          return true;
+        }
 
-      return (
-        deal.title.toLowerCase().includes(query) ||
-        deal.clientName.toLowerCase().includes(query) ||
-        deal.contactName.toLowerCase().includes(query) ||
-        deal.ownerName.toLowerCase().includes(query)
-      );
-    });
+        return (
+          deal.title.toLowerCase().includes(query) ||
+          deal.clientName.toLowerCase().includes(query) ||
+          deal.contactName.toLowerCase().includes(query) ||
+          deal.ownerName.toLowerCase().includes(query)
+        );
+      });
   }, [data, ownerFilter, search]);
 
   const hasActiveFilters = search.trim().length > 0 || ownerFilter !== 'all';

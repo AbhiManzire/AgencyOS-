@@ -13,7 +13,7 @@ import {
 export class ProjectMemberDomainService {
   validateCreate(input: CreateProjectMemberValidationInput): void {
     this.assertUserIdRequired(input.userId);
-    this.assertValidRole(input.role ?? 'MEMBER');
+    this.assertValidRole(input.role ?? 'DEVELOPER');
     this.assertValidStatus(input.status ?? 'ACTIVE');
     this.assertAllocation(input.allocationPercent);
   }

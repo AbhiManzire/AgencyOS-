@@ -14,6 +14,7 @@ import {
   DEFAULT_INVOICE_FORM_VALUES,
   INVOICE_STATUS_LABELS,
   invoiceRecordToFormValues,
+  TAX_MODE_LABELS,
   toCreateInvoicePayload,
   toUpdateInvoicePayload,
   validateInvoiceForm,
@@ -26,6 +27,7 @@ import type {
   InvoiceFormValues,
   InvoiceStatus,
 } from '@/features/finance/invoices/types';
+import type { TaxMode } from '@/features/finance/shared/finance.types';
 import { useProjects } from '@/features/projects/hooks/use-projects';
 import { useQuotes } from '@/features/sales/quotes/hooks/use-quotes';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
@@ -341,6 +343,22 @@ export function CreateInvoiceDrawer({
                     )}
                   </div>
 
+                  <div className="space-y-2">
+                    <label htmlFor="invoice-deal-id" className="text-sm font-medium">
+                      Deal ID (optional)
+                    </label>
+                    <Input
+                      id="invoice-deal-id"
+                      value={values.dealId}
+                      disabled={isFormDisabled}
+                      placeholder="UUID"
+                      onChange={(event) => {
+                        updateField('dealId', event.target.value);
+                      }}
+                    />
+                    {errors.dealId ? <p className="text-sm text-danger">{errors.dealId}</p> : null}
+                  </div>
+
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <label htmlFor="invoice-issue-date" className="text-sm font-medium">
@@ -414,6 +432,40 @@ export function CreateInvoiceDrawer({
                         ))}
                       </NativeSelect>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="invoice-tax-mode" className="text-sm font-medium">
+                      Tax mode
+                    </label>
+                    <NativeSelect
+                      id="invoice-tax-mode"
+                      value={values.taxMode}
+                      disabled={isFormDisabled}
+                      onChange={(event) => {
+                        updateField('taxMode', event.target.value as TaxMode);
+                      }}
+                    >
+                      {(Object.keys(TAX_MODE_LABELS) as TaxMode[]).map((mode) => (
+                        <option key={mode} value={mode}>
+                          {TAX_MODE_LABELS[mode]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="invoice-terms" className="text-sm font-medium">
+                      Terms
+                    </label>
+                    <Input
+                      id="invoice-terms"
+                      value={values.terms}
+                      disabled={isFormDisabled}
+                      onChange={(event) => {
+                        updateField('terms', event.target.value);
+                      }}
+                    />
                   </div>
 
                   <div className="space-y-2">

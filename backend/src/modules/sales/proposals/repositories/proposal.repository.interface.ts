@@ -21,6 +21,10 @@ export interface ProposalRecord {
   readonly version: number;
   readonly status: ProposalStatus;
   readonly sections: ProposalSections;
+  readonly amount: number | null;
+  readonly tax: number | null;
+  readonly discount: number | null;
+  readonly validUntil: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId: string | null;
@@ -39,6 +43,10 @@ export interface CreateProposalData {
   readonly version?: number;
   readonly status?: ProposalStatus;
   readonly sections: ProposalSections;
+  readonly amount?: number | null;
+  readonly tax?: number | null;
+  readonly discount?: number | null;
+  readonly validUntil?: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId?: string | null;
@@ -51,8 +59,25 @@ export interface UpdateProposalData {
   readonly version?: number;
   readonly status?: ProposalStatus;
   readonly sections?: ProposalSections;
+  readonly amount?: number | null;
+  readonly tax?: number | null;
+  readonly discount?: number | null;
+  readonly validUntil?: Date | null;
   readonly updatedAt: Date;
   readonly updatedByUserId?: string | null;
+}
+
+export interface ListProposalsParams {
+  readonly scope: ProposalScope;
+  readonly skip?: number;
+  readonly take?: number;
+  readonly dealId?: string;
+  readonly status?: ProposalStatus;
+}
+
+export interface ListProposalsResult {
+  readonly items: readonly ProposalRecord[];
+  readonly total: number;
 }
 
 export interface ProposalRepository {
@@ -63,6 +88,7 @@ export interface ProposalRepository {
     data: UpdateProposalData,
   ): Promise<ProposalRecord | null>;
   findById(scope: ProposalScope, id: string): Promise<ProposalRecord | null>;
+  list(params: ListProposalsParams): Promise<ListProposalsResult>;
 }
 
 export interface CreateProposalVersionData {

@@ -25,7 +25,9 @@ export function PipelineKanbanBoard({ deals, listParams }: PipelineKanbanBoardPr
   const dealsByColumn = useMemo(() => {
     const grouped: Record<PipelineColumnStage, PipelineDealCard[]> = {
       NEW: [],
+      CONTACTED: [],
       QUALIFIED: [],
+      DISCOVERY: [],
       PROPOSAL: [],
       NEGOTIATION: [],
       WON: [],
@@ -33,6 +35,9 @@ export function PipelineKanbanBoard({ deals, listParams }: PipelineKanbanBoardPr
     };
 
     for (const deal of deals) {
+      if (deal.stage === 'ARCHIVED') {
+        continue;
+      }
       grouped[deal.stage].push(deal);
     }
 

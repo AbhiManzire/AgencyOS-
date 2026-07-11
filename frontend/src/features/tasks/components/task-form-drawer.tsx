@@ -14,9 +14,15 @@ import { useProjectMembers } from '@/features/projects/members/hooks/use-project
 import { useProjectMilestones } from '@/features/projects/milestones/hooks/use-project-milestones';
 import { useProjects } from '@/features/projects/hooks/use-projects';
 import type { TaskRecord } from '@/features/tasks/api/task.types';
+import { PRIORITY_LABELS } from '@/features/tasks/components/task-priority-badge';
+import { STATUS_LABELS } from '@/features/tasks/components/task-status-badge';
+import { TYPE_LABELS } from '@/features/tasks/components/task-type-badge';
 import {
   areTaskFormValuesEqual,
   DEFAULT_TASK_FORM_VALUES,
+  TASK_PRIORITY_OPTIONS,
+  TASK_STATUS_OPTIONS,
+  TASK_TYPE_OPTIONS,
   taskRecordToFormValues,
   toCreateTaskPayload,
   toUpdateTaskPayload,
@@ -26,7 +32,7 @@ import {
 } from '@/features/tasks/forms/task-form.validation';
 import { useCreateTask } from '@/features/tasks/hooks/use-create-task';
 import { useUpdateTask } from '@/features/tasks/hooks/use-update-task';
-import type { TaskPriority, TaskStatus } from '@/features/tasks/types';
+import type { TaskPriority, TaskStatus, TaskType } from '@/features/tasks/types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
 
@@ -107,7 +113,7 @@ export function TaskFormDrawer({
   }, [isEditMode, projectOptions, task]);
 
   const milestoneOptions = milestonesData?.milestones ?? [];
-  const assigneeOptions = membersData?.availableUsers ?? [];
+  const memberOptions = membersData?.availableUsers ?? [];
 
   const isDirty = useMemo(
     () => !areTaskFormValuesEqual(values, initialValues),
@@ -154,6 +160,7 @@ export function TaskFormDrawer({
       projectId,
       milestoneId: '',
       assigneeUserId: '',
+      reporterUserId: '',
     }));
     setErrors((current) => {
       const { projectId: _removed, ...rest } = current;
@@ -286,8 +293,26 @@ export function TaskFormDrawer({
                   />
                 </ContactFormField>
 
+                <ContactFormField label="Code" htmlFor="taskCode" error={errors.code}>
+                  <Input
+                    id="taskCode"
+                    value={values.code}
+                    onChange={(event) => {
+                      updateField('code', event.target.value);
+                    }}
+                    placeholder="Optional code"
+                    maxLength={64}
+                    disabled={isSaving}
+                  />
+                </ContactFormField>
+
                 {isEditMode ? (
-                  <ContactFormField label="Project" htmlFor="taskProject" required>
+                  <ContactFormField
+                    label="Project"
+                    htmlFor="taskProject"
+                    required
+                    error={errors.projectId}
+                  >
                     <Input id="taskProject" value={projectLabel} disabled />
                   </ContactFormField>
                 ) : (
@@ -343,12 +368,30 @@ export function TaskFormDrawer({
                   </NativeSelect>
                 </ContactFormField>
 
+                <ContactFormField label="Type" htmlFor="taskType">
+                  <NativeSelect
+                    id="taskType"
+                    label="Type"
+                    value={values.type}
+                    disabled={isSaving}
+                    onChange={(event) => {
+                      updateField('type', event.target.value as TaskType);
+                    }}
+                  >
+                    {TASK_TYPE_OPTIONS.map((type) => (
+                      <option key={type} value={type}>
+                        {TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </ContactFormField>
+
                 <ContactFormField label="Assignee" htmlFor="taskAssigneeUserId">
                   <NativeSelect
                     id="taskAssigneeUserId"
                     label="Assignee"
                     value={values.assigneeUserId}
-                    disabled={isSaving || !hasProjectSelected || assigneeOptions.length === 0}
+                    disabled={isSaving || !hasProjectSelected || memberOptions.length === 0}
                     onChange={(event) => {
                       updateField('assigneeUserId', event.target.value);
                     }}
@@ -356,11 +399,36 @@ export function TaskFormDrawer({
                     <option value="">
                       {!hasProjectSelected
                         ? 'Select a project first'
-                        : assigneeOptions.length === 0
+                        : memberOptions.length === 0
                           ? 'No workspace users available'
                           : 'Unassigned'}
                     </option>
-                    {assigneeOptions.map((user) => (
+                    {memberOptions.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.displayName} ({user.email})
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </ContactFormField>
+
+                <ContactFormField label="Reporter" htmlFor="taskReporterUserId">
+                  <NativeSelect
+                    id="taskReporterUserId"
+                    label="Reporter"
+                    value={values.reporterUserId}
+                    disabled={isSaving || !hasProjectSelected || memberOptions.length === 0}
+                    onChange={(event) => {
+                      updateField('reporterUserId', event.target.value);
+                    }}
+                  >
+                    <option value="">
+                      {!hasProjectSelected
+                        ? 'Select a project first'
+                        : memberOptions.length === 0
+                          ? 'No workspace users available'
+                          : 'No reporter'}
+                    </option>
+                    {memberOptions.map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.displayName} ({user.email})
                       </option>
@@ -378,10 +446,11 @@ export function TaskFormDrawer({
                       updateField('priority', event.target.value as TaskPriority);
                     }}
                   >
-                    <option value="LOW">Low</option>
-                    <option value="NORMAL">Normal</option>
-                    <option value="HIGH">High</option>
-                    <option value="URGENT">Urgent</option>
+                    {TASK_PRIORITY_OPTIONS.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {PRIORITY_LABELS[priority]}
+                      </option>
+                    ))}
                   </NativeSelect>
                 </ContactFormField>
 
@@ -395,11 +464,11 @@ export function TaskFormDrawer({
                       updateField('status', event.target.value as TaskStatus);
                     }}
                   >
-                    <option value="TODO">To Do</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="IN_REVIEW">In Review</option>
-                    <option value="DONE">Done</option>
-                    <option value="CANCELLED">Cancelled</option>
+                    {TASK_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {STATUS_LABELS[status]}
+                      </option>
+                    ))}
                   </NativeSelect>
                 </ContactFormField>
 
@@ -444,6 +513,25 @@ export function TaskFormDrawer({
                     value={values.estimatedHours}
                     onChange={(event) => {
                       updateField('estimatedHours', event.target.value);
+                    }}
+                    placeholder="Optional"
+                    disabled={isSaving}
+                  />
+                </ContactFormField>
+
+                <ContactFormField
+                  label="Actual Hours"
+                  htmlFor="taskActualHours"
+                  error={errors.actualHours}
+                >
+                  <Input
+                    id="taskActualHours"
+                    type="number"
+                    min={0}
+                    step={0.25}
+                    value={values.actualHours}
+                    onChange={(event) => {
+                      updateField('actualHours', event.target.value);
                     }}
                     placeholder="Optional"
                     disabled={isSaving}

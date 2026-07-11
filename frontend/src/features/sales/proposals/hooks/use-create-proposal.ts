@@ -8,8 +8,8 @@ export function useCreateProposal() {
 
   return useMutation({
     mutationFn: (payload: CreateProposalPayload) => createProposal(payload),
-    onSuccess: async (proposal) => {
-      await queryClient.invalidateQueries({ queryKey: proposalsQueryKeys.detail(proposal.id) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: proposalsQueryKeys.all });
     },
   });
 }

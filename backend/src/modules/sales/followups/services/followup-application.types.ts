@@ -11,6 +11,8 @@ export interface CreateFollowUpCommand {
   readonly scheduledAt: Date;
   readonly notes?: string | null;
   readonly reminderAt?: Date | null;
+  readonly outcome?: string | null;
+  readonly nextFollowUpAt?: Date | null;
   readonly ownerUserId?: string | null;
   readonly status?: DealFollowUpStatus;
 }
@@ -21,6 +23,8 @@ export interface UpdateFollowUpCommand {
   readonly scheduledAt?: Date;
   readonly notes?: string | null;
   readonly reminderAt?: Date | null;
+  readonly outcome?: string | null;
+  readonly nextFollowUpAt?: Date | null;
   readonly ownerUserId?: string | null;
   readonly status?: DealFollowUpStatus;
 }

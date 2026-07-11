@@ -1,6 +1,12 @@
 import type { ProjectMemberRole, ProjectMemberStatus } from '@prisma/client';
 
-export const PROJECT_MEMBER_ROLES: readonly ProjectMemberRole[] = ['LEAD', 'MEMBER', 'VIEWER'];
+export const PROJECT_MEMBER_ROLES: readonly ProjectMemberRole[] = [
+  'MANAGER',
+  'DEVELOPER',
+  'DESIGNER',
+  'QA',
+  'VIEWER',
+];
 export const PROJECT_MEMBER_STATUSES: readonly ProjectMemberStatus[] = ['ACTIVE', 'INACTIVE'];
 
 export interface CreateProjectMemberValidationInput {

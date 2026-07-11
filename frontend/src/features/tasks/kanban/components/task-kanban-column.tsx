@@ -14,7 +14,11 @@ interface TaskKanbanColumnProps {
   readonly column: KanbanColumnDefinition;
   readonly tasks: readonly KanbanTaskCard[];
   readonly draggingTaskId: string | null;
-  readonly onDropTask: (taskId: string, status: KanbanColumnDefinition['status']) => void;
+  readonly onDropTask: (
+    taskId: string,
+    status: KanbanColumnDefinition['status'],
+    targetIndex: number,
+  ) => void;
   readonly onOpenTask: (taskId: string) => void;
 }
 
@@ -33,6 +37,23 @@ export function TaskKanbanColumn({
     setIsDragOver(true);
   };
 
+  const resolveDropIndex = (clientY: number, container: HTMLElement): number => {
+    const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-kanban-card="true"]'));
+    if (cards.length === 0) {
+      return 0;
+    }
+
+    for (let index = 0; index < cards.length; index += 1) {
+      const rect = cards[index].getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if (clientY < midpoint) {
+        return index;
+      }
+    }
+
+    return cards.length;
+  };
+
   const handleDrop = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
     setIsDragOver(false);
@@ -42,7 +63,8 @@ export function TaskKanbanColumn({
       return;
     }
 
-    onDropTask(taskId, column.status);
+    const targetIndex = resolveDropIndex(event.clientY, event.currentTarget);
+    onDropTask(taskId, column.status, targetIndex);
   };
 
   return (

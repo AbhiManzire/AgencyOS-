@@ -1,11 +1,11 @@
 import { StatusBadge } from '@/design-system';
 import type { TaskPriority } from '@/features/tasks/types';
 
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
+export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   LOW: 'Low',
-  NORMAL: 'Normal',
+  MEDIUM: 'Medium',
   HIGH: 'High',
-  URGENT: 'Urgent',
+  CRITICAL: 'Critical',
 };
 
 const PRIORITY_VARIANTS: Record<
@@ -13,9 +13,9 @@ const PRIORITY_VARIANTS: Record<
   'primary' | 'success' | 'warning' | 'danger' | 'neutral'
 > = {
   LOW: 'neutral',
-  NORMAL: 'primary',
+  MEDIUM: 'primary',
   HIGH: 'warning',
-  URGENT: 'danger',
+  CRITICAL: 'danger',
 };
 
 interface TaskPriorityBadgeProps {
@@ -27,5 +27,3 @@ export function TaskPriorityBadge({ priority }: TaskPriorityBadgeProps) {
     <StatusBadge variant={PRIORITY_VARIANTS[priority]}>{PRIORITY_LABELS[priority]}</StatusBadge>
   );
 }
-
-export { PRIORITY_LABELS };

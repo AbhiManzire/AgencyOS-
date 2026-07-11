@@ -5,10 +5,12 @@ import {
   IsDate,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 
@@ -36,9 +38,13 @@ export class UpdateProjectDto {
   status?: ProjectStatus;
 
   @IsOptional()
+  @IsUUID()
+  projectManagerUserId?: string;
+
+  @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
-  projectManagerUserId?: string | null;
+  departmentId?: string | null;
 
   @IsOptional()
   @IsEnum(ProjectPriority)
@@ -55,6 +61,27 @@ export class UpdateProjectDto {
   @Type(() => Date)
   @IsDate()
   targetEndDate?: Date | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  budgetAmount?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  estimatedHours?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  actualHours?: number | null;
 
   @IsOptional()
   @IsBoolean()

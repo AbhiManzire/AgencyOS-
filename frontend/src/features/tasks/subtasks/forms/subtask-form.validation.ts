@@ -12,7 +12,7 @@ import type { TaskPriority, TaskStatus } from '@/features/tasks/types';
 export const DEFAULT_SUBTASK_FORM_VALUES: SubtaskFormValues = {
   title: '',
   assigneeUserId: '',
-  priority: 'NORMAL',
+  priority: 'MEDIUM',
   status: 'TODO',
   dueDate: '',
 };
@@ -96,12 +96,19 @@ export function toUpdateSubtaskPayload(values: SubtaskFormValues): UpdateSubtask
   };
 }
 
-export const TASK_STATUS_OPTIONS: readonly TaskStatus[] = [
+export const TASK_STATUS_OPTIONS = [
+  'BACKLOG',
   'TODO',
   'IN_PROGRESS',
-  'IN_REVIEW',
-  'DONE',
+  'REVIEW',
+  'BLOCKED',
+  'COMPLETED',
   'CANCELLED',
-];
+] as const satisfies readonly TaskStatus[];
 
-export const TASK_PRIORITY_OPTIONS: readonly TaskPriority[] = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
+export const TASK_PRIORITY_OPTIONS = [
+  'LOW',
+  'MEDIUM',
+  'HIGH',
+  'CRITICAL',
+] as const satisfies readonly TaskPriority[];

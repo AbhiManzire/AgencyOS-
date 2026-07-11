@@ -10,11 +10,14 @@ export function invoiceRecordToListItem(record: InvoiceRecord): InvoiceListItem 
     projectName: record.projectName,
     quoteId: record.quoteId,
     quoteNumber: record.quoteNumber,
+    dealId: record.dealId,
     invoiceNumber: record.invoiceNumber,
     status: record.status,
     issueDate: record.issueDate,
     dueDate: record.dueDate,
     currency: record.currency,
+    grandTotal: record.grandTotal,
+    balanceDue: record.balanceDue,
     updatedAt: record.updatedAt,
   };
 }

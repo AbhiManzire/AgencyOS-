@@ -1,3 +1,4 @@
+import type { DealPriority } from '@/features/sales/types';
 import type {
   CreateDealPayload,
   DealRecord,
@@ -7,24 +8,33 @@ import type {
 export interface DealFormValues {
   clientId: string;
   contactId: string;
+  leadId: string;
   title: string;
   value: string;
   expectedCloseDate: string;
+  service: string;
+  probability: string;
+  priority: DealPriority;
 }
 
 export interface DealFormErrors {
   clientId?: string;
   title?: string;
   value?: string;
+  probability?: string;
   form?: string;
 }
 
 export const DEFAULT_DEAL_FORM_VALUES: DealFormValues = {
   clientId: '',
   contactId: '',
+  leadId: '',
   title: '',
   value: '',
   expectedCloseDate: '',
+  service: '',
+  probability: '',
+  priority: 'MEDIUM',
 };
 
 /** Validates deal form values before submit. */
@@ -52,6 +62,14 @@ export function validateDealForm(values: DealFormValues): DealFormErrors {
     }
   }
 
+  const probabilityText = values.probability.trim();
+  if (probabilityText.length > 0) {
+    const probability = Number(probabilityText);
+    if (!Number.isFinite(probability) || probability < 0 || probability > 100) {
+      errors.probability = 'Probability must be between 0 and 100';
+    }
+  }
+
   return errors;
 }
 
@@ -60,9 +78,13 @@ export function areDealFormValuesEqual(left: DealFormValues, right: DealFormValu
   return (
     left.clientId === right.clientId &&
     left.contactId === right.contactId &&
+    left.leadId === right.leadId &&
     left.title === right.title &&
     left.value === right.value &&
-    left.expectedCloseDate === right.expectedCloseDate
+    left.expectedCloseDate === right.expectedCloseDate &&
+    left.service === right.service &&
+    left.probability === right.probability &&
+    left.priority === right.priority
   );
 }
 
@@ -71,36 +93,53 @@ export function dealRecordToFormValues(record: DealRecord): DealFormValues {
   return {
     clientId: record.clientId,
     contactId: record.contactId ?? '',
+    leadId: record.leadId ?? '',
     title: record.title,
     value: String(record.value),
     expectedCloseDate:
       record.expectedCloseDate !== null ? record.expectedCloseDate.slice(0, 10) : '',
+    service: record.service ?? '',
+    probability: record.probability !== null ? String(record.probability) : '',
+    priority: record.priority,
   };
+}
+
+function optionalId(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 /** Maps validated form values to update deal API payload. */
 export function toUpdateDealPayload(values: DealFormValues): UpdateDealPayload {
-  const contactId = values.contactId.trim();
+  const probabilityText = values.probability.trim();
 
   return {
     clientId: values.clientId,
-    contactId: contactId.length > 0 ? contactId : null,
+    contactId: optionalId(values.contactId),
+    leadId: optionalId(values.leadId),
     title: values.title.trim(),
     value: Number(values.value.trim()),
     expectedCloseDate: values.expectedCloseDate.trim().length > 0 ? values.expectedCloseDate : null,
+    service: values.service.trim().length > 0 ? values.service.trim() : null,
+    probability: probabilityText.length > 0 ? Number(probabilityText) : null,
+    priority: values.priority,
   };
 }
 
 /** Maps validated form values to create deal API payload. */
 export function toCreateDealPayload(values: DealFormValues): CreateDealPayload {
-  const contactId = values.contactId.trim();
+  const probabilityText = values.probability.trim();
 
   return {
     clientId: values.clientId,
-    contactId: contactId.length > 0 ? contactId : null,
+    contactId: optionalId(values.contactId),
+    leadId: optionalId(values.leadId),
     title: values.title.trim(),
     value: Number(values.value.trim()),
     expectedCloseDate: values.expectedCloseDate.trim().length > 0 ? values.expectedCloseDate : null,
+    service: values.service.trim().length > 0 ? values.service.trim() : null,
+    probability: probabilityText.length > 0 ? Number(probabilityText) : null,
+    priority: values.priority,
     stage: 'NEW',
   };
 }

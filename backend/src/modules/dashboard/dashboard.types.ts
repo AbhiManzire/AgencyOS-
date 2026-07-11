@@ -20,16 +20,50 @@ export interface DashboardSummary {
     readonly active: number;
   };
   readonly projects: {
+    readonly total: number;
     readonly active: number;
+    readonly planning: number;
+    readonly onHold: number;
+    readonly completed: number;
+    readonly cancelled: number;
     readonly invoiceReady: number;
     readonly completedThisMonth: number;
+    readonly atRisk: number;
+    readonly endingSoon: number;
+    readonly overBudget: number;
   };
   readonly tasks: {
     readonly dueToday: number;
     readonly overdue: number;
+    readonly myTasks: {
+      readonly openTotal: number;
+      readonly completed: number;
+      readonly blocked: number;
+      readonly dueToday: number;
+      readonly overdue: number;
+      readonly dueThisWeek: number;
+    };
   };
   readonly sales: {
+    readonly leadCount: number;
+    readonly qualifiedLeads: number;
     readonly openDeals: number;
+    readonly pipelineValue: number;
+    readonly expectedRevenue: number;
+    readonly wonRevenue: number;
+    readonly lostRevenue: number;
+    readonly conversionRate: number;
+    readonly averageDealSize: number;
+  };
+  readonly finance: {
+    readonly expensesMonthly: number;
+    readonly profitMonthly: number;
+    readonly overdueAmount: number;
+    readonly cashBalance: number;
+    readonly monthlyCollections: number;
+    readonly monthlyExpenses: number;
+    readonly mrr: number;
+    readonly arr: number;
   };
 }
 
@@ -42,10 +76,39 @@ export interface DashboardSummaryAggregates {
   readonly outstandingCount: number;
   readonly clientsTotal: number;
   readonly clientsActive: number;
+  readonly projectsTotal: number;
   readonly projectsActive: number;
+  readonly projectsPlanning: number;
+  readonly projectsOnHold: number;
+  readonly projectsCancelled: number;
   readonly projectsInvoiceReady: number;
   readonly projectsCompletedThisMonth: number;
+  readonly projectsCompleted: number;
+  readonly projectsAtRisk: number;
+  readonly projectsEndingSoon: number;
+  readonly projectsOverBudget: number;
   readonly tasksDueToday: number;
   readonly tasksOverdue: number;
+  readonly tasksOpenTotal: number;
+  readonly tasksCompleted: number;
+  readonly tasksBlocked: number;
+  readonly tasksAssignedDueToday: number;
+  readonly tasksAssignedOverdue: number;
+  readonly tasksDueThisWeek: number;
+  readonly leadCount: number;
+  readonly qualifiedLeads: number;
   readonly openDeals: number;
+  readonly pipelineValue: number;
+  readonly expectedRevenue: number;
+  readonly wonRevenue: number;
+  readonly lostRevenue: number;
+  readonly conversionRate: number;
+  readonly averageDealSize: number;
+  readonly expensesMonthly: number;
+  readonly profitMonthly: number;
+  readonly cashBalance: number;
+  readonly monthlyCollections: number;
+  readonly monthlyExpenses: number;
+  readonly mrr: number;
+  readonly arr: number;
 }

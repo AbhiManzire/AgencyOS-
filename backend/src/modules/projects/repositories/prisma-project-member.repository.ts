@@ -114,7 +114,7 @@ export class PrismaProjectMemberRepository implements ProjectMemberRepository {
     return toProjectMemberRecord(member, departmentName);
   }
 
-  async findActiveLead(
+  async findActiveManager(
     scope: ProjectMemberScope,
     excludeMemberId?: string,
   ): Promise<ProjectMemberRecord | null> {
@@ -123,7 +123,7 @@ export class PrismaProjectMemberRepository implements ProjectMemberRepository {
         tenantId: scope.tenantId,
         workspaceId: scope.workspaceId,
         projectId: scope.projectId,
-        role: 'LEAD',
+        role: 'MANAGER',
         deletedAt: null,
         ...(excludeMemberId !== undefined ? { id: { not: excludeMemberId } } : {}),
       },

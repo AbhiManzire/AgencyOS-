@@ -1,6 +1,8 @@
 import { apiClient } from '@/lib/api/api-client';
 import type { ApiSuccessResponse } from '@/lib/api/api-response.types';
 import type {
+  ConvertDealToInvoicePayload,
+  ConvertedInvoiceRecord,
   CreateDealPayload,
   DealRecord,
   ListDealsParams,
@@ -40,6 +42,45 @@ export async function getDeal(id: string): Promise<DealRecord> {
 export async function updateDeal(dealId: string, payload: UpdateDealPayload): Promise<DealRecord> {
   const response = await apiClient.patch<ApiSuccessResponse<DealRecord>>(
     `/deals/${dealId}`,
+    payload,
+  );
+  return response.data.data;
+}
+
+/** Archives a deal. */
+export async function archiveDeal(dealId: string): Promise<DealRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<DealRecord>>(
+    `/deals/${dealId}/archive`,
+    {},
+  );
+  return response.data.data;
+}
+
+/** Restores an archived deal. */
+export async function restoreDeal(dealId: string): Promise<DealRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<DealRecord>>(
+    `/deals/${dealId}/restore`,
+    {},
+  );
+  return response.data.data;
+}
+
+/** Converts a won deal into a project. */
+export async function convertDealToProject(dealId: string): Promise<DealRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<DealRecord>>(
+    `/deals/${dealId}/convert-to-project`,
+    {},
+  );
+  return response.data.data;
+}
+
+/** Converts a won deal into an invoice. */
+export async function convertDealToInvoice(
+  dealId: string,
+  payload: ConvertDealToInvoicePayload = {},
+): Promise<ConvertedInvoiceRecord> {
+  const response = await apiClient.post<ApiSuccessResponse<ConvertedInvoiceRecord>>(
+    `/deals/${dealId}/convert-to-invoice`,
     payload,
   );
   return response.data.data;

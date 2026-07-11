@@ -1,16 +1,31 @@
-import type { TaskPriority, TaskStatus } from '@prisma/client';
+import type { TaskPriority, TaskStatus, TaskType } from '@prisma/client';
 
-export const TASK_CREATABLE_STATUSES: readonly TaskStatus[] = ['TODO', 'IN_PROGRESS'];
+export const TASK_CREATABLE_STATUSES: readonly TaskStatus[] = ['BACKLOG', 'TODO', 'IN_PROGRESS'];
 
 export const TASK_STATUSES: readonly TaskStatus[] = [
+  'BACKLOG',
   'TODO',
   'IN_PROGRESS',
-  'IN_REVIEW',
-  'DONE',
+  'REVIEW',
+  'BLOCKED',
+  'COMPLETED',
   'CANCELLED',
+  'ARCHIVED',
 ];
 
-export const TASK_PRIORITIES: readonly TaskPriority[] = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
+export const TASK_PRIORITIES: readonly TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+
+export const TASK_TYPES: readonly TaskType[] = [
+  'FEATURE',
+  'BUG',
+  'IMPROVEMENT',
+  'RESEARCH',
+  'MEETING',
+  'SUPPORT',
+  'OTHER',
+];
+
+export const TASK_TERMINAL_STATUSES: readonly TaskStatus[] = ['COMPLETED', 'CANCELLED'];
 
 export interface CreateTaskValidationInput {
   readonly tenantId: string;
@@ -18,23 +33,33 @@ export interface CreateTaskValidationInput {
   readonly title: string;
   readonly projectId: string;
   readonly milestoneId?: string | null;
+  readonly code?: string | null;
   readonly status?: TaskStatus;
   readonly priority?: TaskPriority;
+  readonly type?: TaskType;
   readonly assigneeUserId?: string | null;
+  readonly reporterUserId?: string | null;
   readonly startDate?: Date | null;
   readonly dueDate?: Date | null;
   readonly estimatedHours?: number | null;
+  readonly actualHours?: number | null;
+  readonly boardOrder?: number;
 }
 
 export interface UpdateTaskValidationInput {
   readonly title?: string;
   readonly milestoneId?: string | null;
+  readonly code?: string | null;
   readonly status?: TaskStatus;
   readonly priority?: TaskPriority;
+  readonly type?: TaskType;
   readonly assigneeUserId?: string | null;
+  readonly reporterUserId?: string | null;
   readonly startDate?: Date | null;
   readonly dueDate?: Date | null;
   readonly estimatedHours?: number | null;
+  readonly actualHours?: number | null;
+  readonly boardOrder?: number;
 }
 
 export interface CreateSubtaskValidationInput {

@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Caption } from '@/design-system/typography';
 import type { PipelineDealCard as PipelineDealCardModel } from '@/features/sales/pipeline/pipeline.constants';
 import { DEAL_DRAG_TYPE } from '@/features/sales/pipeline/pipeline.constants';
-import { formatDealDate, formatDealValue } from '@/features/sales/utils/deal-display';
+import { DealPriorityBadge } from '@/features/sales/components/deal-priority-badge';
+import {
+  formatDealDate,
+  formatDealProbability,
+  formatDealValue,
+} from '@/features/sales/utils/deal-display';
 import { usePermission } from '@/lib/rbac/use-permission';
 import { cn } from '@/lib/utils';
 
@@ -55,7 +60,10 @@ export function PipelineDealCard({ deal, isDragging = false }: PipelineDealCardP
         isDragging && 'opacity-50',
       )}
     >
-      <p className="mb-2 line-clamp-2 font-medium text-foreground">{deal.title}</p>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <p className="line-clamp-2 font-medium text-foreground">{deal.title}</p>
+        <DealPriorityBadge priority={deal.priority} />
+      </div>
 
       <div className="space-y-1.5">
         <Caption className="block truncate text-muted-foreground">{deal.clientName}</Caption>
@@ -64,7 +72,8 @@ export function PipelineDealCard({ deal, isDragging = false }: PipelineDealCardP
           {formatDealValue(deal.value, deal.currency)}
         </Caption>
         <Caption className="block text-muted-foreground">
-          Close {formatDealDate(deal.expectedCloseDate)}
+          {formatDealProbability(deal.stage, deal.probability)} · Close{' '}
+          {formatDealDate(deal.expectedCloseDate)}
         </Caption>
         <Caption className="block truncate text-muted-foreground">{deal.ownerName}</Caption>
       </div>

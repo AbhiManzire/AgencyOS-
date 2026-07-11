@@ -11,19 +11,26 @@ import {
   ErrorState,
   LoadingState,
   PageContainer,
+  useToast,
 } from '@/design-system';
 import { CardTitle } from '@/design-system/typography';
 import { useProject } from '@/features/projects/hooks/use-project';
 import { useProjectMilestones } from '@/features/projects/milestones/hooks/use-project-milestones';
 import { displayProjectField } from '@/features/projects/utils/project-display';
+import { ArchiveTaskDialog } from '@/features/tasks/components/archive-task-dialog';
+import { TaskDependenciesPanel } from '@/features/tasks/components/task-dependencies-panel';
 import { TaskDetailHeader } from '@/features/tasks/components/task-detail-header';
 import { TaskFormDrawer } from '@/features/tasks/components/task-form-drawer';
 import { TaskDetailOverviewCard } from '@/features/tasks/components/task-detail-overview-card';
 import { TaskDetailProgressCard } from '@/features/tasks/components/task-detail-progress-card';
 import { TaskDetailTabs } from '@/features/tasks/components/task-detail-tabs';
 import { TaskNotFoundState } from '@/features/tasks/components/task-not-found-state';
+import { TaskTagsPanel } from '@/features/tasks/components/task-tags-panel';
+import { useArchiveTask } from '@/features/tasks/hooks/use-archive-task';
+import { useRestoreTask } from '@/features/tasks/hooks/use-restore-task';
 import { useTask } from '@/features/tasks/hooks/use-task';
-import { displayTaskField } from '@/features/tasks/utils/task-display';
+import { displayTaskField, formatTaskAssignee } from '@/features/tasks/utils/task-display';
+import { isTaskArchived } from '@/features/tasks/utils/list-tasks-query';
 import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-api-error';
 
 const ActivityTimeline = dynamic(
@@ -69,9 +76,13 @@ const TaskTimeEntriesTab = dynamic(
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
   const taskId = params.id;
+  const { showToast } = useToast();
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const { data: task, isLoading, error, refetch } = useTask(taskId);
+  const { mutateAsync: archiveTask, isPending: isArchiving } = useArchiveTask();
+  const { mutateAsync: restoreTask, isPending: isRestoring } = useRestoreTask();
   const { data: project } = useProject(task?.projectId ?? '', {
     enabled: task !== undefined,
   });
@@ -89,6 +100,12 @@ export default function TaskDetailPage() {
     const milestone = milestonesData?.milestones.find((item) => item.id === task.milestoneId);
     return milestone?.name ?? displayTaskField(task.milestoneId);
   }, [milestonesData?.milestones, task]);
+
+  const reporterName = formatTaskAssignee(
+    task?.reporterDisplayName,
+    task?.reporterEmail,
+    task?.reporterUserId,
+  );
 
   if (isLoading) {
     return (
@@ -121,12 +138,39 @@ export default function TaskDetailPage() {
     return <TaskNotFoundState />;
   }
 
+  const handleArchive = async (): Promise<void> => {
+    try {
+      await archiveTask(task.id);
+      showToast('Task archived');
+      setArchiveOpen(false);
+    } catch (archiveError) {
+      showToast(extractApiErrorMessage(archiveError), 'error');
+    }
+  };
+
+  const handleRestore = async (): Promise<void> => {
+    try {
+      await restoreTask(task.id);
+      showToast('Task restored');
+    } catch (restoreError) {
+      showToast(extractApiErrorMessage(restoreError), 'error');
+    }
+  };
+
   return (
     <PageContainer size="lg">
       <TaskDetailHeader
         task={task}
+        isArchiving={isArchiving}
+        isRestoring={isRestoring}
         onEdit={() => {
           setEditDrawerOpen(true);
+        }}
+        onArchive={() => {
+          setArchiveOpen(true);
+        }}
+        onRestore={() => {
+          void handleRestore();
         }}
       />
 
@@ -137,16 +181,32 @@ export default function TaskDetailPage() {
         onOpenChange={setEditDrawerOpen}
       />
 
+      <ArchiveTaskDialog
+        open={archiveOpen}
+        isPending={isArchiving}
+        onCancel={() => {
+          setArchiveOpen(false);
+        }}
+        onConfirm={() => {
+          void handleArchive();
+        }}
+      />
+
       <div className="mt-6 space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
           <TaskDetailOverviewCard
             description={task.description}
+            code={task.code}
+            type={task.type}
             projectId={task.projectId}
             projectName={projectName}
             milestoneName={milestoneName}
+            reporterName={reporterName}
             startDate={task.startDate}
             dueDate={task.dueDate}
             estimatedHours={task.estimatedHours}
+            actualHours={task.actualHours}
+            completedAt={task.completedAt}
             createdByUserId={task.createdByUserId}
             createdByDisplayName={task.createdByDisplayName}
           />
@@ -168,6 +228,14 @@ export default function TaskDetailPage() {
 
         <TaskDetailTabs
           subtasks={<TaskSubtasksTab taskId={taskId} projectId={task.projectId} />}
+          dependencies={
+            <TaskDependenciesPanel
+              taskId={taskId}
+              projectId={task.projectId}
+              readOnly={isTaskArchived(task)}
+            />
+          }
+          tags={<TaskTagsPanel taskId={taskId} readOnly={isTaskArchived(task)} />}
           files={<FilePanel entityType="task" entityId={taskId} />}
           comments={<CommentsPanel entityType="task" entityId={taskId} />}
           timeEntries={<TaskTimeEntriesTab taskId={taskId} projectId={task.projectId} />}

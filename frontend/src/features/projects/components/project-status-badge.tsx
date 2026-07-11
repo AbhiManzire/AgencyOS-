@@ -8,6 +8,7 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
   COMPLETED: 'Completed',
   INVOICE_READY: 'Invoice Ready',
   CANCELLED: 'Cancelled',
+  ARCHIVED: 'Archived',
 };
 
 const STATUS_VARIANTS: Record<
@@ -20,6 +21,7 @@ const STATUS_VARIANTS: Record<
   COMPLETED: 'neutral',
   INVOICE_READY: 'success',
   CANCELLED: 'danger',
+  ARCHIVED: 'neutral',
 };
 
 interface ProjectStatusBadgeProps {

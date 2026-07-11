@@ -18,43 +18,89 @@ interface TaskKanbanBoardProps {
   readonly onOpenTask: (taskId: string) => void;
 }
 
+function computeBoardOrder(
+  columnTasks: readonly KanbanTaskCard[],
+  targetIndex: number,
+  movingTaskId: string,
+): number {
+  const withoutMoving = columnTasks.filter((task) => task.id !== movingTaskId);
+  const clampedIndex = Math.max(0, Math.min(targetIndex, withoutMoving.length));
+
+  if (withoutMoving.length === 0) {
+    return 1000;
+  }
+
+  if (clampedIndex === 0) {
+    return withoutMoving[0].boardOrder - 1000;
+  }
+
+  if (clampedIndex >= withoutMoving.length) {
+    return withoutMoving[withoutMoving.length - 1].boardOrder + 1000;
+  }
+
+  const before = withoutMoving[clampedIndex - 1].boardOrder;
+  const after = withoutMoving[clampedIndex].boardOrder;
+  if (after - before > 1) {
+    return Math.floor((before + after) / 2);
+  }
+
+  return before + 1;
+}
+
 export function TaskKanbanBoard({ tasks, listParams, onOpenTask }: TaskKanbanBoardProps) {
   const { showToast } = useToast();
-  const { mutateAsync: updateStatus } = useUpdateTaskStatusOptimistic(listParams);
+  const { mutateAsync: updateBoard } = useUpdateTaskStatusOptimistic(listParams);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
 
   const tasksByColumn = useMemo(() => {
     const grouped: Record<KanbanColumnStatus, KanbanTaskCard[]> = {
+      BACKLOG: [],
       TODO: [],
       IN_PROGRESS: [],
-      IN_REVIEW: [],
-      DONE: [],
+      REVIEW: [],
+      BLOCKED: [],
+      COMPLETED: [],
     };
 
     for (const task of tasks) {
       if (
+        task.status === 'BACKLOG' ||
         task.status === 'TODO' ||
         task.status === 'IN_PROGRESS' ||
-        task.status === 'IN_REVIEW' ||
-        task.status === 'DONE'
+        task.status === 'REVIEW' ||
+        task.status === 'BLOCKED' ||
+        task.status === 'COMPLETED'
       ) {
         grouped[task.status].push(task);
       }
     }
 
+    for (const status of Object.keys(grouped) as KanbanColumnStatus[]) {
+      grouped[status].sort((left, right) => left.boardOrder - right.boardOrder);
+    }
+
     return grouped;
   }, [tasks]);
 
-  const handleDropTask = async (taskId: string, status: KanbanColumnStatus): Promise<void> => {
+  const handleDropTask = async (
+    taskId: string,
+    status: KanbanColumnStatus,
+    targetIndex: number,
+  ): Promise<void> => {
     const task = tasks.find((item) => item.id === taskId);
-    if (task === undefined || task.status === status) {
+    if (task === undefined) {
+      return;
+    }
+
+    const boardOrder = computeBoardOrder(tasksByColumn[status], targetIndex, taskId);
+    if (task.status === status && task.boardOrder === boardOrder) {
       return;
     }
 
     setDraggingTaskId(taskId);
 
     try {
-      await updateStatus({ taskId, status });
+      await updateBoard({ taskId, status, boardOrder });
     } catch (error) {
       showToast(extractApiErrorMessage(error), 'error');
     } finally {
@@ -75,8 +121,8 @@ export function TaskKanbanBoard({ tasks, listParams, onOpenTask }: TaskKanbanBoa
           column={column}
           tasks={tasksByColumn[column.status]}
           draggingTaskId={draggingTaskId}
-          onDropTask={(taskId, nextStatus) => {
-            void handleDropTask(taskId, nextStatus);
+          onDropTask={(taskId, nextStatus, targetIndex) => {
+            void handleDropTask(taskId, nextStatus, targetIndex);
           }}
           onOpenTask={onOpenTask}
         />

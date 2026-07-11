@@ -1,4 +1,4 @@
-import type { PaymentMethod } from '@prisma/client';
+import type { ApprovalStatus, PaymentMethod } from '@prisma/client';
 import type {
   ListPaymentsResult,
   PaymentRecord,
@@ -17,6 +17,7 @@ export interface CreatePaymentCommand {
   readonly currency?: string;
   readonly reference?: string | null;
   readonly notes?: string | null;
+  readonly approvalStatus?: ApprovalStatus;
 }
 
 export interface ListPaymentsQuery {

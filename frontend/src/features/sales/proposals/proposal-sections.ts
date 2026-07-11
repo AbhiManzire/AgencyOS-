@@ -13,7 +13,8 @@ export type ProposalSectionKey = (typeof PROPOSAL_SECTION_KEYS)[number];
 
 export type ProposalSections = Record<ProposalSectionKey, string>;
 
-export type ProposalStatus = 'DRAFT' | 'REVIEW' | 'SENT' | 'ACCEPTED' | 'DECLINED';
+export type ProposalStatus =
+  'DRAFT' | 'REVIEW' | 'SENT' | 'VIEWED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
 
 export const PROPOSAL_SECTION_LABELS: Record<ProposalSectionKey, string> = {
   cover: 'Cover',
@@ -30,8 +31,10 @@ export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
   DRAFT: 'Draft',
   REVIEW: 'Review',
   SENT: 'Sent',
+  VIEWED: 'Viewed',
   ACCEPTED: 'Accepted',
   DECLINED: 'Declined',
+  EXPIRED: 'Expired',
 };
 
 export function createDefaultProposalSections(): ProposalSections {

@@ -1,7 +1,13 @@
 import type { InvoiceStatus, PaymentMethod } from '@prisma/client';
 import { PAYMENT_DOMAIN_ERROR_CODES, PaymentDomainError } from './payment-domain.errors';
 
-const PAYABLE_INVOICE_STATUSES: readonly InvoiceStatus[] = ['SENT', 'OVERDUE', 'PAID'];
+const PAYABLE_INVOICE_STATUSES: readonly InvoiceStatus[] = [
+  'SENT',
+  'VIEWED',
+  'PARTIALLY_PAID',
+  'OVERDUE',
+  'PAID',
+];
 
 export class PaymentDomainService {
   assertAmountValid(amount: number): void {
@@ -62,6 +68,9 @@ export class PaymentDomainService {
       value === 'CARD' ||
       value === 'CASH' ||
       value === 'CHECK' ||
+      value === 'CHEQUE' ||
+      value === 'UPI' ||
+      value === 'ONLINE' ||
       value === 'OTHER'
     );
   }
@@ -71,19 +80,38 @@ export class PaymentDomainService {
     readonly currentStatus: InvoiceStatus;
     readonly dueDate: Date;
     readonly outstanding: number;
+    readonly amountPaid: number;
   }): InvoiceStatus {
     if (params.outstanding <= 0.001) {
       return 'PAID';
     }
 
-    if (params.currentStatus === 'VOID' || params.currentStatus === 'DRAFT') {
+    if (
+      params.currentStatus === 'VOID' ||
+      params.currentStatus === 'DRAFT' ||
+      params.currentStatus === 'CANCELLED'
+    ) {
       return params.currentStatus;
     }
 
     const startOfToday = new Date();
     startOfToday.setUTCHours(0, 0, 0, 0);
-    if (params.dueDate.getTime() < startOfToday.getTime()) {
+    const isOverdue = params.dueDate.getTime() < startOfToday.getTime();
+
+    if (params.amountPaid > 0.001) {
+      return isOverdue ? 'OVERDUE' : 'PARTIALLY_PAID';
+    }
+
+    if (isOverdue) {
       return 'OVERDUE';
+    }
+
+    if (
+      params.currentStatus === 'SENT' ||
+      params.currentStatus === 'VIEWED' ||
+      params.currentStatus === 'OVERDUE'
+    ) {
+      return params.currentStatus;
     }
 
     return 'SENT';

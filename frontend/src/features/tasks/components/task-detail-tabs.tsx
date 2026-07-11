@@ -3,10 +3,13 @@
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type TaskDetailTab = 'subtasks' | 'files' | 'comments' | 'timeEntries';
+export type TaskDetailTab =
+  'subtasks' | 'dependencies' | 'tags' | 'files' | 'comments' | 'timeEntries';
 
 interface TaskDetailTabsProps {
   readonly subtasks: ReactNode;
+  readonly dependencies: ReactNode;
+  readonly tags: ReactNode;
   readonly files: ReactNode;
   readonly comments: ReactNode;
   readonly timeEntries: ReactNode;
@@ -15,6 +18,8 @@ interface TaskDetailTabsProps {
 
 const TAB_LABELS: Record<TaskDetailTab, string> = {
   subtasks: 'Subtasks',
+  dependencies: 'Dependencies',
+  tags: 'Tags',
   files: 'Files',
   comments: 'Comments',
   timeEntries: 'Time Entries',
@@ -22,6 +27,8 @@ const TAB_LABELS: Record<TaskDetailTab, string> = {
 
 export function TaskDetailTabs({
   subtasks,
+  dependencies,
+  tags,
   files,
   comments,
   timeEntries,
@@ -31,6 +38,8 @@ export function TaskDetailTabs({
 
   const tabContent: Record<TaskDetailTab, ReactNode> = {
     subtasks,
+    dependencies,
+    tags,
     files,
     comments,
     timeEntries,

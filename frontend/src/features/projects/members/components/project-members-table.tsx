@@ -1,5 +1,4 @@
-'use client';
-
+import { Avatar } from '@/design-system';
 import {
   Table,
   TableBody,
@@ -18,6 +17,7 @@ import { formatProjectDate } from '@/features/projects/utils/project-display';
 interface ProjectMembersTableProps {
   readonly members: readonly ProjectMemberListItem[];
   readonly readOnly?: boolean;
+  readonly projectOwnerUserId?: string | null;
   readonly onEditMember: (memberId: string) => void;
   readonly onDeleteMember: (memberId: string) => void;
 }
@@ -25,9 +25,12 @@ interface ProjectMembersTableProps {
 export function ProjectMembersTable({
   members,
   readOnly = false,
+  projectOwnerUserId = null,
   onEditMember,
   onDeleteMember,
 }: ProjectMembersTableProps) {
+  const managerCount = members.filter((member) => member.role === 'MANAGER').length;
+
   return (
     <div className="rounded-lg border border-border bg-card">
       <div className="overflow-x-auto">
@@ -45,15 +48,23 @@ export function ProjectMembersTable({
           <TableBody>
             {members.map((member) => {
               const name = formatMemberName(member);
+              const initials = name.slice(0, 2).toUpperCase();
+              const isOwner = projectOwnerUserId !== null && member.userId === projectOwnerUserId;
+              const isLastManager = member.role === 'MANAGER' && managerCount <= 1;
+              const canRemove = !isOwner && !isLastManager;
 
               return (
                 <TableRow key={member.id}>
                   <TableCell>
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{name}</p>
-                      <p className="truncate text-xs text-muted-foreground md:hidden">
-                        {member.departmentName}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar size="sm" initials={initials} aria-label={name} />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{member.userEmail}</p>
+                        <p className="truncate text-xs text-muted-foreground md:hidden">
+                          {member.departmentName}
+                        </p>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -72,6 +83,7 @@ export function ProjectMembersTable({
                     <MemberRowActions
                       memberName={name}
                       disabled={readOnly}
+                      canRemove={canRemove}
                       onEdit={() => {
                         onEditMember(member.id);
                       }}

@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus } from '@prisma/client';
+import type { ApprovalStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 
 export const PAYMENT_REPOSITORY = Symbol('PAYMENT_REPOSITORY');
 
@@ -21,6 +21,7 @@ export interface PaymentRecord {
   readonly paidAt: Date;
   readonly reference: string | null;
   readonly notes: string | null;
+  readonly approvalStatus: ApprovalStatus;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId: string | null;
@@ -41,6 +42,7 @@ export interface CreatePaymentData {
   readonly paidAt: Date;
   readonly reference?: string | null;
   readonly notes?: string | null;
+  readonly approvalStatus?: ApprovalStatus;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId?: string | null;

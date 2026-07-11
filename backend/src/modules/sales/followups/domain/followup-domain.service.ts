@@ -6,7 +6,13 @@ import type {
 } from './followup-domain.types';
 import type { FollowUpRecord } from '../repositories/followup.repository.interface';
 
-const VALID_TYPES: readonly DealFollowUpType[] = ['CALL', 'MEETING', 'EMAIL', 'WHATSAPP'];
+const VALID_TYPES: readonly DealFollowUpType[] = [
+  'CALL',
+  'MEETING',
+  'EMAIL',
+  'WHATSAPP',
+  'REMINDER',
+];
 const VALID_STATUSES: readonly DealFollowUpStatus[] = ['PENDING', 'COMPLETED', 'CANCELLED'];
 
 export class FollowUpDomainService {

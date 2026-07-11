@@ -9,6 +9,7 @@ import { QuoteDetailHeader } from '@/features/sales/quotes/components/quote-deta
 import { QuoteDetailOverviewCard } from '@/features/sales/quotes/components/quote-detail-overview-card';
 import { QuoteDetailTabs } from '@/features/sales/quotes/components/quote-detail-tabs';
 import { QuoteNotFoundState } from '@/features/sales/quotes/components/quote-not-found-state';
+import { QuoteRevisionsPanel } from '@/features/sales/quotes/components/quote-revisions-panel';
 import { QuoteLineItemsTab } from '@/features/sales/quote-line-items/components/quote-line-items-tab';
 import { useQuote } from '@/features/sales/quotes/hooks/use-quote';
 import { extractApiErrorMessage, isApiNotFoundError } from '@/lib/api/extract-api-error';
@@ -70,6 +71,7 @@ export default function QuoteDetailPage() {
       <QuoteDetailTabs
         lineItems={<QuoteLineItemsTab quoteId={quoteId} currency={quote.currency} />}
         overview={<QuoteDetailOverviewCard quote={quote} />}
+        revisions={<QuoteRevisionsPanel quoteId={quoteId} />}
       />
     </PageContainer>
   );

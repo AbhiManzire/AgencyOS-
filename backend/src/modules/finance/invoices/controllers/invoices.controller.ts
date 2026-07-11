@@ -89,6 +89,42 @@ export class InvoicesController {
     return successResponse(invoice);
   }
 
+  @Post(':id/mark-viewed')
+  @RequirePermissions('invoices.update')
+  async markViewed(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<InvoiceRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const invoice = await this.invoiceService.markViewed(scope, id, context);
+    return successResponse(invoice);
+  }
+
+  @Post(':id/cancel')
+  @RequirePermissions('invoices.update')
+  async cancel(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<InvoiceRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const invoice = await this.invoiceService.cancelInvoice(scope, id, context);
+    return successResponse(invoice);
+  }
+
+  @Post(':id/approve')
+  @RequirePermissions('invoices.update')
+  async approve(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<InvoiceRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const invoice = await this.invoiceService.approveInvoice(scope, id, context);
+    return successResponse(invoice);
+  }
+
   private resolveScope(headers: Record<string, string | string[] | undefined>): InvoiceScope {
     return {
       tenantId: this.readHeader(headers, TENANT_HEADER),

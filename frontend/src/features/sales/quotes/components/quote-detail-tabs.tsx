@@ -3,22 +3,25 @@
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type QuoteDetailTab = 'lineItems' | 'overview';
+export type QuoteDetailTab = 'lineItems' | 'overview' | 'revisions';
 
 interface QuoteDetailTabsProps {
   readonly lineItems: ReactNode;
   readonly overview: ReactNode;
+  readonly revisions: ReactNode;
   readonly defaultTab?: QuoteDetailTab;
 }
 
 const TAB_LABELS: Record<QuoteDetailTab, string> = {
   lineItems: 'Line Items',
   overview: 'Overview',
+  revisions: 'Revisions',
 };
 
 export function QuoteDetailTabs({
   lineItems,
   overview,
+  revisions,
   defaultTab = 'lineItems',
 }: QuoteDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<QuoteDetailTab>(defaultTab);
@@ -26,6 +29,7 @@ export function QuoteDetailTabs({
   const tabContent: Record<QuoteDetailTab, ReactNode> = {
     lineItems,
     overview,
+    revisions,
   };
 
   return (

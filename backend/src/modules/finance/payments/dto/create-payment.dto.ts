@@ -1,4 +1,4 @@
-import { PaymentMethod } from '@prisma/client';
+import { ApprovalStatus, PaymentMethod } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
@@ -42,4 +42,8 @@ export class CreatePaymentDto {
   @IsString()
   @MaxLength(2000)
   notes?: string | null;
+
+  @IsOptional()
+  @IsEnum(ApprovalStatus)
+  approvalStatus?: ApprovalStatus;
 }

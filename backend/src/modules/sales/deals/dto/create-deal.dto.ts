@@ -1,13 +1,15 @@
-import { DealStage } from '@prisma/client';
+import { DealPriority, DealStage } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   ValidateIf,
@@ -21,6 +23,11 @@ export class CreateDealDto {
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
   contactId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  leadId?: string | null;
 
   @IsString()
   @IsNotEmpty()
@@ -51,4 +58,21 @@ export class CreateDealDto {
   @IsOptional()
   @IsEnum(DealStage)
   stage?: DealStage;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  service?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  probability?: number | null;
+
+  @IsOptional()
+  @IsEnum(DealPriority)
+  priority?: DealPriority;
 }

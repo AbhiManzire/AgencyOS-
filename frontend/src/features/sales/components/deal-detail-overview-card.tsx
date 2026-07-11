@@ -2,7 +2,11 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/design-system';
 import { Body, Caption, CardTitle } from '@/design-system/typography';
 import type { DealRecord } from '@/features/sales/api/deal.types';
-import { formatDealDate, formatDealProbability } from '@/features/sales/utils/deal-display';
+import {
+  DEAL_PRIORITY_LABELS,
+  formatDealDate,
+  formatDealProbability,
+} from '@/features/sales/utils/deal-display';
 
 interface DealDetailOverviewCardProps {
   readonly deal: DealRecord;
@@ -47,13 +51,30 @@ export function DealDetailOverviewCard({ deal }: DealDetailOverviewCardProps) {
             href={`/clients/${deal.clientId}`}
           />
           <OverviewField label="Contact" value={contactLabel} />
-          <OverviewField label="Probability" value={formatDealProbability(deal.stage)} />
+          {deal.leadId ? (
+            <OverviewField label="Lead" value="View lead" href={`/sales/leads/${deal.leadId}`} />
+          ) : (
+            <OverviewField label="Lead" value="—" />
+          )}
+          <OverviewField label="Service" value={deal.service ?? '—'} />
+          <OverviewField
+            label="Probability"
+            value={formatDealProbability(deal.stage, deal.probability)}
+          />
+          <OverviewField label="Priority" value={DEAL_PRIORITY_LABELS[deal.priority]} />
           <OverviewField label="Expected Close" value={formatDealDate(deal.expectedCloseDate)} />
-        </div>
-
-        <div>
-          <Caption className="mb-1 block uppercase tracking-wide">Notes</Caption>
-          <Body className="whitespace-pre-wrap text-muted-foreground">—</Body>
+          <OverviewField label="Stage entered" value={formatDealDate(deal.stageEnteredAt)} />
+          {deal.convertedProjectId ? (
+            <OverviewField
+              label="Project"
+              value="View project"
+              href={`/projects/${deal.convertedProjectId}`}
+            />
+          ) : null}
+          {deal.wonAt ? <OverviewField label="Won at" value={formatDealDate(deal.wonAt)} /> : null}
+          {deal.lostAt ? (
+            <OverviewField label="Lost at" value={formatDealDate(deal.lostAt)} />
+          ) : null}
         </div>
       </CardContent>
     </Card>

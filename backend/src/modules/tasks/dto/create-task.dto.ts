@@ -1,8 +1,9 @@
-import { TaskPriority, TaskStatus } from '@prisma/client';
+import { TaskPriority, TaskStatus, TaskType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -19,6 +20,11 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   milestoneId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  code?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -39,8 +45,16 @@ export class CreateTaskDto {
   priority?: TaskPriority;
 
   @IsOptional()
+  @IsEnum(TaskType)
+  type?: TaskType;
+
+  @IsOptional()
   @IsUUID()
   assigneeUserId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  reporterUserId?: string;
 
   @IsOptional()
   @Type(() => Date)
@@ -57,4 +71,16 @@ export class CreateTaskDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   estimatedHours?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  actualHours?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  boardOrder?: number;
 }

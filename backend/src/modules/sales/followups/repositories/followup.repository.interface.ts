@@ -21,6 +21,8 @@ export interface FollowUpRecord {
   readonly scheduledAt: Date;
   readonly notes: string | null;
   readonly reminderAt: Date | null;
+  readonly outcome: string | null;
+  readonly nextFollowUpAt: Date | null;
   readonly ownerUserId: string | null;
   readonly ownerDisplayName: string | null;
   readonly ownerEmail: string | null;
@@ -43,6 +45,8 @@ export interface CreateFollowUpData {
   readonly scheduledAt: Date;
   readonly notes?: string | null;
   readonly reminderAt?: Date | null;
+  readonly outcome?: string | null;
+  readonly nextFollowUpAt?: Date | null;
   readonly ownerUserId?: string | null;
   readonly status?: DealFollowUpStatus;
   readonly createdAt: Date;
@@ -57,6 +61,8 @@ export interface UpdateFollowUpData {
   readonly scheduledAt?: Date;
   readonly notes?: string | null;
   readonly reminderAt?: Date | null;
+  readonly outcome?: string | null;
+  readonly nextFollowUpAt?: Date | null;
   readonly ownerUserId?: string | null;
   readonly status?: DealFollowUpStatus;
   readonly updatedAt: Date;
