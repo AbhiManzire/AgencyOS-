@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run ON the VPS as root (or with sudo).
-# Diagnoses PM2 ports vs Nginx upstreams and applies the PM2 nginx site config.
+# Diagnostic helper only — normal deploys apply nginx via deploy.sh.
+# Diagnoses PM2 ports vs Nginx upstreams and re-applies the PM2 nginx site config.
 set -euo pipefail
 
 APP_DIR="${PROJECT_PATH:-/var/www/AgencyOS-}"

@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
 
+# Runs deploy.sh on the VPS. That script is idempotent: git sync, build,
+# PM2 restart (PORT=3001), nginx site install from the repo, health check.
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -19,5 +21,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: PROJECT_PATH
           script: |
+            set -euo pipefail
+            test -n "${PROJECT_PATH:-}"
             chmod +x "$PROJECT_PATH/deploy.sh"
             "$PROJECT_PATH/deploy.sh"
