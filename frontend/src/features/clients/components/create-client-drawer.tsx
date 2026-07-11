@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ import {
 import { useClient } from '@/features/clients/hooks/use-client';
 import { useCreateClient } from '@/features/clients/hooks/use-create-client';
 import { useUpdateClient } from '@/features/clients/hooks/use-update-client';
+import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owners';
 import { UnsavedChangesDialog } from '@/features/clients/components/unsaved-changes-dialog';
 import type { ClientSource, ClientStatus } from '@/features/clients/types';
 import { extractApiErrorMessage, extractApiValidationErrors } from '@/lib/api/extract-api-error';
@@ -59,15 +61,19 @@ function ClientFormFields({
   values,
   errors,
   isPending,
+  isEditMode,
   updateField,
+  owners,
 }: {
   readonly values: CreateClientFormValues;
   readonly errors: CreateClientFormErrors;
   readonly isPending: boolean;
+  readonly isEditMode: boolean;
   readonly updateField: <K extends keyof CreateClientFormValues>(
     field: K,
     value: CreateClientFormValues[K],
   ) => void;
+  readonly owners: readonly { id: string; displayName: string; email: string }[];
 }) {
   return (
     <>
@@ -127,12 +133,11 @@ function ClientFormFields({
         <FormField label="Website" htmlFor="website" error={errors.website}>
           <Input
             id="website"
-            type="url"
             value={values.website}
             onChange={(event) => {
               updateField('website', event.target.value);
             }}
-            placeholder="https://company.com"
+            placeholder="company.com or https://company.com"
             disabled={isPending}
           />
         </FormField>
@@ -141,7 +146,31 @@ function ClientFormFields({
       <section className="space-y-4">
         <SectionTitle className="text-base">Business</SectionTitle>
 
-        <FormField label="Status" htmlFor="status">
+        <FormField label="Client Code" htmlFor="clientCode" error={errors.clientCode}>
+          <Input
+            id="clientCode"
+            value={values.clientCode}
+            onChange={(event) => {
+              updateField('clientCode', event.target.value);
+            }}
+            placeholder="ACM-001"
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField label="Industry" htmlFor="industry" error={errors.industry}>
+          <Input
+            id="industry"
+            value={values.industry}
+            onChange={(event) => {
+              updateField('industry', event.target.value);
+            }}
+            placeholder="Technology"
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField label="Status" htmlFor="status" error={errors.status}>
           <NativeSelect
             id="status"
             label="Status"
@@ -153,20 +182,27 @@ function ClientFormFields({
           >
             <option value="PROSPECT">Prospect</option>
             <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            {isEditMode ? <option value="INACTIVE">Inactive</option> : null}
           </NativeSelect>
         </FormField>
 
         <FormField label="Owner" htmlFor="ownerUserId" error={errors.ownerUserId}>
-          <Input
+          <NativeSelect
             id="ownerUserId"
+            label="Owner"
             value={values.ownerUserId}
+            disabled={isPending}
             onChange={(event) => {
               updateField('ownerUserId', event.target.value);
             }}
-            placeholder="Owner user ID (optional)"
-            disabled={isPending}
-          />
+          >
+            <option value="">Unassigned</option>
+            {owners.map((owner) => (
+              <option key={owner.id} value={owner.id}>
+                {owner.displayName}
+              </option>
+            ))}
+          </NativeSelect>
         </FormField>
 
         <FormField label="Source" htmlFor="source">
@@ -187,6 +223,217 @@ function ClientFormFields({
             <option value="SALES_CONVERSION">Sales conversion</option>
           </NativeSelect>
         </FormField>
+
+        <FormField label="Currency" htmlFor="currency" error={errors.currency}>
+          <Input
+            id="currency"
+            value={values.currency}
+            onChange={(event) => {
+              updateField('currency', event.target.value.toUpperCase());
+            }}
+            placeholder="INR"
+            maxLength={3}
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField label="GSTIN" htmlFor="gstin" error={errors.gstin}>
+          <Input
+            id="gstin"
+            value={values.gstin}
+            onChange={(event) => {
+              updateField('gstin', event.target.value.toUpperCase());
+            }}
+            placeholder="22AAAAA0000A1Z5"
+            maxLength={15}
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField label="PAN" htmlFor="pan" error={errors.pan}>
+          <Input
+            id="pan"
+            value={values.pan}
+            onChange={(event) => {
+              updateField('pan', event.target.value.toUpperCase());
+            }}
+            placeholder="AAAAA0000A"
+            maxLength={10}
+            disabled={isPending}
+          />
+        </FormField>
+      </section>
+
+      <section className="space-y-4">
+        <SectionTitle className="text-base">Billing Address</SectionTitle>
+
+        <FormField label="Address line 1" htmlFor="addressLine1" error={errors.addressLine1}>
+          <Input
+            id="addressLine1"
+            value={values.addressLine1}
+            onChange={(event) => {
+              updateField('addressLine1', event.target.value);
+            }}
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField label="Address line 2" htmlFor="addressLine2" error={errors.addressLine2}>
+          <Input
+            id="addressLine2"
+            value={values.addressLine2}
+            onChange={(event) => {
+              updateField('addressLine2', event.target.value);
+            }}
+            disabled={isPending}
+          />
+        </FormField>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="City" htmlFor="city" error={errors.city}>
+            <Input
+              id="city"
+              value={values.city}
+              onChange={(event) => {
+                updateField('city', event.target.value);
+              }}
+              disabled={isPending}
+            />
+          </FormField>
+
+          <FormField label="State / region" htmlFor="stateRegion" error={errors.stateRegion}>
+            <Input
+              id="stateRegion"
+              value={values.stateRegion}
+              onChange={(event) => {
+                updateField('stateRegion', event.target.value);
+              }}
+              disabled={isPending}
+            />
+          </FormField>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Postal code" htmlFor="postalCode" error={errors.postalCode}>
+            <Input
+              id="postalCode"
+              value={values.postalCode}
+              onChange={(event) => {
+                updateField('postalCode', event.target.value);
+              }}
+              disabled={isPending}
+            />
+          </FormField>
+
+          <FormField label="Country code" htmlFor="countryCode" error={errors.countryCode}>
+            <Input
+              id="countryCode"
+              value={values.countryCode}
+              onChange={(event) => {
+                updateField('countryCode', event.target.value.toUpperCase());
+              }}
+              placeholder="IN"
+              maxLength={2}
+              disabled={isPending}
+            />
+          </FormField>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <SectionTitle className="text-base">Shipping Address</SectionTitle>
+
+        <FormField
+          label="Address line 1"
+          htmlFor="shippingAddressLine1"
+          error={errors.shippingAddressLine1}
+        >
+          <Input
+            id="shippingAddressLine1"
+            value={values.shippingAddressLine1}
+            onChange={(event) => {
+              updateField('shippingAddressLine1', event.target.value);
+            }}
+            disabled={isPending}
+          />
+        </FormField>
+
+        <FormField
+          label="Address line 2"
+          htmlFor="shippingAddressLine2"
+          error={errors.shippingAddressLine2}
+        >
+          <Input
+            id="shippingAddressLine2"
+            value={values.shippingAddressLine2}
+            onChange={(event) => {
+              updateField('shippingAddressLine2', event.target.value);
+            }}
+            disabled={isPending}
+          />
+        </FormField>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="City" htmlFor="shippingCity" error={errors.shippingCity}>
+            <Input
+              id="shippingCity"
+              value={values.shippingCity}
+              onChange={(event) => {
+                updateField('shippingCity', event.target.value);
+              }}
+              disabled={isPending}
+            />
+          </FormField>
+
+          <FormField
+            label="State / region"
+            htmlFor="shippingStateRegion"
+            error={errors.shippingStateRegion}
+          >
+            <Input
+              id="shippingStateRegion"
+              value={values.shippingStateRegion}
+              onChange={(event) => {
+                updateField('shippingStateRegion', event.target.value);
+              }}
+              disabled={isPending}
+            />
+          </FormField>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            label="Postal code"
+            htmlFor="shippingPostalCode"
+            error={errors.shippingPostalCode}
+          >
+            <Input
+              id="shippingPostalCode"
+              value={values.shippingPostalCode}
+              onChange={(event) => {
+                updateField('shippingPostalCode', event.target.value);
+              }}
+              disabled={isPending}
+            />
+          </FormField>
+
+          <FormField
+            label="Country code"
+            htmlFor="shippingCountryCode"
+            error={errors.shippingCountryCode}
+          >
+            <Input
+              id="shippingCountryCode"
+              value={values.shippingCountryCode}
+              onChange={(event) => {
+                updateField('shippingCountryCode', event.target.value.toUpperCase());
+              }}
+              placeholder="IN"
+              maxLength={2}
+              disabled={isPending}
+            />
+          </FormField>
+        </div>
       </section>
     </>
   );
@@ -198,16 +445,18 @@ export function CreateClientDrawer({
   mode = 'create',
   clientId,
 }: CreateClientDrawerProps) {
+  const router = useRouter();
   const isEditMode = mode === 'edit' && clientId !== undefined && clientId.length > 0;
   const { showToast } = useToast();
   const { mutateAsync: createClient, isPending: isCreating } = useCreateClient();
   const { mutateAsync: updateClient, isPending: isUpdating } = useUpdateClient();
+  const { data: owners = [] } = useWorkspaceOwners({ enabled: open });
   const {
     data: client,
     isLoading: isLoadingClient,
     error: loadError,
     refetch: refetchClient,
-  } = useClient(clientId ?? '', { enabled: open && isEditMode });
+  } = useClient(clientId ?? '', { enabled: open && isEditMode, includeArchived: true });
 
   const [values, setValues] = useState<CreateClientFormValues>(DEFAULT_CREATE_CLIENT_FORM_VALUES);
   const [initialValues, setInitialValues] = useState<CreateClientFormValues>(
@@ -291,7 +540,9 @@ export function CreateClientDrawer({
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
 
-    const validationErrors = validateCreateClientForm(values);
+    const validationErrors = validateCreateClientForm(values, {
+      mode: isEditMode ? 'edit' : 'create',
+    });
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
@@ -301,12 +552,14 @@ export function CreateClientDrawer({
       if (isEditMode) {
         await updateClient({ id: clientId, payload: toUpdateClientPayload(values) });
         showToast('Client updated successfully');
-      } else {
-        await createClient(toCreateClientPayload(values));
-        showToast('Client created successfully');
+        closeDrawer();
+        return;
       }
 
+      const created = await createClient(toCreateClientPayload(values));
+      showToast('Client created successfully');
       closeDrawer();
+      router.push(`/clients/${created.id}`);
     } catch (error) {
       const apiFieldErrors = extractApiValidationErrors(error);
       const mappedErrors: CreateClientFormErrors = {};
@@ -358,7 +611,9 @@ export function CreateClientDrawer({
                   values={values}
                   errors={errors}
                   isPending={isFormDisabled}
+                  isEditMode={isEditMode}
                   updateField={updateField}
+                  owners={owners}
                 />
 
                 {errors.form ? (

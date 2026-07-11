@@ -1,11 +1,13 @@
 'use client';
 
 import { Archive, Pencil, RotateCcw } from 'lucide-react';
+import { useMemo } from 'react';
 import { Avatar, Body, Caption } from '@/design-system';
 import { Button } from '@/components/ui/button';
 import type { ClientRecord } from '@/features/clients/api/client.types';
 import { ClientArchivedBadge } from '@/features/clients/components/client-archived-badge';
 import { ClientStatusBadge } from '@/features/clients/components/client-status-badge';
+import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owners';
 import { displayClientField } from '@/features/clients/utils/client-display';
 import { isClientArchived } from '@/features/clients/utils/list-clients-query';
 import { Can } from '@/lib/rbac';
@@ -25,7 +27,16 @@ export function ClientDetailHeader({
   onRestore,
   isRestorePending = false,
 }: ClientDetailHeaderProps) {
-  const ownerLabel = displayClientField(client.ownerUserId);
+  const { data: owners = [] } = useWorkspaceOwners();
+  const ownerLabel = useMemo(() => {
+    if (client.ownerUserId === null) {
+      return '—';
+    }
+
+    const owner = owners.find((item) => item.id === client.ownerUserId);
+    return owner?.displayName ?? displayClientField(client.ownerUserId);
+  }, [client.ownerUserId, owners]);
+
   const archived = isClientArchived(client);
 
   return (
@@ -41,7 +52,7 @@ export function ClientDetailHeader({
           >
             {client.displayName}
           </h1>
-          <ClientStatusBadge status={client.status} />
+          <ClientStatusBadge status={archived ? 'ARCHIVED' : client.status} />
           {archived ? <ClientArchivedBadge /> : null}
         </div>
 

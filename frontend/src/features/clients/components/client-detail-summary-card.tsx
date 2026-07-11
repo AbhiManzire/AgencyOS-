@@ -47,7 +47,11 @@ export function ClientDetailSummaryCard({ client }: ClientDetailSummaryCardProps
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-2">
           <SummaryField label="Company" value={company} />
+          <SummaryField label="Client code" value={displayClientField(client.clientCode)} />
           <SummaryField label="Industry" value={displayClientField(client.industry)} />
+          <SummaryField label="Currency" value={displayClientField(client.currency)} />
+          <SummaryField label="GSTIN" value={displayClientField(client.gstin)} />
+          <SummaryField label="PAN" value={displayClientField(client.pan)} />
           <SummaryField label="Email" value={displayClientField(client.email)} />
           <SummaryField label="Phone" value={displayClientField(client.phone)} />
           <SummaryField

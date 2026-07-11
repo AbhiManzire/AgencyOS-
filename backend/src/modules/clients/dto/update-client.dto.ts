@@ -7,9 +7,9 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
   Length,
+  Matches,
   MaxLength,
   ValidateIf,
 } from 'class-validator';
@@ -39,12 +39,19 @@ export class UpdateClientDto {
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsString()
+  @MaxLength(50)
+  clientCode?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
   @MaxLength(120)
   industry?: string | null;
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
-  @IsUrl()
+  @IsString()
+  @MaxLength(2048)
   website?: string | null;
 
   @IsOptional()
@@ -57,6 +64,25 @@ export class UpdateClientDto {
   @ValidateIf((_, value) => value !== null)
   @IsEmail()
   email?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @Matches(/^[0-9A-Z]{15}$/i, { message: 'GSTIN must be a 15-character alphanumeric code.' })
+  gstin?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/i, { message: 'PAN must be a valid 10-character PAN.' })
+  pan?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @Length(3, 3)
+  @Matches(/^[A-Z]{3}$/i, { message: 'Currency must be a 3-letter ISO code.' })
+  currency?: string | null;
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
@@ -93,6 +119,42 @@ export class UpdateClientDto {
   @IsString()
   @Length(2, 2)
   countryCode?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(255)
+  shippingAddressLine1?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(255)
+  shippingAddressLine2?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(120)
+  shippingCity?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(120)
+  shippingStateRegion?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(20)
+  shippingPostalCode?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @Length(2, 2)
+  shippingCountryCode?: string | null;
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)

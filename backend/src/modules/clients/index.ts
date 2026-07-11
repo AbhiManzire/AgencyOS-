@@ -19,15 +19,19 @@ export {
 export {
   CLIENT_REPOSITORY,
   type ArchiveClientData,
+  type ClientListSortField,
+  type ClientListSortOrder,
   type ClientRecord,
   type ClientRepository,
   type ClientScope,
+  type ClientTransactionClient,
   type CreateClientData,
   type FindByIdOptions,
   type ListClientsParams,
   type ListClientsResult,
   type RestoreClientData,
   type UpdateClientData,
+  type WorkspaceOwnerOption,
 } from './repositories/client.repository.interface';
 export { ClientService } from './services/client.service';
 export {
@@ -43,4 +47,5 @@ export { UpdateClientDto } from './dto/update-client.dto';
 export { ArchiveClientDto } from './dto/archive-client.dto';
 export { RestoreClientDto } from './dto/restore-client.dto';
 export { ListClientsQueryDto } from './dto/list-clients-query.dto';
+export { GetClientQueryDto } from './dto/get-client-query.dto';
 export { ClientMapper, type ArchiveClientCommand } from './mappers/client.mapper';

@@ -1,38 +1,81 @@
 import type { ListClientsParams } from '@/features/clients/api/client.types';
-import type { ClientListStatusFilter } from '@/features/clients/types';
+import type {
+  ClientListStatusFilter,
+  ClientServerSortField,
+  ClientSortField,
+  SortDirection,
+} from '@/features/clients/types';
 
-/** Backend max page size — list UI filters, sorts, and paginates within this window. */
-const LIST_FETCH_TAKE = 100;
+interface ResolveListClientsQueryInput {
+  readonly statusFilter: ClientListStatusFilter;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search?: string;
+  readonly ownerUserId?: string;
+  readonly sortField?: ClientSortField;
+  readonly sortDirection?: SortDirection;
+}
 
 interface ResolvedListClientsQuery {
   readonly params: ListClientsParams;
-  readonly usesClientSideListProcessing: boolean;
+  readonly usesClientSideListProcessing: false;
 }
 
-/** Maps UI status filter values to GET /clients query parameters. */
-export function resolveListClientsQuery(
-  statusFilter: ClientListStatusFilter,
-  _page: number,
-  _pageSize: number,
-): ResolvedListClientsQuery {
+/** Maps UI sort field to a server-supported sortBy value. */
+export function mapUiSortFieldToServer(sortField: ClientSortField): ClientServerSortField {
+  switch (sortField) {
+    case 'company':
+      return 'legalName';
+    case 'owner':
+      return 'displayName';
+    case 'displayName':
+    case 'status':
+    case 'email':
+    case 'createdAt':
+      return sortField;
+  }
+}
+
+/** Maps UI list controls to GET /clients query parameters (server-side). */
+export function resolveListClientsQuery({
+  statusFilter,
+  page,
+  pageSize,
+  search,
+  ownerUserId,
+  sortField = 'displayName',
+  sortDirection = 'asc',
+}: ResolveListClientsQueryInput): ResolvedListClientsQuery {
+  const skip = Math.max(0, (page - 1) * pageSize);
+  const take = Math.min(100, Math.max(1, pageSize));
+  const q = search?.trim() ?? '';
+
+  const base: ListClientsParams = {
+    skip,
+    take,
+    sortBy: mapUiSortFieldToServer(sortField),
+    sortOrder: sortDirection,
+    ...(q.length > 0 ? { q } : {}),
+    ...(ownerUserId !== undefined && ownerUserId.length > 0 ? { ownerUserId } : {}),
+  };
+
   if (statusFilter === 'archived') {
     return {
       params: {
-        skip: 0,
-        take: LIST_FETCH_TAKE,
+        ...base,
+        archivedOnly: true,
         includeArchived: true,
       },
-      usesClientSideListProcessing: true,
+      usesClientSideListProcessing: false,
     };
   }
 
   return {
     params: {
-      skip: 0,
-      take: LIST_FETCH_TAKE,
+      ...base,
       ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     },
-    usesClientSideListProcessing: true,
+    usesClientSideListProcessing: false,
   };
 }
 

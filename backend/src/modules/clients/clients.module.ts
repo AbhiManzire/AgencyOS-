@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ActivitiesModule } from '../activities/activities.module';
 import { ClientContactsController } from './controllers/client-contacts.controller';
 import { ClientTagsController } from './controllers/client-tags.controller';
 import { ClientsController } from './controllers/clients.controller';
@@ -19,7 +18,6 @@ import { ClientTagService } from './services/client-tag.service';
 import { ClientService } from './services/client.service';
 
 @Module({
-  imports: [ActivitiesModule],
   providers: [
     {
       provide: CLIENT_REPOSITORY,

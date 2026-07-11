@@ -70,7 +70,14 @@ export default function ClientDetailPage() {
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
-  const { data: client, isLoading, error, refetch } = useClient(clientId);
+  const {
+    data: client,
+    isLoading,
+    error,
+    refetch,
+  } = useClient(clientId, {
+    includeArchived: true,
+  });
   const { mutateAsync: archiveClient, isPending: isArchiving } = useArchiveClient();
   const { mutateAsync: restoreClient, isPending: isRestoring } = useRestoreClient();
   const { allowed: canManageContacts } = usePermission('clients.contacts.manage');

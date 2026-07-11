@@ -7,7 +7,7 @@ export function displayClientField(value: string | null | undefined): string {
   return value;
 }
 
-/** Formats client address fields into a multi-line display string. */
+/** Formats client billing address fields into a multi-line display string. */
 export function formatClientAddress(client: {
   readonly addressLine1: string | null;
   readonly addressLine2: string | null;
@@ -23,6 +23,29 @@ export function formatClientAddress(client: {
   const lines = [client.addressLine1, client.addressLine2, locality, client.countryCode].filter(
     (part): part is string => part !== null && part.trim().length > 0,
   );
+
+  return lines.length > 0 ? lines.join('\n') : '—';
+}
+
+/** Formats client shipping address fields into a multi-line display string. */
+export function formatShippingAddress(client: {
+  readonly shippingAddressLine1: string | null;
+  readonly shippingAddressLine2: string | null;
+  readonly shippingCity: string | null;
+  readonly shippingStateRegion: string | null;
+  readonly shippingPostalCode: string | null;
+  readonly shippingCountryCode: string | null;
+}): string {
+  const locality = [client.shippingCity, client.shippingStateRegion, client.shippingPostalCode]
+    .filter((part) => part !== null && part.trim().length > 0)
+    .join(', ');
+
+  const lines = [
+    client.shippingAddressLine1,
+    client.shippingAddressLine2,
+    locality,
+    client.shippingCountryCode,
+  ].filter((part): part is string => part !== null && part.trim().length > 0);
 
   return lines.length > 0 ? lines.join('\n') : '—';
 }

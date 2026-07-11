@@ -7,7 +7,11 @@ import { EmptyState, ErrorState, LoadingState, useToast } from '@/design-system'
 import { ClientContactsTable } from '@/features/clients/contacts/components/client-contacts-table';
 import { ContactFormDrawer } from '@/features/clients/contacts/components/contact-form-drawer';
 import { DeleteContactDialog } from '@/features/clients/contacts/components/delete-contact-dialog';
-import { formatContactName } from '@/features/clients/contacts/forms/contact-form.validation';
+import {
+  formatContactName,
+  toCreateContactPayload,
+  toUpdateContactPayload,
+} from '@/features/clients/contacts/forms/contact-form.validation';
 import { useClientContacts } from '@/features/clients/contacts/hooks/use-client-contacts';
 import { useCreateClientContact } from '@/features/clients/contacts/hooks/use-create-client-contact';
 import { useDeleteClientContact } from '@/features/clients/contacts/hooks/use-delete-client-contact';
@@ -56,11 +60,14 @@ export function ClientContactsTab({ clientId, readOnly = false }: ClientContacts
 
   const handleSave = async (values: ContactFormValues): Promise<void> => {
     if (drawerMode === 'edit' && activeContactId !== null) {
-      await updateContact({ contactId: activeContactId, payload: values });
+      await updateContact({
+        contactId: activeContactId,
+        payload: toUpdateContactPayload(values),
+      });
       return;
     }
 
-    await createContact(values);
+    await createContact(toCreateContactPayload(values));
   };
 
   const handleConfirmDelete = async (): Promise<void> => {

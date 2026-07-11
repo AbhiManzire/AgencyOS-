@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   EmptyState,
@@ -23,6 +23,7 @@ import { CreateClientDrawer } from '@/features/clients/components/create-client-
 import { useArchiveClient } from '@/features/clients/hooks/use-archive-client';
 import { useClients } from '@/features/clients/hooks/use-clients';
 import { useRestoreClient } from '@/features/clients/hooks/use-restore-client';
+import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owners';
 import type {
   ClientListStatusFilter,
   ClientSortField,
@@ -32,94 +33,71 @@ import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { Can } from '@/lib/rbac';
 import { resolveListClientsQuery } from '@/features/clients/utils/list-clients-query';
 
-function compareClients(
-  a: ReturnType<typeof mapClientRecordToListItem>,
-  b: ReturnType<typeof mapClientRecordToListItem>,
-  field: ClientSortField,
-  direction: SortDirection,
-): number {
-  if (field === 'createdAt') {
-    const result = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    return direction === 'asc' ? result : -result;
-  }
-
-  const result = a[field].localeCompare(b[field], undefined, { sensitivity: 'base' });
-  return direction === 'asc' ? result : -result;
-}
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function ClientsPage() {
   const { showToast } = useToast();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ClientListStatusFilter>('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [sortField, setSortField] = useState<ClientSortField>('displayName');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(25);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [editClientId, setEditClientId] = useState<string | null>(null);
   const [archiveClientId, setArchiveClientId] = useState<string | null>(null);
 
-  const { params: listParams, usesClientSideListProcessing } = resolveListClientsQuery(
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [search]);
+
+  const { params: listParams } = resolveListClientsQuery({
     statusFilter,
     page,
     pageSize,
-  );
+    search: debouncedSearch,
+    ownerUserId: ownerFilter !== 'all' ? ownerFilter : undefined,
+    sortField,
+    sortDirection,
+  });
 
   const { data, isLoading, isFetching, error, refetch } = useClients(listParams);
+  const { data: workspaceOwners = [] } = useWorkspaceOwners();
   const { mutateAsync: archiveClient, isPending: isArchiving } = useArchiveClient();
   const { mutateAsync: restoreClient, isPending: isRestoring } = useRestoreClient();
 
-  const owners = useMemo(() => {
+  const ownersById = useMemo(() => {
+    return new Map(workspaceOwners.map((owner) => [owner.id, owner]));
+  }, [workspaceOwners]);
+
+  const ownerOptions = useMemo(
+    () =>
+      workspaceOwners.map((owner) => ({
+        id: owner.id,
+        label: owner.displayName,
+      })),
+    [workspaceOwners],
+  );
+
+  const clients = useMemo(() => {
     if (!data) {
       return [];
     }
 
-    return [
-      ...new Set(
-        data.items
-          .map((client) => client.ownerUserId)
-          .filter((ownerId): ownerId is string => ownerId !== null && ownerId.length > 0),
-      ),
-    ].sort();
-  }, [data]);
+    return data.items.map((record) => mapClientRecordToListItem(record, ownersById));
+  }, [data, ownersById]);
 
-  const matchingClients = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-
-    const query = search.trim().toLowerCase();
-
-    return data.items
-      .map(mapClientRecordToListItem)
-      .filter((client) => statusFilter !== 'archived' || client.isArchived)
-      .filter((client) => {
-        const matchesSearch =
-          query.length === 0 ||
-          client.displayName.toLowerCase().includes(query) ||
-          client.company.toLowerCase().includes(query) ||
-          client.email.toLowerCase().includes(query) ||
-          client.owner.toLowerCase().includes(query);
-
-        const matchesOwner = ownerFilter === 'all' || client.owner === ownerFilter;
-
-        return matchesSearch && matchesOwner;
-      })
-      .sort((a, b) => compareClients(a, b, sortField, sortDirection));
-  }, [data, ownerFilter, search, sortDirection, sortField, statusFilter]);
-
-  const filteredClients = useMemo(() => {
-    if (!usesClientSideListProcessing) {
-      return matchingClients;
-    }
-
-    const start = (page - 1) * pageSize;
-    return matchingClients.slice(start, start + pageSize);
-  }, [matchingClients, page, pageSize, usesClientSideListProcessing]);
-
-  const totalItems = matchingClients.length;
+  const totalItems = data?.total ?? 0;
 
   const hasActiveFilters =
     search.trim().length > 0 || statusFilter !== 'all' || ownerFilter !== 'all';
@@ -128,11 +106,13 @@ export default function ClientsPage() {
   const handleSortFieldChange = (field: ClientSortField): void => {
     if (field === sortField) {
       setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+      setPage(1);
       return;
     }
 
     setSortField(field);
     setSortDirection('asc');
+    setPage(1);
   };
 
   const handleToggleRow = (id: string, checked: boolean): void => {
@@ -153,11 +133,12 @@ export default function ClientsPage() {
       return;
     }
 
-    setSelectedIds(new Set(filteredClients.map((client) => client.id)));
+    setSelectedIds(new Set(clients.map((client) => client.id)));
   };
 
   const clearFilters = (): void => {
     setSearch('');
+    setDebouncedSearch('');
     setStatusFilter('all');
     setOwnerFilter('all');
     setPage(1);
@@ -242,12 +223,9 @@ export default function ClientsPage() {
           ownerFilter={ownerFilter}
           sortField={sortField}
           sortDirection={sortDirection}
-          owners={owners}
+          owners={ownerOptions}
           isRefreshing={isFetching && !isLoading}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
+          onSearchChange={setSearch}
           onStatusFilterChange={(value) => {
             setStatusFilter(value as ClientListStatusFilter);
             setPage(1);
@@ -256,9 +234,13 @@ export default function ClientsPage() {
             setOwnerFilter(value);
             setPage(1);
           }}
-          onSortFieldChange={setSortField}
+          onSortFieldChange={(value) => {
+            setSortField(value);
+            setPage(1);
+          }}
           onSortDirectionToggle={() => {
             setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+            setPage(1);
           }}
           onRefresh={handleRefresh}
         />
@@ -274,7 +256,7 @@ export default function ClientsPage() {
           />
         ) : isLoading ? (
           <LoadingState label="Loading clients..." />
-        ) : filteredClients.length === 0 ? (
+        ) : clients.length === 0 ? (
           <EmptyState
             title={hasActiveFilters ? 'No clients match your filters' : 'No clients yet'}
             description={
@@ -287,13 +269,26 @@ export default function ClientsPage() {
                 <Button variant="outline" onClick={clearFilters}>
                   Clear filters
                 </Button>
-              ) : undefined
+              ) : (
+                <Can permission="clients.create">
+                  <Button
+                    type="button"
+                    className="gap-2"
+                    onClick={() => {
+                      setCreateDrawerOpen(true);
+                    }}
+                  >
+                    <Plus className="size-4" />
+                    Create Client
+                  </Button>
+                </Can>
+              )
             }
           />
         ) : (
           <>
             <ClientListMobileCards
-              clients={filteredClients}
+              clients={clients}
               selectedIds={selectedIds}
               onToggleRow={handleToggleRow}
               onEditClient={setEditClientId}
@@ -304,7 +299,7 @@ export default function ClientsPage() {
             />
             <div className="hidden md:block">
               <ClientListTable
-                clients={filteredClients}
+                clients={clients}
                 selectedIds={selectedIds}
                 sortField={sortField}
                 sortDirection={sortDirection}

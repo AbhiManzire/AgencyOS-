@@ -27,7 +27,7 @@ export function DashboardRecentClients() {
   const { data, isLoading, error, refetch } = useClients({ take: 5 });
 
   const recentClients = useMemo(
-    () => (data ? data.items.map(mapClientRecordToListItem) : []),
+    () => (data ? data.items.map((record) => mapClientRecordToListItem(record)) : []),
     [data],
   );
 

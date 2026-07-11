@@ -5,6 +5,7 @@ const STATUS_LABELS: Record<ClientStatus, string> = {
   PROSPECT: 'Prospect',
   ACTIVE: 'Active',
   INACTIVE: 'Inactive',
+  ARCHIVED: 'Archived',
 };
 
 const STATUS_VARIANTS: Record<
@@ -14,6 +15,7 @@ const STATUS_VARIANTS: Record<
   PROSPECT: 'primary',
   ACTIVE: 'success',
   INACTIVE: 'neutral',
+  ARCHIVED: 'neutral',
 };
 
 interface ClientStatusBadgeProps {

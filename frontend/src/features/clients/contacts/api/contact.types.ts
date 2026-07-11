@@ -1,4 +1,4 @@
-import type { ContactFormValues, ContactStatus } from '@/features/clients/contacts/types';
+import type { ContactStatus } from '@/features/clients/contacts/types';
 
 /** Contact row returned by client contacts API — mirrors backend Contact record (MVP fields). */
 export interface ContactRecord {
@@ -20,6 +20,28 @@ export interface ContactRecord {
   readonly deletedAt: string | null;
 }
 
-export type CreateContactPayload = ContactFormValues;
+export interface CreateContactPayload {
+  readonly firstName: string;
+  readonly lastName?: string;
+  readonly jobTitle?: string;
+  readonly department?: string;
+  readonly email?: string;
+  readonly mobile?: string;
+  readonly phone?: string;
+  readonly isPrimary?: boolean;
+  readonly isDecisionMaker?: boolean;
+  readonly status?: ContactStatus;
+}
 
-export type UpdateContactPayload = ContactFormValues;
+export interface UpdateContactPayload {
+  readonly firstName: string;
+  readonly lastName?: string | null;
+  readonly jobTitle?: string | null;
+  readonly department?: string | null;
+  readonly email?: string | null;
+  readonly mobile?: string | null;
+  readonly phone?: string | null;
+  readonly isPrimary?: boolean;
+  readonly isDecisionMaker?: boolean;
+  readonly status?: ContactStatus;
+}

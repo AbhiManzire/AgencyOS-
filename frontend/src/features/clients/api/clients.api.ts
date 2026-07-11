@@ -3,10 +3,12 @@ import type { ApiSuccessResponse } from '@/lib/api/api-response.types';
 import type {
   ClientRecord,
   CreateClientPayload,
+  GetClientParams,
   ListClientsParams,
   ListClientsResult,
   RestoreClientPayload,
   UpdateClientPayload,
+  WorkspaceOwnerOption,
 } from '@/features/clients/api/client.types';
 
 /** Fetches a paginated list of clients for the active workspace. */
@@ -25,9 +27,19 @@ export async function listClients(params: ListClientsParams): Promise<ListClient
   };
 }
 
+/** Fetches workspace members available as client owners. */
+export async function listWorkspaceOwners(): Promise<readonly WorkspaceOwnerOption[]> {
+  const response = await apiClient.get<ApiSuccessResponse<readonly WorkspaceOwnerOption[]>>(
+    '/clients/workspace-owners',
+  );
+  return response.data.data;
+}
+
 /** Fetches a single client by id for the active workspace. */
-export async function getClient(id: string): Promise<ClientRecord> {
-  const response = await apiClient.get<ApiSuccessResponse<ClientRecord>>(`/clients/${id}`);
+export async function getClient(id: string, params: GetClientParams = {}): Promise<ClientRecord> {
+  const response = await apiClient.get<ApiSuccessResponse<ClientRecord>>(`/clients/${id}`, {
+    params,
+  });
   return response.data.data;
 }
 

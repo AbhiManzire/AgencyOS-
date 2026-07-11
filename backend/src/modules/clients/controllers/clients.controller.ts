@@ -16,11 +16,15 @@ import type { ApiSuccessResponse } from '../../../common/http/api-response.types
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
 import { ArchiveClientDto } from '../dto/archive-client.dto';
 import { CreateClientDto } from '../dto/create-client.dto';
+import { GetClientQueryDto } from '../dto/get-client-query.dto';
 import { ListClientsQueryDto } from '../dto/list-clients-query.dto';
 import { RestoreClientDto } from '../dto/restore-client.dto';
 import { UpdateClientDto } from '../dto/update-client.dto';
 import { ClientMapper } from '../mappers/client.mapper';
-import type { ClientRecord } from '../repositories/client.repository.interface';
+import type {
+  ClientRecord,
+  WorkspaceOwnerOption,
+} from '../repositories/client.repository.interface';
 import type { ClientApplicationContext, ClientScope } from '../services/client-application.types';
 import { ClientService } from '../services/client.service';
 
@@ -63,14 +67,27 @@ export class ClientsController {
     });
   }
 
+  @Get('workspace-owners')
+  @RequirePermissions('clients.read')
+  async listWorkspaceOwners(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ): Promise<ApiSuccessResponse<readonly WorkspaceOwnerOption[]>> {
+    const scope = this.resolveScope(headers);
+    const owners = await this.clientService.listWorkspaceOwners(scope);
+    return successResponse(owners);
+  }
+
   @Get(':id')
   @RequirePermissions('clients.read')
   async getById(
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query() queryDto: GetClientQueryDto,
   ): Promise<ApiSuccessResponse<ClientRecord>> {
     const scope = this.resolveScope(headers);
-    const client = await this.clientService.getClient(scope, id);
+    const client = await this.clientService.getClient(scope, id, {
+      includeArchived: queryDto.includeArchived,
+    });
 
     return successResponse(client);
   }

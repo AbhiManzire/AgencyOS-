@@ -6,13 +6,18 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import type { ClientSortField, SortDirection } from '@/features/clients/types';
 
+export interface ClientOwnerFilterOption {
+  readonly id: string;
+  readonly label: string;
+}
+
 interface ClientListToolbarProps {
   search: string;
   statusFilter: string;
   ownerFilter: string;
   sortField: ClientSortField;
   sortDirection: SortDirection;
-  owners: readonly string[];
+  owners: readonly ClientOwnerFilterOption[];
   isRefreshing: boolean;
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
@@ -82,8 +87,8 @@ export function ClientListToolbar({
         >
           <option value="all">All owners</option>
           {owners.map((owner) => (
-            <option key={owner} value={owner}>
-              {owner}
+            <option key={owner.id} value={owner.id}>
+              {owner.label}
             </option>
           ))}
         </NativeSelect>

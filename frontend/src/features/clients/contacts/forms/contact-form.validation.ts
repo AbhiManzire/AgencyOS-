@@ -1,4 +1,8 @@
 import type {
+  CreateContactPayload,
+  UpdateContactPayload,
+} from '@/features/clients/contacts/api/contact.types';
+import type {
   ContactFormErrors,
   ContactFormValues,
   ContactListItem,
@@ -79,6 +83,60 @@ export function areContactFormValuesEqual(
     left.isDecisionMaker === right.isDecisionMaker &&
     left.status === right.status
   );
+}
+
+function optionalCreateString(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function optionalUpdateString(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Maps validated form values to POST contact payload (omits empty optionals). */
+export function toCreateContactPayload(values: ContactFormValues): CreateContactPayload {
+  return {
+    firstName: values.firstName.trim(),
+    isPrimary: values.isPrimary,
+    isDecisionMaker: values.isDecisionMaker,
+    status: values.status,
+    ...(optionalCreateString(values.lastName) !== undefined
+      ? { lastName: optionalCreateString(values.lastName) }
+      : {}),
+    ...(optionalCreateString(values.jobTitle) !== undefined
+      ? { jobTitle: optionalCreateString(values.jobTitle) }
+      : {}),
+    ...(optionalCreateString(values.department) !== undefined
+      ? { department: optionalCreateString(values.department) }
+      : {}),
+    ...(optionalCreateString(values.email) !== undefined
+      ? { email: optionalCreateString(values.email) }
+      : {}),
+    ...(optionalCreateString(values.mobile) !== undefined
+      ? { mobile: optionalCreateString(values.mobile) }
+      : {}),
+    ...(optionalCreateString(values.phone) !== undefined
+      ? { phone: optionalCreateString(values.phone) }
+      : {}),
+  };
+}
+
+/** Maps validated form values to PATCH contact payload (null clears optionals). */
+export function toUpdateContactPayload(values: ContactFormValues): UpdateContactPayload {
+  return {
+    firstName: values.firstName.trim(),
+    lastName: optionalUpdateString(values.lastName),
+    jobTitle: optionalUpdateString(values.jobTitle),
+    department: optionalUpdateString(values.department),
+    email: optionalUpdateString(values.email),
+    mobile: optionalUpdateString(values.mobile),
+    phone: optionalUpdateString(values.phone),
+    isPrimary: values.isPrimary,
+    isDecisionMaker: values.isDecisionMaker,
+    status: values.status,
+  };
 }
 
 /** Formats a contact display name. */

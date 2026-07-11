@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import type { SyntheticEvent } from 'react';
 import { Avatar } from '@/design-system';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -73,6 +75,10 @@ function formatDate(isoDate: string): string {
   }).format(new Date(isoDate));
 }
 
+function stopRowNavigation(event: SyntheticEvent): void {
+  event.stopPropagation();
+}
+
 export function ClientListTable({
   clients,
   selectedIds,
@@ -85,6 +91,7 @@ export function ClientListTable({
   onArchiveClient,
   onRestoreClient,
 }: ClientListTableProps) {
+  const router = useRouter();
   const allSelected = clients.length > 0 && clients.every((client) => selectedIds.has(client.id));
   const someSelected = clients.some((client) => selectedIds.has(client.id));
 
@@ -110,6 +117,7 @@ export function ClientListTable({
                 direction={sortDirection}
                 onSort={onSortFieldChange}
               />
+              <TableHead className="hidden md:table-cell">Client Code</TableHead>
               <SortableHeader
                 label="Company"
                 field="company"
@@ -161,9 +169,15 @@ export function ClientListTable({
                 <TableRow
                   key={client.id}
                   data-state={isSelected ? 'selected' : undefined}
-                  className={client.isArchived ? 'text-muted-foreground' : undefined}
+                  className={cn(
+                    'cursor-pointer',
+                    client.isArchived ? 'text-muted-foreground' : undefined,
+                  )}
+                  onClick={() => {
+                    router.push(`/clients/${client.id}`);
+                  }}
                 >
-                  <TableCell>
+                  <TableCell onClick={stopRowNavigation} onKeyDown={stopRowNavigation}>
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={(checked) => {
@@ -185,17 +199,20 @@ export function ClientListTable({
                           {client.displayName}
                         </p>
                         <p className="truncate text-xs text-muted-foreground md:hidden">
-                          {client.company}
+                          {client.clientCode !== '—' ? client.clientCode : client.company}
                         </p>
                       </div>
                     </div>
+                  </TableCell>
+                  <TableCell className="hidden max-w-[140px] truncate md:table-cell">
+                    {client.clientCode}
                   </TableCell>
                   <TableCell className="hidden max-w-[200px] truncate md:table-cell">
                     {client.company}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
-                      <ClientStatusBadge status={client.status} />
+                      <ClientStatusBadge status={client.isArchived ? 'ARCHIVED' : client.status} />
                       {client.isArchived ? <ClientArchivedBadge /> : null}
                     </div>
                   </TableCell>
@@ -207,7 +224,11 @@ export function ClientListTable({
                   <TableCell className="hidden lg:table-cell">
                     {formatDate(client.createdAt)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell
+                    className="text-right"
+                    onClick={stopRowNavigation}
+                    onKeyDown={stopRowNavigation}
+                  >
                     <ClientRowActions
                       clientId={client.id}
                       clientName={client.displayName}
@@ -239,25 +260,40 @@ export function ClientListMobileCards({
   ClientListTableProps,
   'clients' | 'selectedIds' | 'onToggleRow' | 'onEditClient' | 'onArchiveClient' | 'onRestoreClient'
 >) {
+  const router = useRouter();
+
   return (
     <div className="space-y-3 md:hidden">
       {clients.map((client) => (
         <div
           key={client.id}
+          role="link"
+          tabIndex={0}
           className={cn(
-            'rounded-lg border border-border bg-card p-4',
+            'cursor-pointer rounded-lg border border-border bg-card p-4',
             client.isArchived && 'text-muted-foreground',
             selectedIds.has(client.id) && 'ring-2 ring-primary/20',
           )}
+          onClick={() => {
+            router.push(`/clients/${client.id}`);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              router.push(`/clients/${client.id}`);
+            }
+          }}
         >
           <div className="flex items-start gap-3">
-            <Checkbox
-              checked={selectedIds.has(client.id)}
-              onCheckedChange={(checked) => {
-                onToggleRow(client.id, checked === true);
-              }}
-              aria-label={`Select ${client.displayName}`}
-            />
+            <div onClick={stopRowNavigation} onKeyDown={stopRowNavigation}>
+              <Checkbox
+                checked={selectedIds.has(client.id)}
+                onCheckedChange={(checked) => {
+                  onToggleRow(client.id, checked === true);
+                }}
+                aria-label={`Select ${client.displayName}`}
+              />
+            </div>
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -265,23 +301,28 @@ export function ClientListMobileCards({
                     {client.displayName}
                   </p>
                   <p className="text-sm text-muted-foreground">{client.company}</p>
+                  {client.clientCode !== '—' ? (
+                    <p className="text-xs text-muted-foreground">{client.clientCode}</p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <ClientStatusBadge status={client.status} />
+                  <ClientStatusBadge status={client.isArchived ? 'ARCHIVED' : client.status} />
                   {client.isArchived ? <ClientArchivedBadge /> : null}
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">{client.owner}</p>
               <p className="truncate text-sm">{client.email}</p>
             </div>
-            <ClientRowActions
-              clientId={client.id}
-              clientName={client.displayName}
-              isArchived={client.isArchived}
-              onEdit={onEditClient}
-              onArchive={onArchiveClient}
-              onRestore={onRestoreClient}
-            />
+            <div onClick={stopRowNavigation} onKeyDown={stopRowNavigation}>
+              <ClientRowActions
+                clientId={client.id}
+                clientName={client.displayName}
+                isArchived={client.isArchived}
+                onEdit={onEditClient}
+                onArchive={onArchiveClient}
+                onRestore={onRestoreClient}
+              />
+            </div>
           </div>
         </div>
       ))}

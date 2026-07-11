@@ -567,16 +567,27 @@ model Client {
   slug                String
   status              ClientStatus  @default(PROSPECT)
   legalName           String?       @map("legal_name")
+  clientCode          String?       @map("client_code")
   industry            String?
   website             String?
   phone               String?
   email               String?
+  gstin               String?
+  pan                 String?
+  currency            String?       @db.Char(3)
+  /// Billing address (existing address columns preserved for backward compatibility).
   addressLine1        String?       @map("address_line_1")
   addressLine2        String?       @map("address_line_2")
   city                String?
   stateRegion         String?       @map("state_region")
   postalCode          String?       @map("postal_code")
   countryCode         String?       @map("country_code") @db.Char(2)
+  shippingAddressLine1 String?      @map("shipping_address_line_1")
+  shippingAddressLine2 String?      @map("shipping_address_line_2")
+  shippingCity        String?       @map("shipping_city")
+  shippingStateRegion String?       @map("shipping_state_region")
+  shippingPostalCode  String?       @map("shipping_postal_code")
+  shippingCountryCode String?       @map("shipping_country_code") @db.Char(2)
   ownerUserId         String?       @map("owner_user_id") @db.Uuid
   source              ClientSource?
   externalReferenceId String?       @map("external_reference_id")
@@ -608,6 +619,7 @@ model Client {
 
   @@unique([tenantId, workspaceId, displayName], map: "uq_clients_tenant_id_workspace_id_display_name")
   @@unique([tenantId, workspaceId, slug], map: "uq_clients_tenant_id_workspace_id_slug")
+  @@unique([tenantId, workspaceId, clientCode], map: "uq_clients_tenant_id_workspace_id_client_code")
   @@index([tenantId], map: "idx_clients_tenant_id")
   @@index([tenantId, workspaceId], map: "idx_clients_tenant_id_workspace_id")
   @@index([tenantId, status], map: "idx_clients_tenant_id_status")

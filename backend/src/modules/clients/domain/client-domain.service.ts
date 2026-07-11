@@ -20,7 +20,7 @@ const STATUS_TRANSITIONS: Readonly<Record<ClientStatus, readonly ClientStatus[]>
   PROSPECT: ['ACTIVE', 'ARCHIVED'],
   ACTIVE: ['INACTIVE', 'ARCHIVED'],
   INACTIVE: ['ACTIVE', 'ARCHIVED'],
-  ARCHIVED: ['ACTIVE'],
+  ARCHIVED: ['ACTIVE', 'INACTIVE'],
 };
 
 /**
@@ -40,10 +40,19 @@ export class ClientDomainService {
 
     const status = input.status ?? 'PROSPECT';
     this.assertCreatableStatus(status);
-    this.assertOptionalFormats(input.website, input.email, input.countryCode);
+    this.assertOptionalFormats(
+      input.website,
+      input.email,
+      input.countryCode,
+      input.shippingCountryCode,
+      input.gstin,
+      input.pan,
+      input.currency,
+    );
     this.assertOwnerIsWorkspaceMember(input.ownerUserId, membership);
 
     await this.assertDisplayNameAvailable(scope, input.displayName);
+    await this.assertClientCodeAvailable(scope, input.clientCode);
 
     if (input.slug !== undefined) {
       if (await this.isSlugTaken(scope, input.slug)) {
@@ -75,7 +84,15 @@ export class ClientDomainService {
       this.assertStatusTransition(client.status, input.status);
     }
 
-    this.assertOptionalFormats(input.website, input.email, input.countryCode);
+    this.assertOptionalFormats(
+      input.website,
+      input.email,
+      input.countryCode,
+      input.shippingCountryCode,
+      input.gstin,
+      input.pan,
+      input.currency,
+    );
 
     if (input.ownerUserId !== undefined) {
       this.assertOwnerIsWorkspaceMember(input.ownerUserId, membership);
@@ -83,6 +100,10 @@ export class ClientDomainService {
 
     if (input.displayName !== undefined) {
       await this.assertDisplayNameAvailable(scope, input.displayName, client.id);
+    }
+
+    if (input.clientCode !== undefined) {
+      await this.assertClientCodeAvailable(scope, input.clientCode, client.id);
     }
 
     if (input.slug !== undefined) {
@@ -224,6 +245,10 @@ export class ClientDomainService {
     website?: string | null,
     email?: string | null,
     countryCode?: string | null,
+    shippingCountryCode?: string | null,
+    gstin?: string | null,
+    pan?: string | null,
+    currency?: string | null,
   ): void {
     if (website !== undefined && website !== null && website.trim().length > 0) {
       if (!isValidWebsite(website)) {
@@ -250,6 +275,64 @@ export class ClientDomainService {
           'Country code must be a valid ISO 3166-1 alpha-2 code.',
         );
       }
+    }
+
+    if (
+      shippingCountryCode !== undefined &&
+      shippingCountryCode !== null &&
+      shippingCountryCode.trim().length > 0
+    ) {
+      if (!isValidCountryCode(shippingCountryCode)) {
+        throw new ClientDomainError(
+          CLIENT_DOMAIN_ERROR_CODES.INVALID_COUNTRY_CODE,
+          'Shipping country code must be a valid ISO 3166-1 alpha-2 code.',
+        );
+      }
+    }
+
+    if (gstin !== undefined && gstin !== null && gstin.trim().length > 0) {
+      if (!isValidGstin(gstin)) {
+        throw new ClientDomainError(
+          CLIENT_DOMAIN_ERROR_CODES.INVALID_GSTIN,
+          'GSTIN must be a 15-character alphanumeric code.',
+        );
+      }
+    }
+
+    if (pan !== undefined && pan !== null && pan.trim().length > 0) {
+      if (!isValidPan(pan)) {
+        throw new ClientDomainError(
+          CLIENT_DOMAIN_ERROR_CODES.INVALID_PAN,
+          'PAN must be a valid 10-character PAN.',
+        );
+      }
+    }
+
+    if (currency !== undefined && currency !== null && currency.trim().length > 0) {
+      if (!isValidCurrency(currency)) {
+        throw new ClientDomainError(
+          CLIENT_DOMAIN_ERROR_CODES.INVALID_CURRENCY,
+          'Currency must be a 3-letter ISO code.',
+        );
+      }
+    }
+  }
+
+  private async assertClientCodeAvailable(
+    scope: ClientScope,
+    clientCode: string | null | undefined,
+    excludeClientId?: string,
+  ): Promise<void> {
+    if (clientCode === undefined || clientCode === null || clientCode.trim().length === 0) {
+      return;
+    }
+
+    const existing = await this.clientRepository.findByClientCode(scope, clientCode.trim());
+    if (existing !== null && existing.id !== excludeClientId) {
+      throw new ClientDomainError(
+        CLIENT_DOMAIN_ERROR_CODES.CLIENT_CODE_NOT_UNIQUE,
+        'Client code is already in use by another active client in this workspace.',
+      );
     }
   }
 
@@ -411,4 +494,16 @@ function isValidWebsite(website: string): boolean {
 
 function isValidCountryCode(countryCode: string): boolean {
   return /^[A-Z]{2}$/.test(countryCode.trim().toUpperCase());
+}
+
+function isValidGstin(gstin: string): boolean {
+  return /^[0-9A-Z]{15}$/i.test(gstin.trim());
+}
+
+function isValidPan(pan: string): boolean {
+  return /^[A-Z]{5}[0-9]{4}[A-Z]$/i.test(pan.trim());
+}
+
+function isValidCurrency(currency: string): boolean {
+  return /^[A-Z]{3}$/i.test(currency.trim());
 }
