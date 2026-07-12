@@ -53,7 +53,7 @@ export class CreateClientDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @Matches(/^\d{7,15}$/, { message: 'Phone must contain 7 to 15 digits only.' })
   phone?: string;
 
   @IsOptional()
@@ -62,7 +62,9 @@ export class CreateClientDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^[0-9A-Z]{15}$/i, { message: 'GSTIN must be a 15-character alphanumeric code.' })
+  @Matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i, {
+    message: 'GSTIN must be a valid 15-character Indian GSTIN.',
+  })
   gstin?: string;
 
   @IsOptional()

@@ -9,22 +9,45 @@ export const LEAD_RESTORABLE_STATUSES: readonly LeadStatus[] = [
   'DISQUALIFIED',
 ];
 
+/** Input used to auto-calculate lead score (0–100). */
+export interface LeadScoreInput {
+  readonly company?: string | null;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  readonly website?: string | null;
+  readonly decisionMaker?: string | null;
+  readonly budgetNotes?: string | null;
+  readonly timeline?: string | null;
+}
+
 export interface CreateLeadValidationInput {
   readonly company: string;
-  readonly leadScore?: number | null;
+  readonly contactPerson?: string | null;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  readonly website?: string | null;
+  readonly source?: LeadSource | null;
   readonly status?: LeadStatus;
   readonly priority?: LeadPriority;
-  readonly source?: LeadSource;
   readonly expectedDealSize?: number | null;
+  readonly decisionMaker?: string | null;
+  readonly budgetNotes?: string | null;
+  readonly timeline?: string | null;
 }
 
 export interface UpdateLeadValidationInput {
   readonly company?: string;
-  readonly leadScore?: number | null;
+  readonly contactPerson?: string | null;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  readonly website?: string | null;
+  readonly source?: LeadSource | null;
   readonly status?: LeadStatus;
   readonly priority?: LeadPriority;
-  readonly source?: LeadSource;
   readonly expectedDealSize?: number | null;
+  readonly decisionMaker?: string | null;
+  readonly budgetNotes?: string | null;
+  readonly timeline?: string | null;
 }
 
 export interface RestoreLeadValidationInput {

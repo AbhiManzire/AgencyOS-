@@ -3,13 +3,12 @@ import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
-  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
-  Max,
+  Matches,
   MaxLength,
   Min,
   ValidateIf,
@@ -42,7 +41,7 @@ export class UpdateLeadDto {
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsString()
-  @MaxLength(50)
+  @Matches(/^\d{7,15}$/, { message: 'Phone must contain 7 to 15 digits only.' })
   phone?: string | null;
 
   @IsOptional()
@@ -83,14 +82,6 @@ export class UpdateLeadDto {
   status?: LeadStatus;
 
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  leadScore?: number | null;
-
-  @IsOptional()
   @IsEnum(LeadPriority)
   priority?: LeadPriority;
 
@@ -98,7 +89,7 @@ export class UpdateLeadDto {
   @ValidateIf((_, value) => value !== null)
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
   expectedDealSize?: number | null;
 
   @IsOptional()

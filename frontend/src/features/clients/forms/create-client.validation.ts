@@ -97,16 +97,18 @@ const CREATABLE_STATUSES: readonly CreateClientStatus[] = ['PROSPECT', 'ACTIVE']
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const GSTIN_PATTERN = /^[0-9A-Z]{15}$/i;
+/** Indian GSTIN: 2-digit state + PAN + entity + Z + check digit. */
+const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
 const PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/i;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/i;
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/i;
+const PHONE_PATTERN = /^\d{7,15}$/;
 
 function isValidWebsite(value: string): boolean {
   try {
     const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
     const url = new URL(withProtocol);
-    return url.hostname.length > 0;
+    return url.hostname.length > 0 && url.hostname.includes('.');
   } catch {
     return false;
   }
@@ -124,23 +126,29 @@ function optionalMaxLength(
   }
 }
 
-/** Validates create/edit client form values before submit. */
+/** Validates create/edit client form values (inline and on submit). */
 export function validateCreateClientForm(
   values: CreateClientFormValues,
   options?: { readonly mode?: 'create' | 'edit' },
 ): CreateClientFormErrors {
   const mode = options?.mode ?? 'create';
   const errors: CreateClientFormErrors = {};
-  const displayName = values.displayName.trim();
 
-  if (displayName.length === 0) {
-    errors.displayName = 'Display name is required';
-  } else if (displayName.length > 255) {
-    errors.displayName = 'Display name must be 255 characters or fewer';
+  const company = values.company.trim();
+  if (company.length === 0) {
+    errors.company = 'Company is required';
+  } else if (company.length < 2) {
+    errors.company = 'Company must be at least 2 characters';
+  } else if (company.length > 255) {
+    errors.company = 'Company must be 255 characters or fewer';
   }
 
-  optionalMaxLength(errors, 'company', values.company.trim(), 255, 'Company');
-  optionalMaxLength(errors, 'clientCode', values.clientCode.trim(), 50, 'Client code');
+  // Keep displayName aligned with Company for API identity.
+  const displayName = values.displayName.trim() || company;
+  if (displayName.length > 255) {
+    errors.company = errors.company ?? 'Company must be 255 characters or fewer';
+  }
+
   optionalMaxLength(errors, 'industry', values.industry.trim(), 120, 'Industry');
 
   const email = values.email.trim();
@@ -148,11 +156,14 @@ export function validateCreateClientForm(
     errors.email = 'Enter a valid email address';
   }
 
-  optionalMaxLength(errors, 'phone', values.phone.trim(), 50, 'Phone');
+  const phone = values.phone.trim();
+  if (phone.length > 0 && !PHONE_PATTERN.test(phone)) {
+    errors.phone = 'Phone must be 7–15 digits only';
+  }
 
   const website = values.website.trim();
   if (website.length > 0 && !isValidWebsite(website)) {
-    errors.website = 'Enter a valid website URL or domain';
+    errors.website = 'Enter a valid website URL';
   }
 
   if (mode === 'create' && !CREATABLE_STATUSES.includes(values.status as CreateClientStatus)) {
@@ -171,12 +182,12 @@ export function validateCreateClientForm(
 
   const gstin = values.gstin.trim();
   if (gstin.length > 0 && !GSTIN_PATTERN.test(gstin)) {
-    errors.gstin = 'GSTIN must be a 15-character alphanumeric code';
+    errors.gstin = 'Enter a valid Indian GSTIN';
   }
 
   const pan = values.pan.trim();
   if (pan.length > 0 && !PAN_PATTERN.test(pan)) {
-    errors.pan = 'PAN must be a valid 10-character PAN';
+    errors.pan = 'Enter a valid PAN';
   }
 
   optionalMaxLength(errors, 'addressLine1', values.addressLine1.trim(), 255, 'Address line 1');
@@ -228,11 +239,19 @@ export function validateCreateClientForm(
   return errors;
 }
 
+/** True when the form has no field-level validation errors. */
+export function isCreateClientFormValid(
+  values: CreateClientFormValues,
+  options?: { readonly mode?: 'create' | 'edit' },
+): boolean {
+  return Object.keys(validateCreateClientForm(values, options)).length === 0;
+}
+
 /** Maps a client record to form values for edit mode. */
 export function clientRecordToFormValues(record: ClientRecord): CreateClientFormValues {
   return {
     displayName: record.displayName,
-    company: record.legalName ?? '',
+    company: record.displayName,
     clientCode: record.clientCode ?? '',
     industry: record.industry ?? '',
     email: record.email ?? '',
@@ -278,19 +297,22 @@ function optionalUpdateString(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function resolveDisplayName(values: CreateClientFormValues): string {
+  const company = values.company.trim();
+  const displayName = values.displayName.trim();
+  return displayName.length > 0 ? displayName : company;
+}
+
 /** Maps validated form values to the POST /clients request body. */
 export function toCreateClientPayload(values: CreateClientFormValues): CreateClientPayload {
   const status = values.status as CreateClientStatus;
+  const displayName = resolveDisplayName(values);
+  const legalName = optionalCreateString(values.company);
 
   return {
-    displayName: values.displayName.trim(),
+    displayName,
     status,
-    ...(optionalCreateString(values.company) !== undefined
-      ? { legalName: optionalCreateString(values.company) }
-      : {}),
-    ...(optionalCreateString(values.clientCode) !== undefined
-      ? { clientCode: optionalCreateString(values.clientCode) }
-      : {}),
+    ...(legalName !== undefined ? { legalName } : {}),
     ...(optionalCreateString(values.industry) !== undefined
       ? { industry: optionalCreateString(values.industry) }
       : {}),
@@ -358,10 +380,9 @@ export function toCreateClientPayload(values: CreateClientFormValues): CreateCli
 /** Maps validated form values to the PATCH /clients/:id request body. */
 export function toUpdateClientPayload(values: CreateClientFormValues): UpdateClientPayload {
   return {
-    displayName: values.displayName.trim(),
+    displayName: resolveDisplayName(values),
     status: values.status === 'ARCHIVED' ? 'INACTIVE' : values.status,
     legalName: optionalUpdateString(values.company),
-    clientCode: optionalUpdateString(values.clientCode),
     industry: optionalUpdateString(values.industry),
     email: optionalUpdateString(values.email),
     phone: optionalUpdateString(values.phone),

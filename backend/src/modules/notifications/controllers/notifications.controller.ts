@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { successResponse } from '../../../common/http/api-response';
@@ -116,8 +117,12 @@ export class NotificationsController {
 
   private resolveUserId(headers: Record<string, string | string[] | undefined>): string {
     const userId = this.readHeader(headers, USER_HEADER);
+    // Missing/invalid recipient identity is an auth problem, not a bad request.
+    // Normal page loads must not get 400 when identity headers are absent.
     if (!isUUID(userId)) {
-      throw new BadRequestException(`Header "${USER_HEADER}" must be a valid UUID.`);
+      throw new UnauthorizedException(
+        `Authentication required: header "${USER_HEADER}" must identify the current user.`,
+      );
     }
     return userId;
   }

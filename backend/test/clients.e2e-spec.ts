@@ -86,6 +86,7 @@ describe('Clients (e2e)', () => {
       expect(body.data.tenantId).toBe(primary.tenantId);
       expect(body.data.workspaceId).toBe(primary.workspaceId);
       expect(body.data.deletedAt).toBeNull();
+      expect(body.data.clientCode).toMatch(/^CL-\d{6}$/);
     });
 
     it('returns validation error when displayName is missing', async () => {

@@ -17,11 +17,15 @@ import {
 } from './client-domain.types';
 
 const STATUS_TRANSITIONS: Readonly<Record<ClientStatus, readonly ClientStatus[]>> = {
-  PROSPECT: ['ACTIVE', 'ARCHIVED'],
+  PROSPECT: ['ACTIVE', 'INACTIVE', 'ARCHIVED'],
   ACTIVE: ['INACTIVE', 'ARCHIVED'],
   INACTIVE: ['ACTIVE', 'ARCHIVED'],
   ARCHIVED: ['ACTIVE', 'INACTIVE'],
 };
+
+/** Workspace-unique sequential client code prefix. */
+export const CLIENT_CODE_PREFIX = 'CL-';
+const CLIENT_CODE_PAD_LENGTH = 6;
 
 /**
  * Pure domain service for client business rules.
@@ -48,11 +52,11 @@ export class ClientDomainService {
       input.gstin,
       input.pan,
       input.currency,
+      input.phone,
     );
     this.assertOwnerIsWorkspaceMember(input.ownerUserId, membership);
 
     await this.assertDisplayNameAvailable(scope, input.displayName);
-    await this.assertClientCodeAvailable(scope, input.clientCode);
 
     if (input.slug !== undefined) {
       if (await this.isSlugTaken(scope, input.slug)) {
@@ -92,6 +96,7 @@ export class ClientDomainService {
       input.gstin,
       input.pan,
       input.currency,
+      input.phone,
     );
 
     if (input.ownerUserId !== undefined) {
@@ -102,8 +107,12 @@ export class ClientDomainService {
       await this.assertDisplayNameAvailable(scope, input.displayName, client.id);
     }
 
-    if (input.clientCode !== undefined) {
-      await this.assertClientCodeAvailable(scope, input.clientCode, client.id);
+    // Client codes are system-generated and immutable after create.
+    if (input.clientCode !== undefined && input.clientCode !== client.clientCode) {
+      throw new ClientDomainError(
+        CLIENT_DOMAIN_ERROR_CODES.CLIENT_CODE_IMMUTABLE,
+        'Client code is system-generated and cannot be changed.',
+      );
     }
 
     if (input.slug !== undefined) {
@@ -154,6 +163,18 @@ export class ClientDomainService {
 
   generateSlug(displayName: string): string {
     return generateSlug(displayName);
+  }
+
+  /** Formats a sequential workspace client code as CL-000001. */
+  formatClientCode(sequence: number): string {
+    if (!Number.isInteger(sequence) || sequence < 1) {
+      throw new ClientDomainError(
+        CLIENT_DOMAIN_ERROR_CODES.CLIENT_CODE_NOT_UNIQUE,
+        'Client code sequence must be a positive integer.',
+      );
+    }
+
+    return `${CLIENT_CODE_PREFIX}${String(sequence).padStart(CLIENT_CODE_PAD_LENGTH, '0')}`;
   }
 
   async ensureUniqueSlug(
@@ -249,6 +270,7 @@ export class ClientDomainService {
     gstin?: string | null,
     pan?: string | null,
     currency?: string | null,
+    phone?: string | null,
   ): void {
     if (website !== undefined && website !== null && website.trim().length > 0) {
       if (!isValidWebsite(website)) {
@@ -264,6 +286,15 @@ export class ClientDomainService {
         throw new ClientDomainError(
           CLIENT_DOMAIN_ERROR_CODES.INVALID_EMAIL,
           'Email must be a valid email address.',
+        );
+      }
+    }
+
+    if (phone !== undefined && phone !== null && phone.trim().length > 0) {
+      if (!isValidPhone(phone)) {
+        throw new ClientDomainError(
+          CLIENT_DOMAIN_ERROR_CODES.INVALID_PHONE,
+          'Phone must contain 7 to 15 digits only.',
         );
       }
     }
@@ -294,7 +325,7 @@ export class ClientDomainService {
       if (!isValidGstin(gstin)) {
         throw new ClientDomainError(
           CLIENT_DOMAIN_ERROR_CODES.INVALID_GSTIN,
-          'GSTIN must be a 15-character alphanumeric code.',
+          'GSTIN must be a valid 15-character Indian GSTIN.',
         );
       }
     }
@@ -340,7 +371,7 @@ export class ClientDomainService {
     ownerUserId: string | null | undefined,
     membership?: ClientMembershipContext,
   ): void {
-    if (ownerUserId === undefined || ownerUserId === null) {
+    if (ownerUserId === undefined || ownerUserId === null || ownerUserId.trim().length === 0) {
       return;
     }
 
@@ -419,7 +450,13 @@ export class ClientDomainService {
     const take = 100;
 
     for (;;) {
-      const { items, total } = await this.clientRepository.list({ scope, skip, take });
+      // Include archived: DB unique on displayName is not soft-delete-aware.
+      const { items, total } = await this.clientRepository.list({
+        scope,
+        skip,
+        take,
+        includeArchived: true,
+      });
 
       for (const client of items) {
         if (client.id === excludeClientId) {
@@ -429,7 +466,7 @@ export class ClientDomainService {
         if (normalizeDisplayName(client.displayName) === normalized) {
           throw new ClientDomainError(
             CLIENT_DOMAIN_ERROR_CODES.DISPLAY_NAME_NOT_UNIQUE,
-            'Display name is already in use by another active client in this workspace.',
+            'Display name is already in use by another client in this workspace.',
           );
         }
       }
@@ -497,7 +534,7 @@ function isValidCountryCode(countryCode: string): boolean {
 }
 
 function isValidGstin(gstin: string): boolean {
-  return /^[0-9A-Z]{15}$/i.test(gstin.trim());
+  return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i.test(gstin.trim());
 }
 
 function isValidPan(pan: string): boolean {
@@ -506,4 +543,8 @@ function isValidPan(pan: string): boolean {
 
 function isValidCurrency(currency: string): boolean {
   return /^[A-Z]{3}$/i.test(currency.trim());
+}
+
+function isValidPhone(phone: string): boolean {
+  return /^\d{7,15}$/.test(phone.trim());
 }

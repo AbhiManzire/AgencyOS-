@@ -85,7 +85,7 @@ export interface UpdateClientData {
 export interface RestoreClientData {
   readonly status: ClientStatus;
   readonly updatedAt: Date;
-  readonly updatedByUserId: string;
+  readonly updatedByUserId: string | null;
 }
 
 export interface FindByIdOptions {
@@ -96,9 +96,9 @@ export interface FindByIdOptions {
 export interface ArchiveClientData {
   readonly status: ClientStatus;
   readonly deletedAt: Date;
-  readonly deletedByUserId: string;
+  readonly deletedByUserId: string | null;
   readonly updatedAt: Date;
-  readonly updatedByUserId: string;
+  readonly updatedByUserId: string | null;
 }
 
 export type ClientListSortField = 'createdAt' | 'displayName' | 'status' | 'email' | 'legalName';
@@ -184,6 +184,8 @@ export interface ClientRepository {
   findById(scope: ClientScope, id: string, options?: FindByIdOptions): Promise<ClientRecord | null>;
   findBySlug(scope: ClientScope, slug: string): Promise<ClientRecord | null>;
   findByClientCode(scope: ClientScope, clientCode: string): Promise<ClientRecord | null>;
+  /** Returns the highest CL-###### sequence in the workspace (includes archived). */
+  findMaxClientCodeSequence(scope: ClientScope, tx?: ClientTransactionClient): Promise<number>;
   list(params: ListClientsParams): Promise<ListClientsResult>;
   archive(
     scope: ClientScope,

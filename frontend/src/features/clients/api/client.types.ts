@@ -13,7 +13,6 @@ export type CreateClientStatus = Extract<ClientStatus, 'PROSPECT' | 'ACTIVE'>;
 export interface CreateClientPayload {
   readonly displayName: string;
   readonly legalName?: string;
-  readonly clientCode?: string;
   readonly industry?: string;
   readonly email?: string;
   readonly phone?: string;
@@ -43,7 +42,6 @@ export interface UpdateClientPayload {
   readonly displayName: string;
   readonly status: Exclude<ClientStatus, 'ARCHIVED'>;
   readonly legalName?: string | null;
-  readonly clientCode?: string | null;
   readonly industry?: string | null;
   readonly email?: string | null;
   readonly phone?: string | null;

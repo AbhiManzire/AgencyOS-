@@ -78,12 +78,12 @@ export class PrismaClientRepository implements ClientRepository {
   }
 
   async findBySlug(scope: ClientScope, slug: string): Promise<ClientRecord | null> {
+    // Include archived rows: DB unique indexes are not soft-delete-aware.
     const client = await this.prisma.client.findFirst({
       where: {
         slug,
         tenantId: scope.tenantId,
         workspaceId: scope.workspaceId,
-        deletedAt: null,
       },
     });
 
@@ -91,16 +91,52 @@ export class PrismaClientRepository implements ClientRepository {
   }
 
   async findByClientCode(scope: ClientScope, clientCode: string): Promise<ClientRecord | null> {
+    // Include archived rows: DB unique indexes are not soft-delete-aware.
     const client = await this.prisma.client.findFirst({
       where: {
         clientCode,
         tenantId: scope.tenantId,
         workspaceId: scope.workspaceId,
-        deletedAt: null,
       },
     });
 
     return client ? toClientRecord(client) : null;
+  }
+
+  async findMaxClientCodeSequence(
+    scope: ClientScope,
+    tx?: ClientTransactionClient,
+  ): Promise<number> {
+    const db = tx ?? this.prisma;
+    const rows = await db.client.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        clientCode: { startsWith: 'CL-' },
+      },
+      select: { clientCode: true },
+    });
+
+    let maxSequence = 0;
+    const pattern = /^CL-(\d{6})$/;
+
+    for (const row of rows) {
+      if (row.clientCode === null) {
+        continue;
+      }
+
+      const match = pattern.exec(row.clientCode);
+      if (match === null) {
+        continue;
+      }
+
+      const sequence = Number.parseInt(match[1], 10);
+      if (!Number.isNaN(sequence) && sequence > maxSequence) {
+        maxSequence = sequence;
+      }
+    }
+
+    return maxSequence;
   }
 
   async list(params: ListClientsParams): Promise<ListClientsResult> {

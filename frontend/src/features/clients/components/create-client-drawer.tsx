@@ -12,6 +12,7 @@ import {
   areClientFormValuesEqual,
   clientRecordToFormValues,
   DEFAULT_CREATE_CLIENT_FORM_VALUES,
+  isCreateClientFormValid,
   mapApiFieldToFormField,
   toCreateClientPayload,
   toUpdateClientPayload,
@@ -26,6 +27,7 @@ import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owner
 import { UnsavedChangesDialog } from '@/features/clients/components/unsaved-changes-dialog';
 import type { ClientSource, ClientStatus } from '@/features/clients/types';
 import { extractApiErrorMessage, extractApiValidationErrors } from '@/lib/api/extract-api-error';
+import { cn } from '@/lib/utils';
 
 export type ClientDrawerMode = 'create' | 'edit';
 
@@ -52,9 +54,17 @@ function FormField({ label, htmlFor, required = false, error, children }: FormFi
         {required ? <span className="text-danger"> *</span> : null}
       </label>
       {children}
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
+}
+
+function fieldClassName(error?: string): string | undefined {
+  return error ? 'border-danger focus-visible:ring-danger' : undefined;
 }
 
 function ClientFormFields({
@@ -63,6 +73,8 @@ function ClientFormFields({
   isPending,
   isEditMode,
   updateField,
+  updateCompany,
+  validateField,
   owners,
 }: {
   readonly values: CreateClientFormValues;
@@ -73,88 +85,41 @@ function ClientFormFields({
     field: K,
     value: CreateClientFormValues[K],
   ) => void;
+  readonly updateCompany: (companyValue: string) => void;
+  readonly validateField: (field: keyof CreateClientFormValues) => void;
   readonly owners: readonly { id: string; displayName: string; email: string }[];
 }) {
   return (
     <>
       <section className="space-y-4">
-        <SectionTitle className="text-base">Basic Information</SectionTitle>
+        <SectionTitle className="text-base">Company</SectionTitle>
 
-        <FormField label="Display Name" htmlFor="displayName" required error={errors.displayName}>
-          <Input
-            id="displayName"
-            value={values.displayName}
-            onChange={(event) => {
-              updateField('displayName', event.target.value);
-            }}
-            placeholder="Acme Corporation"
-            disabled={isPending}
-          />
-        </FormField>
-
-        <FormField label="Company" htmlFor="company" error={errors.company}>
+        <FormField label="Company" htmlFor="company" required error={errors.company}>
           <Input
             id="company"
             value={values.company}
             onChange={(event) => {
-              updateField('company', event.target.value);
+              updateCompany(event.target.value);
             }}
-            placeholder="Legal company name"
+            onBlur={() => {
+              validateField('company');
+            }}
+            placeholder="Acme Corporation"
             disabled={isPending}
+            aria-invalid={errors.company !== undefined}
+            className={fieldClassName(errors.company)}
           />
         </FormField>
 
-        <FormField label="Email" htmlFor="email" error={errors.email}>
-          <Input
-            id="email"
-            type="email"
-            value={values.email}
-            onChange={(event) => {
-              updateField('email', event.target.value);
-            }}
-            placeholder="hello@company.com"
-            disabled={isPending}
-          />
-        </FormField>
-
-        <FormField label="Phone" htmlFor="phone" error={errors.phone}>
-          <Input
-            id="phone"
-            type="tel"
-            value={values.phone}
-            onChange={(event) => {
-              updateField('phone', event.target.value);
-            }}
-            placeholder="+1 (555) 010-0000"
-            disabled={isPending}
-          />
-        </FormField>
-
-        <FormField label="Website" htmlFor="website" error={errors.website}>
-          <Input
-            id="website"
-            value={values.website}
-            onChange={(event) => {
-              updateField('website', event.target.value);
-            }}
-            placeholder="company.com or https://company.com"
-            disabled={isPending}
-          />
-        </FormField>
-      </section>
-
-      <section className="space-y-4">
-        <SectionTitle className="text-base">Business</SectionTitle>
-
-        <FormField label="Client Code" htmlFor="clientCode" error={errors.clientCode}>
+        <FormField label="Client Code" htmlFor="clientCode">
           <Input
             id="clientCode"
-            value={values.clientCode}
-            onChange={(event) => {
-              updateField('clientCode', event.target.value);
-            }}
-            placeholder="ACM-001"
-            disabled={isPending}
+            value={
+              isEditMode ? values.clientCode || '—' : 'Assigned automatically on save (CL-000001…)'
+            }
+            readOnly
+            disabled
+            className="bg-muted/40"
           />
         </FormField>
 
@@ -165,8 +130,13 @@ function ClientFormFields({
             onChange={(event) => {
               updateField('industry', event.target.value);
             }}
+            onBlur={() => {
+              validateField('industry');
+            }}
             placeholder="Technology"
             disabled={isPending}
+            aria-invalid={errors.industry !== undefined}
+            className={fieldClassName(errors.industry)}
           />
         </FormField>
 
@@ -176,14 +146,76 @@ function ClientFormFields({
             label="Status"
             value={values.status}
             disabled={isPending}
+            className={cn(fieldClassName(errors.status))}
             onChange={(event) => {
               updateField('status', event.target.value as ClientStatus);
+            }}
+            onBlur={() => {
+              validateField('status');
             }}
           >
             <option value="PROSPECT">Prospect</option>
             <option value="ACTIVE">Active</option>
             {isEditMode ? <option value="INACTIVE">Inactive</option> : null}
           </NativeSelect>
+        </FormField>
+      </section>
+
+      <section className="space-y-4">
+        <SectionTitle className="text-base">Primary Contact</SectionTitle>
+
+        <FormField label="Email" htmlFor="email" error={errors.email}>
+          <Input
+            id="email"
+            type="email"
+            value={values.email}
+            onChange={(event) => {
+              updateField('email', event.target.value);
+            }}
+            onBlur={() => {
+              validateField('email');
+            }}
+            placeholder="hello@company.com"
+            disabled={isPending}
+            aria-invalid={errors.email !== undefined}
+            className={fieldClassName(errors.email)}
+          />
+        </FormField>
+
+        <FormField label="Phone" htmlFor="phone" error={errors.phone}>
+          <Input
+            id="phone"
+            type="tel"
+            inputMode="numeric"
+            value={values.phone}
+            onChange={(event) => {
+              updateField('phone', event.target.value.replace(/\D/g, '').slice(0, 15));
+            }}
+            onBlur={() => {
+              validateField('phone');
+            }}
+            placeholder="9876543210"
+            disabled={isPending}
+            aria-invalid={errors.phone !== undefined}
+            className={fieldClassName(errors.phone)}
+          />
+        </FormField>
+
+        <FormField label="Website" htmlFor="website" error={errors.website}>
+          <Input
+            id="website"
+            value={values.website}
+            onChange={(event) => {
+              updateField('website', event.target.value);
+            }}
+            onBlur={() => {
+              validateField('website');
+            }}
+            placeholder="https://company.com"
+            disabled={isPending}
+            aria-invalid={errors.website !== undefined}
+            className={fieldClassName(errors.website)}
+          />
         </FormField>
 
         <FormField label="Owner" htmlFor="ownerUserId" error={errors.ownerUserId}>
@@ -192,8 +224,12 @@ function ClientFormFields({
             label="Owner"
             value={values.ownerUserId}
             disabled={isPending}
+            className={cn(fieldClassName(errors.ownerUserId))}
             onChange={(event) => {
               updateField('ownerUserId', event.target.value);
+            }}
+            onBlur={() => {
+              validateField('ownerUserId');
             }}
           >
             <option value="">Unassigned</option>
@@ -223,45 +259,6 @@ function ClientFormFields({
             <option value="SALES_CONVERSION">Sales conversion</option>
           </NativeSelect>
         </FormField>
-
-        <FormField label="Currency" htmlFor="currency" error={errors.currency}>
-          <Input
-            id="currency"
-            value={values.currency}
-            onChange={(event) => {
-              updateField('currency', event.target.value.toUpperCase());
-            }}
-            placeholder="INR"
-            maxLength={3}
-            disabled={isPending}
-          />
-        </FormField>
-
-        <FormField label="GSTIN" htmlFor="gstin" error={errors.gstin}>
-          <Input
-            id="gstin"
-            value={values.gstin}
-            onChange={(event) => {
-              updateField('gstin', event.target.value.toUpperCase());
-            }}
-            placeholder="22AAAAA0000A1Z5"
-            maxLength={15}
-            disabled={isPending}
-          />
-        </FormField>
-
-        <FormField label="PAN" htmlFor="pan" error={errors.pan}>
-          <Input
-            id="pan"
-            value={values.pan}
-            onChange={(event) => {
-              updateField('pan', event.target.value.toUpperCase());
-            }}
-            placeholder="AAAAA0000A"
-            maxLength={10}
-            disabled={isPending}
-          />
-        </FormField>
       </section>
 
       <section className="space-y-4">
@@ -274,7 +271,12 @@ function ClientFormFields({
             onChange={(event) => {
               updateField('addressLine1', event.target.value);
             }}
+            onBlur={() => {
+              validateField('addressLine1');
+            }}
             disabled={isPending}
+            aria-invalid={errors.addressLine1 !== undefined}
+            className={fieldClassName(errors.addressLine1)}
           />
         </FormField>
 
@@ -285,7 +287,12 @@ function ClientFormFields({
             onChange={(event) => {
               updateField('addressLine2', event.target.value);
             }}
+            onBlur={() => {
+              validateField('addressLine2');
+            }}
             disabled={isPending}
+            aria-invalid={errors.addressLine2 !== undefined}
+            className={fieldClassName(errors.addressLine2)}
           />
         </FormField>
 
@@ -297,7 +304,12 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('city', event.target.value);
               }}
+              onBlur={() => {
+                validateField('city');
+              }}
               disabled={isPending}
+              aria-invalid={errors.city !== undefined}
+              className={fieldClassName(errors.city)}
             />
           </FormField>
 
@@ -308,7 +320,12 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('stateRegion', event.target.value);
               }}
+              onBlur={() => {
+                validateField('stateRegion');
+              }}
               disabled={isPending}
+              aria-invalid={errors.stateRegion !== undefined}
+              className={fieldClassName(errors.stateRegion)}
             />
           </FormField>
         </div>
@@ -321,7 +338,12 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('postalCode', event.target.value);
               }}
+              onBlur={() => {
+                validateField('postalCode');
+              }}
               disabled={isPending}
+              aria-invalid={errors.postalCode !== undefined}
+              className={fieldClassName(errors.postalCode)}
             />
           </FormField>
 
@@ -332,9 +354,14 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('countryCode', event.target.value.toUpperCase());
               }}
+              onBlur={() => {
+                validateField('countryCode');
+              }}
               placeholder="IN"
               maxLength={2}
               disabled={isPending}
+              aria-invalid={errors.countryCode !== undefined}
+              className={fieldClassName(errors.countryCode)}
             />
           </FormField>
         </div>
@@ -354,7 +381,12 @@ function ClientFormFields({
             onChange={(event) => {
               updateField('shippingAddressLine1', event.target.value);
             }}
+            onBlur={() => {
+              validateField('shippingAddressLine1');
+            }}
             disabled={isPending}
+            aria-invalid={errors.shippingAddressLine1 !== undefined}
+            className={fieldClassName(errors.shippingAddressLine1)}
           />
         </FormField>
 
@@ -369,7 +401,12 @@ function ClientFormFields({
             onChange={(event) => {
               updateField('shippingAddressLine2', event.target.value);
             }}
+            onBlur={() => {
+              validateField('shippingAddressLine2');
+            }}
             disabled={isPending}
+            aria-invalid={errors.shippingAddressLine2 !== undefined}
+            className={fieldClassName(errors.shippingAddressLine2)}
           />
         </FormField>
 
@@ -381,7 +418,12 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('shippingCity', event.target.value);
               }}
+              onBlur={() => {
+                validateField('shippingCity');
+              }}
               disabled={isPending}
+              aria-invalid={errors.shippingCity !== undefined}
+              className={fieldClassName(errors.shippingCity)}
             />
           </FormField>
 
@@ -396,7 +438,12 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('shippingStateRegion', event.target.value);
               }}
+              onBlur={() => {
+                validateField('shippingStateRegion');
+              }}
               disabled={isPending}
+              aria-invalid={errors.shippingStateRegion !== undefined}
+              className={fieldClassName(errors.shippingStateRegion)}
             />
           </FormField>
         </div>
@@ -413,7 +460,12 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('shippingPostalCode', event.target.value);
               }}
+              onBlur={() => {
+                validateField('shippingPostalCode');
+              }}
               disabled={isPending}
+              aria-invalid={errors.shippingPostalCode !== undefined}
+              className={fieldClassName(errors.shippingPostalCode)}
             />
           </FormField>
 
@@ -428,12 +480,75 @@ function ClientFormFields({
               onChange={(event) => {
                 updateField('shippingCountryCode', event.target.value.toUpperCase());
               }}
+              onBlur={() => {
+                validateField('shippingCountryCode');
+              }}
               placeholder="IN"
               maxLength={2}
               disabled={isPending}
+              aria-invalid={errors.shippingCountryCode !== undefined}
+              className={fieldClassName(errors.shippingCountryCode)}
             />
           </FormField>
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <SectionTitle className="text-base">Business Details</SectionTitle>
+
+        <FormField label="Currency" htmlFor="currency" error={errors.currency}>
+          <Input
+            id="currency"
+            value={values.currency}
+            onChange={(event) => {
+              updateField('currency', event.target.value.toUpperCase());
+            }}
+            onBlur={() => {
+              validateField('currency');
+            }}
+            placeholder="INR"
+            maxLength={3}
+            disabled={isPending}
+            aria-invalid={errors.currency !== undefined}
+            className={fieldClassName(errors.currency)}
+          />
+        </FormField>
+
+        <FormField label="GSTIN" htmlFor="gstin" error={errors.gstin}>
+          <Input
+            id="gstin"
+            value={values.gstin}
+            onChange={(event) => {
+              updateField('gstin', event.target.value.toUpperCase());
+            }}
+            onBlur={() => {
+              validateField('gstin');
+            }}
+            placeholder="22AAAAA0000A1Z5"
+            maxLength={15}
+            disabled={isPending}
+            aria-invalid={errors.gstin !== undefined}
+            className={fieldClassName(errors.gstin)}
+          />
+        </FormField>
+
+        <FormField label="PAN" htmlFor="pan" error={errors.pan}>
+          <Input
+            id="pan"
+            value={values.pan}
+            onChange={(event) => {
+              updateField('pan', event.target.value.toUpperCase());
+            }}
+            onBlur={() => {
+              validateField('pan');
+            }}
+            placeholder="AAAAA0000A"
+            maxLength={10}
+            disabled={isPending}
+            aria-invalid={errors.pan !== undefined}
+            className={fieldClassName(errors.pan)}
+          />
+        </FormField>
       </section>
     </>
   );
@@ -464,16 +579,23 @@ export function CreateClientDrawer({
   );
   const [errors, setErrors] = useState<CreateClientFormErrors>({});
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   const isPending = isCreating || isUpdating;
   const isDirty = useMemo(
     () => !areClientFormValuesEqual(values, initialValues),
     [initialValues, values],
   );
+  const formMode = isEditMode ? 'edit' : 'create';
+  const isFormValid = useMemo(
+    () => isCreateClientFormValid(values, { mode: formMode }),
+    [formMode, values],
+  );
 
   useEffect(() => {
     if (!open) {
       setShowDiscardConfirm(false);
+      setHasAttemptedSubmit(false);
       return;
     }
 
@@ -484,6 +606,7 @@ export function CreateClientDrawer({
     setValues(DEFAULT_CREATE_CLIENT_FORM_VALUES);
     setInitialValues(DEFAULT_CREATE_CLIENT_FORM_VALUES);
     setErrors({});
+    setHasAttemptedSubmit(false);
   }, [isEditMode, open]);
 
   useEffect(() => {
@@ -495,22 +618,62 @@ export function CreateClientDrawer({
     setValues(formValues);
     setInitialValues(formValues);
     setErrors({});
+    setHasAttemptedSubmit(false);
   }, [client, isEditMode, open]);
+
+  const applyValues = (
+    next: CreateClientFormValues,
+    clearedField?: keyof CreateClientFormErrors,
+  ): void => {
+    setValues(next);
+
+    if (hasAttemptedSubmit) {
+      setErrors(validateCreateClientForm(next, { mode: formMode }));
+      return;
+    }
+
+    if (clearedField === undefined) {
+      return;
+    }
+
+    setErrors((currentErrors) => {
+      if (currentErrors[clearedField] === undefined && currentErrors.form === undefined) {
+        return currentErrors;
+      }
+
+      const { [clearedField]: _removed, form: _form, ...rest } = currentErrors;
+      return rest;
+    });
+  };
+
+  const updateCompany = (companyValue: string): void => {
+    applyValues({ ...values, company: companyValue, displayName: companyValue }, 'company');
+  };
 
   const updateField = <K extends keyof CreateClientFormValues>(
     field: K,
     value: CreateClientFormValues[K],
   ): void => {
-    setValues((current) => ({ ...current, [field]: value }));
+    applyValues({ ...values, [field]: value }, field as keyof CreateClientFormErrors);
+  };
+
+  const validateField = (field: keyof CreateClientFormValues): void => {
+    const nextErrors = validateCreateClientForm(values, { mode: formMode });
+    const fieldError =
+      field === 'status' || field === 'source'
+        ? nextErrors.status
+        : nextErrors[field as keyof CreateClientFormErrors];
+
     setErrors((current) => {
-      const errorKey = field as keyof CreateClientFormErrors;
-
-      if (current[errorKey] === undefined) {
-        return current;
+      const errorKey = field === 'source' ? 'form' : (field as keyof CreateClientFormErrors);
+      if (fieldError === undefined) {
+        if (current[errorKey] === undefined) {
+          return current;
+        }
+        const { [errorKey]: _removed, ...rest } = current;
+        return rest;
       }
-
-      const { [errorKey]: _removed, ...rest } = current;
-      return rest;
+      return { ...current, [errorKey]: fieldError };
     });
   };
 
@@ -539,10 +702,12 @@ export function CreateClientDrawer({
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    if (isPending) {
+      return;
+    }
 
-    const validationErrors = validateCreateClientForm(values, {
-      mode: isEditMode ? 'edit' : 'create',
-    });
+    setHasAttemptedSubmit(true);
+    const validationErrors = validateCreateClientForm(values, { mode: formMode });
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
@@ -551,13 +716,13 @@ export function CreateClientDrawer({
     try {
       if (isEditMode) {
         await updateClient({ id: clientId, payload: toUpdateClientPayload(values) });
-        showToast('Client updated successfully');
+        showToast('Client updated successfully', 'success');
         closeDrawer();
         return;
       }
 
       const created = await createClient(toCreateClientPayload(values));
-      showToast('Client created successfully');
+      showToast('Client created successfully', 'success');
       closeDrawer();
       router.push(`/clients/${created.id}`);
     } catch (error) {
@@ -567,7 +732,7 @@ export function CreateClientDrawer({
       for (const [field, message] of Object.entries(apiFieldErrors)) {
         const formField = mapApiFieldToFormField(field);
         if (formField !== null && formField !== 'form') {
-          mappedErrors[formField] = message;
+          mappedErrors[formField === 'displayName' ? 'company' : formField] = message;
         }
       }
 
@@ -582,8 +747,15 @@ export function CreateClientDrawer({
   };
 
   const drawerTitle = isEditMode ? 'Edit Client' : 'Create Client';
-  const submitLabel = isEditMode ? 'Save Changes' : 'Save Client';
+  const submitLabel = isPending
+    ? isEditMode
+      ? 'Saving...'
+      : 'Creating...'
+    : isEditMode
+      ? 'Save Changes'
+      : 'Save Client';
   const isFormDisabled = isPending || (isEditMode && isLoadingClient);
+  const canSubmit = !isFormDisabled && isFormValid && (!isEditMode || isDirty) && !isPending;
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -613,6 +785,8 @@ export function CreateClientDrawer({
                   isPending={isFormDisabled}
                   isEditMode={isEditMode}
                   updateField={updateField}
+                  updateCompany={updateCompany}
+                  validateField={validateField}
                   owners={owners}
                 />
 
@@ -629,11 +803,7 @@ export function CreateClientDrawer({
             <Button type="button" variant="outline" disabled={isPending} onClick={requestClose}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={isFormDisabled || (isEditMode && !isDirty)}
-              className="gap-2"
-            >
+            <Button type="submit" disabled={!canSubmit} className="gap-2">
               {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
               {submitLabel}
             </Button>

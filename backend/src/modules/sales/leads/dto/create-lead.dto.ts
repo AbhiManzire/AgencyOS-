@@ -3,17 +3,19 @@ import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
-  IsInt,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
-  Max,
+  Matches,
   MaxLength,
   Min,
   ValidateIf,
 } from 'class-validator';
+
+const CREATABLE_STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED'] as const;
 
 export class CreateLeadDto {
   @IsOptional()
@@ -26,19 +28,18 @@ export class CreateLeadDto {
   @MaxLength(255)
   company!: string;
 
-  @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(255)
-  contactPerson?: string;
+  contactPerson!: string;
 
-  @IsOptional()
   @IsEmail()
-  email?: string;
+  email!: string;
 
-  @IsOptional()
   @IsString()
-  @MaxLength(50)
-  phone?: string;
+  @IsNotEmpty()
+  @Matches(/^\d{7,15}$/, { message: 'Phone must contain 7 to 15 digits only.' })
+  phone!: string;
 
   @IsOptional()
   @IsString()
@@ -60,25 +61,16 @@ export class CreateLeadDto {
   @MaxLength(120)
   country?: string;
 
-  @IsOptional()
   @IsEnum(LeadSource)
-  source?: LeadSource;
+  source!: LeadSource;
 
   @IsOptional()
   @IsUUID()
   assignedToUserId?: string;
 
   @IsOptional()
-  @IsEnum(LeadStatus)
-  status?: LeadStatus;
-
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  leadScore?: number | null;
+  @IsIn(CREATABLE_STATUSES)
+  status?: (typeof CREATABLE_STATUSES)[number];
 
   @IsOptional()
   @IsEnum(LeadPriority)
@@ -88,7 +80,7 @@ export class CreateLeadDto {
   @ValidateIf((_, value) => value !== null)
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
   expectedDealSize?: number | null;
 
   @IsOptional()
@@ -136,3 +128,5 @@ export class CreateLeadDto {
   @MaxLength(5000)
   qualificationNotes?: string;
 }
+
+export type CreateLeadStatus = Extract<LeadStatus, 'NEW' | 'CONTACTED' | 'QUALIFIED'>;

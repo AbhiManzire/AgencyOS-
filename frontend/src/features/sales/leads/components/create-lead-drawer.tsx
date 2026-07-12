@@ -2,7 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -12,7 +12,9 @@ import { UnsavedChangesDialog } from '@/features/clients/components/unsaved-chan
 import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owners';
 import {
   areLeadFormValuesEqual,
+  calculateLeadScore,
   DEFAULT_LEAD_FORM_VALUES,
+  isLeadFormValid,
   leadRecordToFormValues,
   toCreateLeadPayload,
   toUpdateLeadPayload,
@@ -23,12 +25,14 @@ import {
 import { useCreateLead } from '@/features/sales/leads/hooks/use-create-lead';
 import { useLead } from '@/features/sales/leads/hooks/use-lead';
 import { useUpdateLead } from '@/features/sales/leads/hooks/use-update-lead';
-import type { CreateLeadStatus, LeadPriority, LeadSource } from '@/features/sales/leads/types';
+import type { EditableLeadStatus, LeadPriority, LeadSource } from '@/features/sales/leads/types';
 import {
   LEAD_PRIORITY_LABELS,
   LEAD_SOURCE_LABELS,
+  formatLeadScore,
 } from '@/features/sales/leads/utils/lead-display';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
+import { cn } from '@/lib/utils';
 
 export type LeadDrawerMode = 'create' | 'edit';
 
@@ -55,9 +59,17 @@ function FormField({ label, htmlFor, required = false, error, children }: FormFi
         {required ? <span className="text-danger"> *</span> : null}
       </label>
       {children}
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
+}
+
+function fieldClassName(error?: string): string | undefined {
+  return error ? 'border-danger focus-visible:ring-danger' : undefined;
 }
 
 export function CreateLeadDrawer({
@@ -71,7 +83,7 @@ export function CreateLeadDrawer({
   const { showToast } = useToast();
   const { mutateAsync: createLead, isPending: isCreating } = useCreateLead();
   const { mutateAsync: updateLead, isPending: isUpdating } = useUpdateLead();
-  const { data: owners = [] } = useWorkspaceOwners();
+  const { data: owners = [] } = useWorkspaceOwners({ enabled: open });
   const {
     data: lead,
     isLoading: isLoadingLead,
@@ -83,10 +95,12 @@ export function CreateLeadDrawer({
   const [initialValues, setInitialValues] = useState<LeadFormValues>(DEFAULT_LEAD_FORM_VALUES);
   const [errors, setErrors] = useState<LeadFormErrors>({});
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setShowDiscardConfirm(false);
+      setHasAttemptedSubmit(false);
       return;
     }
 
@@ -97,6 +111,7 @@ export function CreateLeadDrawer({
     setValues(DEFAULT_LEAD_FORM_VALUES);
     setInitialValues(DEFAULT_LEAD_FORM_VALUES);
     setErrors({});
+    setHasAttemptedSubmit(false);
   }, [isEditMode, open]);
 
   useEffect(() => {
@@ -108,18 +123,59 @@ export function CreateLeadDrawer({
     setValues(formValues);
     setInitialValues(formValues);
     setErrors({});
+    setHasAttemptedSubmit(false);
   }, [isEditMode, lead, open]);
 
   const isDirty = !areLeadFormValuesEqual(values, initialValues);
   const isSaving = isCreating || isUpdating;
   const isFormDisabled = isSaving || (isEditMode && isLoadingLead);
+  const leadScore = useMemo(() => calculateLeadScore(values), [values]);
+  const formValid = useMemo(() => isLeadFormValid(values), [values]);
+  const canSubmit = !isFormDisabled && formValid && (!isEditMode || isDirty) && !isSaving;
+
+  const applyValues = (next: LeadFormValues, clearedField?: keyof LeadFormErrors): void => {
+    setValues(next);
+
+    if (hasAttemptedSubmit) {
+      setErrors(validateLeadForm(next));
+      return;
+    }
+
+    if (clearedField === undefined) {
+      return;
+    }
+
+    setErrors((current) => {
+      if (current[clearedField] === undefined && current.form === undefined) {
+        return current;
+      }
+      const { [clearedField]: _removed, form: _form, ...rest } = current;
+      return rest;
+    });
+  };
 
   const updateField = <K extends keyof LeadFormValues>(
     field: K,
     value: LeadFormValues[K],
   ): void => {
-    setValues((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
+    applyValues({ ...values, [field]: value }, field as keyof LeadFormErrors);
+  };
+
+  const validateField = (field: keyof LeadFormValues): void => {
+    const nextErrors = validateLeadForm(values);
+    const key = field as keyof LeadFormErrors;
+    const fieldError = nextErrors[key];
+
+    setErrors((current) => {
+      if (fieldError === undefined) {
+        if (current[key] === undefined) {
+          return current;
+        }
+        const { [key]: _removed, ...rest } = current;
+        return rest;
+      }
+      return { ...current, [key]: fieldError };
+    });
   };
 
   const handleCloseRequest = (nextOpen: boolean): void => {
@@ -133,7 +189,11 @@ export function CreateLeadDrawer({
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    if (isSaving) {
+      return;
+    }
 
+    setHasAttemptedSubmit(true);
     const nextErrors = validateLeadForm(values);
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
@@ -206,8 +266,13 @@ export function CreateLeadDrawer({
                       onChange={(event) => {
                         updateField('company', event.target.value);
                       }}
+                      onBlur={() => {
+                        validateField('company');
+                      }}
                       placeholder="Acme Corp"
                       disabled={isFormDisabled}
+                      aria-invalid={errors.company !== undefined}
+                      className={fieldClassName(errors.company)}
                     />
                   </FormField>
 
@@ -222,18 +287,28 @@ export function CreateLeadDrawer({
                     />
                   </FormField>
 
-                  <FormField label="Contact person" htmlFor="contactPerson">
+                  <FormField
+                    label="Contact person"
+                    htmlFor="contactPerson"
+                    required
+                    error={errors.contactPerson}
+                  >
                     <Input
                       id="contactPerson"
                       value={values.contactPerson}
                       onChange={(event) => {
                         updateField('contactPerson', event.target.value);
                       }}
+                      onBlur={() => {
+                        validateField('contactPerson');
+                      }}
                       disabled={isFormDisabled}
+                      aria-invalid={errors.contactPerson !== undefined}
+                      className={fieldClassName(errors.contactPerson)}
                     />
                   </FormField>
 
-                  <FormField label="Email" htmlFor="email" error={errors.email}>
+                  <FormField label="Email" htmlFor="email" required error={errors.email}>
                     <Input
                       id="email"
                       type="email"
@@ -241,18 +316,31 @@ export function CreateLeadDrawer({
                       onChange={(event) => {
                         updateField('email', event.target.value);
                       }}
+                      onBlur={() => {
+                        validateField('email');
+                      }}
                       disabled={isFormDisabled}
+                      aria-invalid={errors.email !== undefined}
+                      className={fieldClassName(errors.email)}
                     />
                   </FormField>
 
-                  <FormField label="Phone" htmlFor="phone">
+                  <FormField label="Phone" htmlFor="phone" required error={errors.phone}>
                     <Input
                       id="phone"
+                      type="tel"
+                      inputMode="numeric"
                       value={values.phone}
                       onChange={(event) => {
-                        updateField('phone', event.target.value);
+                        updateField('phone', event.target.value.replace(/\D/g, '').slice(0, 15));
                       }}
+                      onBlur={() => {
+                        validateField('phone');
+                      }}
+                      placeholder="9876543210"
                       disabled={isFormDisabled}
+                      aria-invalid={errors.phone !== undefined}
+                      className={fieldClassName(errors.phone)}
                     />
                   </FormField>
 
@@ -267,14 +355,20 @@ export function CreateLeadDrawer({
                     />
                   </FormField>
 
-                  <FormField label="Website" htmlFor="website">
+                  <FormField label="Website" htmlFor="website" error={errors.website}>
                     <Input
                       id="website"
                       value={values.website}
                       onChange={(event) => {
                         updateField('website', event.target.value);
                       }}
+                      onBlur={() => {
+                        validateField('website');
+                      }}
+                      placeholder="https://company.com"
                       disabled={isFormDisabled}
+                      aria-invalid={errors.website !== undefined}
+                      className={fieldClassName(errors.website)}
                     />
                   </FormField>
 
@@ -311,12 +405,13 @@ export function CreateLeadDrawer({
                       value={values.status}
                       disabled={isFormDisabled}
                       onChange={(event) => {
-                        updateField('status', event.target.value as CreateLeadStatus);
+                        updateField('status', event.target.value as EditableLeadStatus);
                       }}
                     >
                       <option value="NEW">New</option>
                       <option value="CONTACTED">Contacted</option>
                       <option value="QUALIFIED">Qualified</option>
+                      {isEditMode ? <option value="DISQUALIFIED">Disqualified</option> : null}
                     </NativeSelect>
                   </FormField>
 
@@ -338,14 +433,18 @@ export function CreateLeadDrawer({
                     </NativeSelect>
                   </FormField>
 
-                  <FormField label="Source" htmlFor="source">
+                  <FormField label="Source" htmlFor="source" required error={errors.source}>
                     <NativeSelect
                       id="source"
                       label="Source"
                       value={values.source}
                       disabled={isFormDisabled}
+                      className={cn(fieldClassName(errors.source))}
                       onChange={(event) => {
                         updateField('source', event.target.value as LeadSource | '');
+                      }}
+                      onBlur={() => {
+                        validateField('source');
                       }}
                     >
                       <option value="">Select source</option>
@@ -376,18 +475,17 @@ export function CreateLeadDrawer({
                     </NativeSelect>
                   </FormField>
 
-                  <FormField label="Lead score" htmlFor="leadScore" error={errors.leadScore}>
+                  <FormField label="Lead score" htmlFor="leadScore">
                     <Input
                       id="leadScore"
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={values.leadScore}
-                      onChange={(event) => {
-                        updateField('leadScore', event.target.value);
-                      }}
-                      disabled={isFormDisabled}
+                      value={formatLeadScore(leadScore)}
+                      readOnly
+                      disabled
+                      className="bg-muted/40"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Calculated automatically from qualification signals.
+                    </p>
                   </FormField>
 
                   <FormField
@@ -398,13 +496,18 @@ export function CreateLeadDrawer({
                     <Input
                       id="expectedDealSize"
                       type="number"
-                      min={0}
+                      min={0.01}
                       step="0.01"
                       value={values.expectedDealSize}
                       onChange={(event) => {
                         updateField('expectedDealSize', event.target.value);
                       }}
+                      onBlur={() => {
+                        validateField('expectedDealSize');
+                      }}
                       disabled={isFormDisabled}
+                      aria-invalid={errors.expectedDealSize !== undefined}
+                      className={fieldClassName(errors.expectedDealSize)}
                     />
                   </FormField>
                 </section>
@@ -452,13 +555,15 @@ export function CreateLeadDrawer({
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={isFormDisabled || (isEditMode && !isDirty)}
-                  className="gap-2"
-                >
+                <Button type="submit" disabled={!canSubmit} className="gap-2">
                   {isSaving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                  {isEditMode ? 'Save Changes' : 'Create Lead'}
+                  {isSaving
+                    ? isEditMode
+                      ? 'Saving...'
+                      : 'Creating...'
+                    : isEditMode
+                      ? 'Save Changes'
+                      : 'Create Lead'}
                 </Button>
               </footer>
             </form>

@@ -75,9 +75,9 @@ export interface ListLeadsResult {
 export interface CreateLeadPayload {
   readonly company: string;
   readonly code?: string;
-  readonly contactPerson?: string;
-  readonly email?: string;
-  readonly phone?: string;
+  readonly contactPerson: string;
+  readonly email: string;
+  readonly phone: string;
   readonly whatsapp?: string;
   readonly website?: string;
   readonly industry?: string;
@@ -85,7 +85,6 @@ export interface CreateLeadPayload {
   readonly source?: LeadSource;
   readonly assignedToUserId?: string;
   readonly status?: CreateLeadStatus;
-  readonly leadScore?: number | null;
   readonly priority?: LeadPriority;
   readonly expectedDealSize?: number | null;
   readonly notes?: string;
@@ -109,10 +108,9 @@ export interface UpdateLeadPayload {
   readonly website?: string | null;
   readonly industry?: string | null;
   readonly country?: string | null;
-  readonly source?: LeadSource | null;
+  readonly source?: LeadSource;
   readonly assignedToUserId?: string | null;
   readonly status?: Exclude<LeadStatus, 'ARCHIVED' | 'CONVERTED'>;
-  readonly leadScore?: number | null;
   readonly priority?: LeadPriority;
   readonly expectedDealSize?: number | null;
   readonly notes?: string | null;

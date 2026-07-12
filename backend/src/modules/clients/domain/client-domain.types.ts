@@ -19,6 +19,7 @@ export interface CreateClientValidationInput {
   readonly clientCode?: string | null;
   readonly website?: string | null;
   readonly email?: string | null;
+  readonly phone?: string | null;
   readonly gstin?: string | null;
   readonly pan?: string | null;
   readonly currency?: string | null;
@@ -36,6 +37,7 @@ export interface UpdateClientValidationInput {
   readonly clientCode?: string | null;
   readonly website?: string | null;
   readonly email?: string | null;
+  readonly phone?: string | null;
   readonly gstin?: string | null;
   readonly pan?: string | null;
   readonly currency?: string | null;

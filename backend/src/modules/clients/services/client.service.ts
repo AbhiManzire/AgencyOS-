@@ -47,6 +47,7 @@ export class ClientService {
     context: ClientApplicationContext,
   ): Promise<ClientRecord> {
     const membership = await this.resolveMembership(scope, context);
+    const actorUserId = normalizeActorUserId(context.actorUserId);
 
     await this.clientDomainService.validateCreate(
       scope,
@@ -56,9 +57,9 @@ export class ClientService {
         displayName: command.displayName,
         slug: command.slug,
         status: command.status,
-        clientCode: command.clientCode,
         website: command.website,
         email: command.email,
+        phone: command.phone,
         gstin: command.gstin,
         pan: command.pan,
         currency: command.currency,
@@ -79,47 +80,51 @@ export class ClientService {
         this.clientDomainService.generateSlug(command.displayName),
       ));
 
-    const data: CreateClientData = {
-      id: randomUUID(),
-      tenantId: scope.tenantId,
-      workspaceId: scope.workspaceId,
-      displayName: command.displayName.trim(),
-      slug,
-      status: command.status ?? 'PROSPECT',
-      legalName: command.legalName,
-      clientCode: normalizeOptionalString(command.clientCode),
-      industry: command.industry,
-      website: command.website,
-      phone: command.phone,
-      email: command.email,
-      gstin: normalizeUpperOptional(command.gstin),
-      pan: normalizeUpperOptional(command.pan),
-      currency: normalizeUpperOptional(command.currency),
-      addressLine1: command.addressLine1,
-      addressLine2: command.addressLine2,
-      city: command.city,
-      stateRegion: command.stateRegion,
-      postalCode: command.postalCode,
-      countryCode: normalizeCountryCode(command.countryCode),
-      shippingAddressLine1: command.shippingAddressLine1,
-      shippingAddressLine2: command.shippingAddressLine2,
-      shippingCity: command.shippingCity,
-      shippingStateRegion: command.shippingStateRegion,
-      shippingPostalCode: command.shippingPostalCode,
-      shippingCountryCode: normalizeCountryCode(command.shippingCountryCode),
-      ownerUserId: command.ownerUserId,
-      source: command.source,
-      externalReferenceId: command.externalReferenceId,
-      becameClientAt: command.becameClientAt,
-      createdAt: now,
-      updatedAt: now,
-      createdByUserId: context.actorUserId,
-      updatedByUserId: context.actorUserId,
-    };
-
     return this.runInTransaction(async (tx) => {
+      const clientCode = await this.allocateNextClientCode(scope, tx);
+
+      const data: CreateClientData = {
+        id: randomUUID(),
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        displayName: command.displayName.trim(),
+        slug,
+        status: command.status ?? 'PROSPECT',
+        legalName: command.legalName,
+        clientCode,
+        industry: command.industry,
+        website: command.website,
+        phone: command.phone,
+        email: command.email,
+        gstin: normalizeUpperOptional(command.gstin),
+        pan: normalizeUpperOptional(command.pan),
+        currency: normalizeUpperOptional(command.currency),
+        addressLine1: command.addressLine1,
+        addressLine2: command.addressLine2,
+        city: command.city,
+        stateRegion: command.stateRegion,
+        postalCode: command.postalCode,
+        countryCode: normalizeCountryCode(command.countryCode),
+        shippingAddressLine1: command.shippingAddressLine1,
+        shippingAddressLine2: command.shippingAddressLine2,
+        shippingCity: command.shippingCity,
+        shippingStateRegion: command.shippingStateRegion,
+        shippingPostalCode: command.shippingPostalCode,
+        shippingCountryCode: normalizeCountryCode(command.shippingCountryCode),
+        ownerUserId: command.ownerUserId,
+        source: command.source,
+        externalReferenceId: command.externalReferenceId,
+        becameClientAt: command.becameClientAt,
+        createdAt: now,
+        updatedAt: now,
+        createdByUserId: actorUserId,
+        updatedByUserId: actorUserId,
+      };
+
       const created = await this.clientRepository.create(data, tx);
-      await this.recordActivity(tx, scope, created.id, 'client.created', 'Client created', context);
+      await this.recordActivity(tx, scope, created.id, 'client.created', 'Client created', {
+        actorUserId: actorUserId ?? '',
+      });
       return created;
     });
   }
@@ -132,6 +137,7 @@ export class ClientService {
   ): Promise<ClientRecord> {
     const existing = await this.requireClient(scope, clientId, { includeArchived: true });
     const membership = await this.resolveMembership(scope, context);
+    const actorUserId = normalizeActorUserId(context.actorUserId);
 
     await this.clientDomainService.validateUpdate(
       scope,
@@ -140,9 +146,9 @@ export class ClientService {
         displayName: command.displayName,
         slug: command.slug,
         status: command.status,
-        clientCode: command.clientCode,
         website: command.website,
         email: command.email,
+        phone: command.phone,
         gstin: command.gstin,
         pan: command.pan,
         currency: command.currency,
@@ -163,9 +169,6 @@ export class ClientService {
       ...(slug !== undefined ? { slug } : {}),
       ...(command.status !== undefined ? { status: command.status } : {}),
       ...(command.legalName !== undefined ? { legalName: command.legalName } : {}),
-      ...(command.clientCode !== undefined
-        ? { clientCode: normalizeOptionalString(command.clientCode) }
-        : {}),
       ...(command.industry !== undefined ? { industry: command.industry } : {}),
       ...(command.website !== undefined ? { website: command.website } : {}),
       ...(command.phone !== undefined ? { phone: command.phone } : {}),
@@ -206,7 +209,7 @@ export class ClientService {
         : {}),
       ...(command.becameClientAt !== undefined ? { becameClientAt: command.becameClientAt } : {}),
       updatedAt: now,
-      updatedByUserId: context.actorUserId,
+      updatedByUserId: actorUserId,
     };
 
     return this.runInTransaction(async (tx) => {
@@ -218,7 +221,9 @@ export class ClientService {
         );
       }
 
-      await this.recordActivity(tx, scope, updated.id, 'client.updated', 'Client updated', context);
+      await this.recordActivity(tx, scope, updated.id, 'client.updated', 'Client updated', {
+        actorUserId: actorUserId ?? '',
+      });
       return updated;
     });
   }
@@ -230,6 +235,7 @@ export class ClientService {
   ): Promise<ClientRecord> {
     const existing = await this.requireClient(scope, clientId);
     const archive = await this.resolveArchiveContext(scope, clientId, context);
+    const actorUserId = normalizeActorUserId(context.actorUserId);
 
     this.clientDomainService.validateArchive(scope, existing, archive);
 
@@ -242,9 +248,9 @@ export class ClientService {
         {
           status: 'ARCHIVED',
           deletedAt: now,
-          deletedByUserId: context.actorUserId,
+          deletedByUserId: actorUserId,
           updatedAt: now,
-          updatedByUserId: context.actorUserId,
+          updatedByUserId: actorUserId,
         },
         tx,
       );
@@ -256,14 +262,9 @@ export class ClientService {
         );
       }
 
-      await this.recordActivity(
-        tx,
-        scope,
-        archived.id,
-        'client.archived',
-        'Client archived',
-        context,
-      );
+      await this.recordActivity(tx, scope, archived.id, 'client.archived', 'Client archived', {
+        actorUserId: actorUserId ?? '',
+      });
       return archived;
     });
   }
@@ -286,6 +287,7 @@ export class ClientService {
     }
 
     const membership = await this.resolveMembership(scope, context);
+    const actorUserId = normalizeActorUserId(context.actorUserId);
 
     await this.clientDomainService.validateRestore(
       scope,
@@ -304,7 +306,7 @@ export class ClientService {
         {
           status: targetStatus,
           updatedAt: now,
-          updatedByUserId: context.actorUserId,
+          updatedByUserId: actorUserId,
         },
         tx,
       );
@@ -316,14 +318,9 @@ export class ClientService {
         );
       }
 
-      await this.recordActivity(
-        tx,
-        scope,
-        restored.id,
-        'client.restored',
-        'Client restored',
-        context,
-      );
+      await this.recordActivity(tx, scope, restored.id, 'client.restored', 'Client restored', {
+        actorUserId: actorUserId ?? '',
+      });
       return restored;
     });
   }
@@ -469,6 +466,21 @@ export class ClientService {
 
     return undefined;
   }
+
+  private async allocateNextClientCode(
+    scope: ClientScope,
+    tx: ClientTransactionClient,
+  ): Promise<string> {
+    const maxSequence = await this.clientRepository.findMaxClientCodeSequence(scope, tx);
+    return this.clientDomainService.formatClientCode(maxSequence + 1);
+  }
+}
+
+function normalizeActorUserId(value: string | undefined): string | null {
+  if (value === undefined || value.trim().length === 0) {
+    return null;
+  }
+  return value;
 }
 
 function normalizeOptionalString(value: string | null | undefined): string | null | undefined {

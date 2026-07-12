@@ -14,6 +14,11 @@ export type LeadListStatusFilter = 'all' | Exclude<LeadStatus, 'ARCHIVED'> | 'ar
 
 export type CreateLeadStatus = Extract<LeadStatus, 'NEW' | 'CONTACTED' | 'QUALIFIED'>;
 
+export type EditableLeadStatus = Extract<
+  LeadStatus,
+  'NEW' | 'CONTACTED' | 'QUALIFIED' | 'DISQUALIFIED'
+>;
+
 export type RestoreLeadStatus = Extract<
   LeadStatus,
   'NEW' | 'CONTACTED' | 'QUALIFIED' | 'DISQUALIFIED'

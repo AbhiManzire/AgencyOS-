@@ -37,9 +37,9 @@ export function formatLeadSource(source: LeadSource | null | undefined): string 
 
 export function formatLeadScore(score: number | null | undefined): string {
   if (score === null || score === undefined) {
-    return '—';
+    return '0 / 100';
   }
-  return String(score);
+  return `${String(score)} / 100`;
 }
 
 export function formatLeadDealSize(value: number | null | undefined, currency = 'USD'): string {

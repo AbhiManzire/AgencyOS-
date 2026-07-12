@@ -22,18 +22,22 @@ function cleanParams(
 export async function listNotifications(
   params: ListNotificationsParams = {},
 ): Promise<ListNotificationsResult> {
-  const response = await apiClient.get<ApiSuccessResponse<ListNotificationsResult>>(
-    '/notifications',
-    {
-      params: cleanParams({
-        category: params.category,
-        isRead: params.isRead,
-        skip: params.skip,
-        take: params.take,
-      }),
-    },
-  );
-  return response.data.data;
+  const response = await apiClient.get<ApiSuccessResponse<NotificationRecord[]>>('/notifications', {
+    params: cleanParams({
+      category: params.category,
+      isRead: params.isRead,
+      skip: params.skip,
+      take: params.take,
+    }),
+  });
+
+  const { data, meta } = response.data;
+  return {
+    items: data,
+    total: meta?.total ?? data.length,
+    skip: meta?.skip ?? params.skip ?? 0,
+    take: meta?.take ?? params.take ?? 25,
+  };
 }
 
 export async function getUnreadNotificationCount(): Promise<UnreadCountResult> {

@@ -35,11 +35,9 @@ apiClient.interceptors.request.use((config) => {
       process.env.NEXT_PUBLIC_DEV_TENANT_ID ?? DEPLOY_DEFAULT_TENANT_ID;
     config.headers[DEV_WORKSPACE_HEADER] =
       process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID ?? DEPLOY_DEFAULT_WORKSPACE_ID;
-    // When a Bearer token is present, user identity comes from JWT (server-bound).
-    if (!accessToken) {
-      config.headers[DEV_USER_HEADER] =
-        process.env.NEXT_PUBLIC_DEV_USER_ID ?? DEPLOY_DEFAULT_USER_ID;
-    }
+    // Always send x-user-id in local/demo. When AUTH_ENABLED=true the server
+    // BindJwtIdentityGuard overwrites this from the JWT subject.
+    config.headers[DEV_USER_HEADER] = process.env.NEXT_PUBLIC_DEV_USER_ID ?? DEPLOY_DEFAULT_USER_ID;
   } else {
     config.headers[DEV_TENANT_HEADER] =
       // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty env must use defaults

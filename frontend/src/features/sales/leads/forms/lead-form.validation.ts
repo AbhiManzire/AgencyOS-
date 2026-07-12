@@ -3,7 +3,12 @@ import type {
   LeadRecord,
   UpdateLeadPayload,
 } from '@/features/sales/leads/api/lead.types';
-import type { CreateLeadStatus, LeadPriority, LeadSource } from '@/features/sales/leads/types';
+import type {
+  CreateLeadStatus,
+  EditableLeadStatus,
+  LeadPriority,
+  LeadSource,
+} from '@/features/sales/leads/types';
 
 export interface LeadFormValues {
   company: string;
@@ -17,8 +22,7 @@ export interface LeadFormValues {
   country: string;
   source: LeadSource | '';
   assignedToUserId: string;
-  status: CreateLeadStatus;
-  leadScore: string;
+  status: EditableLeadStatus;
   priority: LeadPriority;
   expectedDealSize: string;
   notes: string;
@@ -34,8 +38,11 @@ export interface LeadFormValues {
 
 export interface LeadFormErrors {
   company?: string;
+  contactPerson?: string;
   email?: string;
-  leadScore?: string;
+  phone?: string;
+  website?: string;
+  source?: string;
   expectedDealSize?: string;
   form?: string;
 }
@@ -53,7 +60,6 @@ export const DEFAULT_LEAD_FORM_VALUES: LeadFormValues = {
   source: '',
   assignedToUserId: '',
   status: 'NEW',
-  leadScore: '',
   priority: 'MEDIUM',
   expectedDealSize: '',
   notes: '',
@@ -67,7 +73,16 @@ export const DEFAULT_LEAD_FORM_VALUES: LeadFormValues = {
   qualificationNotes: '',
 };
 
-const EDITABLE_STATUSES: readonly CreateLeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED'];
+const EDITABLE_STATUSES: readonly EditableLeadStatus[] = [
+  'NEW',
+  'CONTACTED',
+  'QUALIFIED',
+  'DISQUALIFIED',
+];
+const CREATABLE_STATUSES: readonly CreateLeadStatus[] = ['NEW', 'CONTACTED', 'QUALIFIED'];
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^\d{7,15}$/;
 
 function optionalTrim(value: string): string | undefined {
   const trimmed = value.trim();
@@ -79,15 +94,48 @@ function optionalTrimOrNull(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function parseOptionalScore(value: string): number | null | undefined {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return null;
+function isValidWebsite(value: string): boolean {
+  try {
+    const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    const url = new URL(withProtocol);
+    return url.hostname.length > 0 && url.hostname.includes('.');
+  } catch {
+    return false;
   }
-  return Number(trimmed);
 }
 
-/** Validates lead form values before submit. */
+/**
+ * Auto lead score (0–100) — mirrors backend LeadDomainService.calculateLeadScore.
+ */
+export function calculateLeadScore(values: LeadFormValues): number {
+  let score = 0;
+
+  if (values.decisionMaker.trim().length > 0) {
+    score += 20;
+  }
+  if (values.budgetNotes.trim().length > 0) {
+    score += 20;
+  }
+  if (values.timeline.trim().length > 0) {
+    score += 20;
+  }
+  if (values.website.trim().length > 0 && isValidWebsite(values.website)) {
+    score += 10;
+  }
+  if (values.email.trim().length > 0 && EMAIL_PATTERN.test(values.email.trim())) {
+    score += 10;
+  }
+  if (values.phone.trim().length > 0 && PHONE_PATTERN.test(values.phone.trim())) {
+    score += 10;
+  }
+  if (values.company.trim().length > 0) {
+    score += 10;
+  }
+
+  return score;
+}
+
+/** Validates lead form values (inline and on submit). */
 export function validateLeadForm(values: LeadFormValues): LeadFormErrors {
   const errors: LeadFormErrors = {};
 
@@ -97,62 +145,58 @@ export function validateLeadForm(values: LeadFormValues): LeadFormErrors {
     errors.company = 'Company must be 255 characters or fewer';
   }
 
+  if (values.contactPerson.trim().length === 0) {
+    errors.contactPerson = 'Contact person is required';
+  } else if (values.contactPerson.trim().length > 255) {
+    errors.contactPerson = 'Contact person must be 255 characters or fewer';
+  }
+
   const email = values.email.trim();
-  if (email.length > 0 && !email.includes('@')) {
+  if (email.length === 0) {
+    errors.email = 'Email is required';
+  } else if (!EMAIL_PATTERN.test(email)) {
     errors.email = 'Enter a valid email';
   }
 
-  const scoreText = values.leadScore.trim();
-  if (scoreText.length > 0) {
-    const score = Number(scoreText);
-    if (!Number.isFinite(score) || score < 0 || score > 100) {
-      errors.leadScore = 'Score must be between 0 and 100';
-    }
+  const phone = values.phone.trim();
+  if (phone.length === 0) {
+    errors.phone = 'Phone is required';
+  } else if (!PHONE_PATTERN.test(phone)) {
+    errors.phone = 'Phone must be 7–15 digits only';
+  }
+
+  if (values.source === '') {
+    errors.source = 'Source is required';
+  }
+
+  const website = values.website.trim();
+  if (website.length > 0 && !isValidWebsite(website)) {
+    errors.website = 'Enter a valid website URL';
   }
 
   const sizeText = values.expectedDealSize.trim();
   if (sizeText.length > 0) {
     const size = Number(sizeText);
-    if (!Number.isFinite(size) || size < 0) {
-      errors.expectedDealSize = 'Enter a valid non-negative amount';
+    if (!Number.isFinite(size) || size <= 0) {
+      errors.expectedDealSize = 'Enter a positive deal size';
     }
   }
 
   return errors;
 }
 
+export function isLeadFormValid(values: LeadFormValues): boolean {
+  return Object.keys(validateLeadForm(values)).length === 0;
+}
+
 export function areLeadFormValuesEqual(left: LeadFormValues, right: LeadFormValues): boolean {
-  return (
-    left.company === right.company &&
-    left.code === right.code &&
-    left.contactPerson === right.contactPerson &&
-    left.email === right.email &&
-    left.phone === right.phone &&
-    left.whatsapp === right.whatsapp &&
-    left.website === right.website &&
-    left.industry === right.industry &&
-    left.country === right.country &&
-    left.source === right.source &&
-    left.assignedToUserId === right.assignedToUserId &&
-    left.status === right.status &&
-    left.leadScore === right.leadScore &&
-    left.priority === right.priority &&
-    left.expectedDealSize === right.expectedDealSize &&
-    left.notes === right.notes &&
-    left.need === right.need &&
-    left.authority === right.authority &&
-    left.budgetNotes === right.budgetNotes &&
-    left.timeline === right.timeline &&
-    left.painPoints === right.painPoints &&
-    left.decisionMaker === right.decisionMaker &&
-    left.competitor === right.competitor &&
-    left.qualificationNotes === right.qualificationNotes
-  );
+  const keys = Object.keys(DEFAULT_LEAD_FORM_VALUES) as (keyof LeadFormValues)[];
+  return keys.every((key) => left[key] === right[key]);
 }
 
 export function leadRecordToFormValues(record: LeadRecord): LeadFormValues {
-  const status: CreateLeadStatus = EDITABLE_STATUSES.includes(record.status as CreateLeadStatus)
-    ? (record.status as CreateLeadStatus)
+  const status: EditableLeadStatus = EDITABLE_STATUSES.includes(record.status as EditableLeadStatus)
+    ? (record.status as EditableLeadStatus)
     : 'NEW';
 
   return {
@@ -168,7 +212,6 @@ export function leadRecordToFormValues(record: LeadRecord): LeadFormValues {
     source: record.source ?? '',
     assignedToUserId: record.assignedToUserId ?? '',
     status,
-    leadScore: record.leadScore !== null ? String(record.leadScore) : '',
     priority: record.priority,
     expectedDealSize: record.expectedDealSize !== null ? String(record.expectedDealSize) : '',
     notes: record.notes ?? '',
@@ -184,23 +227,24 @@ export function leadRecordToFormValues(record: LeadRecord): LeadFormValues {
 }
 
 export function toCreateLeadPayload(values: LeadFormValues): CreateLeadPayload {
-  const score = parseOptionalScore(values.leadScore);
   const sizeText = values.expectedDealSize.trim();
+  const status: CreateLeadStatus = CREATABLE_STATUSES.includes(values.status as CreateLeadStatus)
+    ? (values.status as CreateLeadStatus)
+    : 'NEW';
 
   return {
     company: values.company.trim(),
     code: optionalTrim(values.code),
-    contactPerson: optionalTrim(values.contactPerson),
-    email: optionalTrim(values.email),
-    phone: optionalTrim(values.phone),
+    contactPerson: values.contactPerson.trim(),
+    email: values.email.trim(),
+    phone: values.phone.trim(),
     whatsapp: optionalTrim(values.whatsapp),
     website: optionalTrim(values.website),
     industry: optionalTrim(values.industry),
     country: optionalTrim(values.country),
     source: values.source === '' ? undefined : values.source,
     assignedToUserId: optionalTrim(values.assignedToUserId),
-    status: values.status,
-    leadScore: score === undefined ? undefined : score,
+    status,
     priority: values.priority,
     expectedDealSize: sizeText.length > 0 ? Number(sizeText) : null,
     notes: optionalTrim(values.notes),
@@ -216,23 +260,21 @@ export function toCreateLeadPayload(values: LeadFormValues): CreateLeadPayload {
 }
 
 export function toUpdateLeadPayload(values: LeadFormValues): UpdateLeadPayload {
-  const score = parseOptionalScore(values.leadScore);
   const sizeText = values.expectedDealSize.trim();
 
   return {
     company: values.company.trim(),
     code: optionalTrimOrNull(values.code),
-    contactPerson: optionalTrimOrNull(values.contactPerson),
-    email: optionalTrimOrNull(values.email),
-    phone: optionalTrimOrNull(values.phone),
+    contactPerson: values.contactPerson.trim(),
+    email: values.email.trim(),
+    phone: values.phone.trim(),
     whatsapp: optionalTrimOrNull(values.whatsapp),
     website: optionalTrimOrNull(values.website),
     industry: optionalTrimOrNull(values.industry),
     country: optionalTrimOrNull(values.country),
-    source: values.source === '' ? null : values.source,
+    source: values.source === '' ? undefined : values.source,
     assignedToUserId: optionalTrimOrNull(values.assignedToUserId),
     status: values.status,
-    leadScore: score === undefined ? null : score,
     priority: values.priority,
     expectedDealSize: sizeText.length > 0 ? Number(sizeText) : null,
     notes: optionalTrimOrNull(values.notes),

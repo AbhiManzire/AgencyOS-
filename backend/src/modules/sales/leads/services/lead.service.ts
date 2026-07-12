@@ -48,16 +48,33 @@ export class LeadService {
     command: CreateLeadCommand,
     context: LeadApplicationContext,
   ): Promise<LeadRecord> {
+    const actorUserId = normalizeActorUserId(context.actorUserId);
+
     this.leadDomainService.validateCreate({
       company: command.company,
-      leadScore: command.leadScore,
+      contactPerson: command.contactPerson,
+      email: command.email,
+      phone: command.phone,
+      website: command.website,
+      source: command.source,
       status: command.status,
       priority: command.priority,
-      source: command.source,
       expectedDealSize: command.expectedDealSize,
+      decisionMaker: command.decisionMaker,
+      budgetNotes: command.budgetNotes,
+      timeline: command.timeline,
     });
 
     const now = new Date();
+    const leadScore = this.leadDomainService.calculateLeadScore({
+      company: command.company,
+      email: command.email,
+      phone: command.phone,
+      website: command.website,
+      decisionMaker: command.decisionMaker,
+      budgetNotes: command.budgetNotes,
+      timeline: command.timeline,
+    });
 
     const data: CreateLeadData = {
       id: randomUUID(),
@@ -75,7 +92,7 @@ export class LeadService {
       source: command.source ?? 'OTHER',
       assignedToUserId: command.assignedToUserId ?? null,
       status: command.status ?? 'NEW',
-      leadScore: command.leadScore ?? null,
+      leadScore,
       priority: command.priority ?? 'MEDIUM',
       expectedDealSize: command.expectedDealSize ?? null,
       notes: this.leadDomainService.normalizeOptionalString(command.notes),
@@ -91,8 +108,8 @@ export class LeadService {
       ),
       createdAt: now,
       updatedAt: now,
-      createdByUserId: context.actorUserId,
-      updatedByUserId: context.actorUserId,
+      createdByUserId: actorUserId,
+      updatedByUserId: actorUserId,
     };
 
     return this.runInTransaction(async (tx) => {
@@ -102,7 +119,7 @@ export class LeadService {
         created.id,
         'lead.created',
         'Lead Created',
-        context,
+        { actorUserId: actorUserId ?? '' },
         undefined,
         'Lead was created.',
       );
@@ -117,40 +134,77 @@ export class LeadService {
     context: LeadApplicationContext,
   ): Promise<LeadRecord> {
     const existing = await this.requireLead(scope, leadId, { includeArchived: true });
+    const actorUserId = normalizeActorUserId(context.actorUserId);
 
     this.leadDomainService.validateUpdate(existing, {
       company: command.company,
-      leadScore: command.leadScore,
+      contactPerson: command.contactPerson,
+      email: command.email,
+      phone: command.phone,
+      website: command.website,
+      source: command.source,
       status: command.status,
       priority: command.priority,
-      source: command.source,
       expectedDealSize: command.expectedDealSize,
+      decisionMaker: command.decisionMaker,
+      budgetNotes: command.budgetNotes,
+      timeline: command.timeline,
     });
 
     const now = new Date();
+    const nextCompany =
+      command.company !== undefined
+        ? this.leadDomainService.normalizeRequiredString(command.company)
+        : existing.company;
+    const nextEmail =
+      command.email !== undefined
+        ? (this.leadDomainService.normalizeOptionalEmail(command.email) ?? null)
+        : existing.email;
+    const nextPhone =
+      command.phone !== undefined
+        ? (this.leadDomainService.normalizeOptionalString(command.phone) ?? null)
+        : existing.phone;
+    const nextWebsite =
+      command.website !== undefined
+        ? (this.leadDomainService.normalizeOptionalString(command.website) ?? null)
+        : existing.website;
+    const nextDecisionMaker =
+      command.decisionMaker !== undefined
+        ? (this.leadDomainService.normalizeOptionalString(command.decisionMaker) ?? null)
+        : existing.decisionMaker;
+    const nextBudgetNotes =
+      command.budgetNotes !== undefined
+        ? (this.leadDomainService.normalizeOptionalString(command.budgetNotes) ?? null)
+        : existing.budgetNotes;
+    const nextTimeline =
+      command.timeline !== undefined
+        ? (this.leadDomainService.normalizeOptionalString(command.timeline) ?? null)
+        : existing.timeline;
+
+    const leadScore = this.leadDomainService.calculateLeadScore({
+      company: nextCompany,
+      email: nextEmail,
+      phone: nextPhone,
+      website: nextWebsite,
+      decisionMaker: nextDecisionMaker,
+      budgetNotes: nextBudgetNotes,
+      timeline: nextTimeline,
+    });
 
     const data: UpdateLeadData = {
       ...(command.code !== undefined
         ? { code: this.leadDomainService.normalizeOptionalString(command.code) }
         : {}),
-      ...(command.company !== undefined
-        ? { company: this.leadDomainService.normalizeRequiredString(command.company) }
-        : {}),
+      ...(command.company !== undefined ? { company: nextCompany } : {}),
       ...(command.contactPerson !== undefined
         ? { contactPerson: this.leadDomainService.normalizeOptionalString(command.contactPerson) }
         : {}),
-      ...(command.email !== undefined
-        ? { email: this.leadDomainService.normalizeOptionalEmail(command.email) }
-        : {}),
-      ...(command.phone !== undefined
-        ? { phone: this.leadDomainService.normalizeOptionalString(command.phone) }
-        : {}),
+      ...(command.email !== undefined ? { email: nextEmail } : {}),
+      ...(command.phone !== undefined ? { phone: nextPhone } : {}),
       ...(command.whatsapp !== undefined
         ? { whatsapp: this.leadDomainService.normalizeOptionalString(command.whatsapp) }
         : {}),
-      ...(command.website !== undefined
-        ? { website: this.leadDomainService.normalizeOptionalString(command.website) }
-        : {}),
+      ...(command.website !== undefined ? { website: nextWebsite } : {}),
       ...(command.industry !== undefined
         ? { industry: this.leadDomainService.normalizeOptionalString(command.industry) }
         : {}),
@@ -162,7 +216,7 @@ export class LeadService {
         ? { assignedToUserId: command.assignedToUserId }
         : {}),
       ...(command.status !== undefined ? { status: command.status } : {}),
-      ...(command.leadScore !== undefined ? { leadScore: command.leadScore } : {}),
+      leadScore,
       ...(command.priority !== undefined ? { priority: command.priority } : {}),
       ...(command.expectedDealSize !== undefined
         ? { expectedDealSize: command.expectedDealSize }
@@ -176,18 +230,12 @@ export class LeadService {
       ...(command.authority !== undefined
         ? { authority: this.leadDomainService.normalizeOptionalString(command.authority) }
         : {}),
-      ...(command.budgetNotes !== undefined
-        ? { budgetNotes: this.leadDomainService.normalizeOptionalString(command.budgetNotes) }
-        : {}),
-      ...(command.timeline !== undefined
-        ? { timeline: this.leadDomainService.normalizeOptionalString(command.timeline) }
-        : {}),
+      ...(command.budgetNotes !== undefined ? { budgetNotes: nextBudgetNotes } : {}),
+      ...(command.timeline !== undefined ? { timeline: nextTimeline } : {}),
       ...(command.painPoints !== undefined
         ? { painPoints: this.leadDomainService.normalizeOptionalString(command.painPoints) }
         : {}),
-      ...(command.decisionMaker !== undefined
-        ? { decisionMaker: this.leadDomainService.normalizeOptionalString(command.decisionMaker) }
-        : {}),
+      ...(command.decisionMaker !== undefined ? { decisionMaker: nextDecisionMaker } : {}),
       ...(command.competitor !== undefined
         ? { competitor: this.leadDomainService.normalizeOptionalString(command.competitor) }
         : {}),
@@ -199,7 +247,7 @@ export class LeadService {
           }
         : {}),
       updatedAt: now,
-      updatedByUserId: context.actorUserId,
+      updatedByUserId: actorUserId,
     };
 
     return this.runInTransaction(async (tx) => {
@@ -208,13 +256,15 @@ export class LeadService {
         throw new LeadDomainError(LEAD_DOMAIN_ERROR_CODES.LEAD_NOT_FOUND, 'Lead was not found.');
       }
 
+      const activityContext = { actorUserId: actorUserId ?? '' };
+
       if (command.status !== undefined && command.status !== existing.status) {
         await this.emitActivity(
           scope,
           updated.id,
           'lead.status_changed',
           'Status Changed',
-          context,
+          activityContext,
           { from: existing.status, to: updated.status },
           `Status changed from ${existing.status} to ${updated.status}.`,
         );
@@ -224,7 +274,7 @@ export class LeadService {
           updated.id,
           'lead.updated',
           'Lead Updated',
-          context,
+          activityContext,
           undefined,
           'Lead details were updated.',
         );
@@ -241,6 +291,7 @@ export class LeadService {
   ): Promise<LeadRecord> {
     const existing = await this.requireLead(scope, leadId);
     this.leadDomainService.validateArchive(existing);
+    const actorUserId = normalizeActorUserId(context.actorUserId);
 
     const now = new Date();
 
@@ -251,9 +302,9 @@ export class LeadService {
         {
           status: 'ARCHIVED',
           deletedAt: now,
-          deletedByUserId: context.actorUserId,
+          deletedByUserId: actorUserId,
           updatedAt: now,
-          updatedByUserId: context.actorUserId,
+          updatedByUserId: actorUserId,
         },
         tx,
       );
@@ -267,7 +318,7 @@ export class LeadService {
         archived.id,
         'lead.archived',
         'Archived',
-        context,
+        { actorUserId: actorUserId ?? '' },
         undefined,
         'Lead was archived.',
       );
@@ -288,6 +339,7 @@ export class LeadService {
     }
 
     this.leadDomainService.validateRestore(existing, { targetStatus: command.targetStatus });
+    const actorUserId = normalizeActorUserId(context.actorUserId);
 
     const now = new Date();
     const targetStatus = command.targetStatus ?? 'NEW';
@@ -299,7 +351,7 @@ export class LeadService {
         {
           status: targetStatus,
           updatedAt: now,
-          updatedByUserId: context.actorUserId,
+          updatedByUserId: actorUserId,
         },
         tx,
       );
@@ -313,7 +365,7 @@ export class LeadService {
         restored.id,
         'lead.restored',
         'Restored',
-        context,
+        { actorUserId: actorUserId ?? '' },
         undefined,
         'Lead was restored.',
       );
@@ -453,4 +505,11 @@ export class LeadService {
 
     return lead;
   }
+}
+
+function normalizeActorUserId(value: string | undefined): string | null {
+  if (value === undefined || value.trim().length === 0) {
+    return null;
+  }
+  return value;
 }
