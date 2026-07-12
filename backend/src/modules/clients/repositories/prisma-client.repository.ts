@@ -48,7 +48,16 @@ export class PrismaClientRepository implements ClientRepository {
       return null;
     }
 
-    return this.findById(scope, id);
+    const client = await db.client.findFirst({
+      where: {
+        id,
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        deletedAt: null,
+      },
+    });
+
+    return client ? toClientRecord(client) : null;
   }
 
   async findById(
@@ -224,7 +233,15 @@ export class PrismaClientRepository implements ClientRepository {
       return null;
     }
 
-    return this.findById(scope, id, { includeArchived: true });
+    const client = await db.client.findFirst({
+      where: {
+        id,
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+      },
+    });
+
+    return client ? toClientRecord(client) : null;
   }
 
   async listWorkspaceOwners(scope: ClientScope): Promise<readonly WorkspaceOwnerOption[]> {

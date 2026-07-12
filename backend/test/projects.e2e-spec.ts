@@ -95,6 +95,7 @@ describe('Projects (e2e)', () => {
           name: `Website Redesign ${suffix}`,
           code: `PRJ-${suffix}`,
           status: 'PLANNING',
+          projectManagerUserId: primary.userId,
         })
         .expect(201);
 
@@ -115,7 +116,10 @@ describe('Projects (e2e)', () => {
       const response = await request(app.getHttpServer())
         .post('/api/projects')
         .set(workspaceHeaders(primary))
-        .send({ clientId: client.id })
+        .send({
+          clientId: client.id,
+          projectManagerUserId: primary.userId,
+        })
         .expect(400);
 
       const body = response.body as ApiErrorResponse;
@@ -130,6 +134,7 @@ describe('Projects (e2e)', () => {
         .send({
           clientId: randomUUID(),
           name: 'Orphan Project',
+          projectManagerUserId: primary.userId,
         })
         .expect(404);
 
@@ -148,6 +153,7 @@ describe('Projects (e2e)', () => {
           clientId: client.id,
           name: 'First Project',
           code,
+          projectManagerUserId: primary.userId,
         })
         .expect(201);
 
@@ -158,6 +164,7 @@ describe('Projects (e2e)', () => {
           clientId: client.id,
           name: 'Second Project',
           code,
+          projectManagerUserId: primary.userId,
         })
         .expect(409);
 
@@ -180,6 +187,7 @@ describe('Projects (e2e)', () => {
         .send({
           clientId: client.id,
           name: 'Blocked Project',
+          projectManagerUserId: primary.userId,
         })
         .expect(422);
 
@@ -199,6 +207,7 @@ describe('Projects (e2e)', () => {
         .send({
           clientId: client.id,
           name: `Listed Project ${suffix}`,
+          projectManagerUserId: primary.userId,
         })
         .expect(201);
 
@@ -225,6 +234,7 @@ describe('Projects (e2e)', () => {
         .send({
           clientId: client.id,
           name: `Isolated Project ${suffix}`,
+          projectManagerUserId: primary.userId,
         })
         .expect(201);
 
@@ -248,6 +258,7 @@ describe('Projects (e2e)', () => {
         .send({
           clientId: client.id,
           name: `Detail Project ${suffix}`,
+          projectManagerUserId: primary.userId,
         })
         .expect(201);
 
@@ -276,6 +287,7 @@ describe('Projects (e2e)', () => {
           clientId: client.id,
           name: `Patch Project ${suffix}`,
           status: 'PLANNING',
+          projectManagerUserId: primary.userId,
         })
         .expect(201);
 
@@ -306,6 +318,7 @@ describe('Projects (e2e)', () => {
           clientId: client.id,
           name: 'Transition Project',
           status: 'PLANNING',
+          projectManagerUserId: primary.userId,
         })
         .expect(201);
 

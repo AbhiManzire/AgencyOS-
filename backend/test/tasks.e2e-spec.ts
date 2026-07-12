@@ -93,6 +93,7 @@ describe('Tasks (e2e)', () => {
       .send({
         clientId: client.id,
         name: `Task Project ${suffix}`,
+        projectManagerUserId: fixture.userId,
       })
       .expect(201);
 
