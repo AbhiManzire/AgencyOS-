@@ -6,10 +6,13 @@ Use before promoting AgencyOS v1.0 to production.
 
 - [ ] `NODE_ENV=production`
 - [ ] `AUTH_ENABLED=true`
+- [ ] `NEXT_PUBLIC_AUTH_ENABLED=true` (rebuild frontend after changing)
 - [ ] `RBAC_ENFORCED=true`
 - [ ] `CORS_ORIGIN` is a non-localhost HTTPS origin
 - [ ] `DATABASE_URL` points at production PostgreSQL
-- [ ] Keycloak `KEYCLOAK_ISSUER_URL` / `KEYCLOAK_JWKS_URI` configured
+- [ ] Keycloak `KEYCLOAK_ISSUER_URL` / `KEYCLOAK_JWKS_URI` configured (issuer must match JWT `iss`)
+- [ ] `NEXT_PUBLIC_KEYCLOAK_URL` points at reachable Keycloak (`https://<host>/auth` when using nginx `/auth/` proxy)
+- [ ] AgencyOS users have `keycloak_subject` set to Keycloak `sub`
 - [ ] Strong `POSTGRES_PASSWORD` / Keycloak admin password
 - [ ] No `NEXT_PUBLIC_DEV_*` or `NEXT_PUBLIC_ALLOW_DEV_IDENTITY_HEADERS` in prod
 - [ ] `SWAGGER_ENABLED=false` (unless intentionally open behind auth)
@@ -34,6 +37,7 @@ Use before promoting AgencyOS v1.0 to production.
 - [ ] Nginx config from `infrastructure/nginx/agencyos.vps.conf`
 - [ ] TLS certificates valid
 - [ ] `/api/` proxies to `127.0.0.1:3001`
+- [ ] `/auth/` proxies to Keycloak (`127.0.0.1:8080`) — required for same-origin OIDC
 - [ ] Security headers present (frame deny, nosniff, HSTS)
 
 ## Health & monitoring

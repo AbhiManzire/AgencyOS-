@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SectionTitle } from '@/design-system/typography';
-import { clearAccessToken } from '@/lib/auth/access-token';
-import { getKeycloakLoginUrl } from '@/lib/auth/config';
+import { clearAuthSession } from '@/lib/auth/access-token';
+import { isAuthExplicitlyEnabled, redirectToLogin } from '@/lib/auth/config';
 
 const SESSION_TIMEOUT_EVENT = 'agencyos:session-timeout';
 
-/** Dispatched when the API returns 401 Unauthorized. */
+/** Dispatched when the API returns 401 Unauthorized and refresh cannot recover. */
 export function dispatchSessionTimeout(): void {
   window.dispatchEvent(new CustomEvent(SESSION_TIMEOUT_EVENT));
 }
@@ -24,7 +24,7 @@ export function SessionTimeoutHandler({ onSignInAgain }: SessionTimeoutDialogPro
 
   useEffect(() => {
     const handleTimeout = (): void => {
-      clearAccessToken();
+      clearAuthSession();
       setOpen(true);
     };
 
@@ -44,7 +44,12 @@ export function SessionTimeoutHandler({ onSignInAgain }: SessionTimeoutDialogPro
       return;
     }
 
-    window.location.assign(getKeycloakLoginUrl());
+    if (isAuthExplicitlyEnabled()) {
+      void redirectToLogin('/');
+      return;
+    }
+
+    window.location.assign('/');
   };
 
   return (

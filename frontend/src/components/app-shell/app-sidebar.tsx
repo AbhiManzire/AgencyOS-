@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { isAuthExplicitlyEnabled } from '@/lib/auth/config';
 import { CanNavItem } from '@/lib/rbac';
 import { APP_NAV_ITEMS } from './nav-config';
 
@@ -78,8 +81,8 @@ export function AppSidebar({ collapsed, onNavigate }: AppSidebarProps) {
 
       <div
         className={cn(
-          'shrink-0 border-t border-sidebar-border p-3',
-          collapsed && 'flex justify-center p-2',
+          'shrink-0 space-y-2 border-t border-sidebar-border p-3',
+          collapsed && 'flex flex-col items-center p-2',
         )}
       >
         <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
@@ -96,6 +99,21 @@ export function AppSidebar({ collapsed, onNavigate }: AppSidebarProps) {
             </div>
           )}
         </div>
+        {isAuthExplicitlyEnabled() ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size={collapsed ? 'icon' : 'sm'}
+            className={cn('w-full', !collapsed && 'justify-start')}
+            title="Sign out"
+            asChild
+          >
+            <Link href="/auth/logout">
+              <LogOut className="size-4 shrink-0" />
+              {!collapsed && <span>Sign out</span>}
+            </Link>
+          </Button>
+        ) : null}
       </div>
     </aside>
   );

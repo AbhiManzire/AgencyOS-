@@ -31,7 +31,8 @@
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `NEXT_PUBLIC_API_URL` | Docker/prod: Yes | `http://localhost:3001/api` | Backend API base URL |
-| `NEXT_PUBLIC_KEYCLOAK_URL` | No | `http://localhost:8080` | Keycloak base URL |
+| `NEXT_PUBLIC_AUTH_ENABLED` | Production: Yes (`true`) | unset/`false` | Enables AuthGate + OIDC session on the client |
+| `NEXT_PUBLIC_KEYCLOAK_URL` | No | `http://localhost:8080` | Keycloak public base URL (use `https://<host>/auth` behind nginx `/auth/` proxy) |
 | `NEXT_PUBLIC_KEYCLOAK_REALM` | No | `agencyos` | Keycloak realm |
 | `NEXT_PUBLIC_KEYCLOAK_CLIENT_ID` | No | `agencyos-web` | OIDC client ID |
 | `NEXT_PUBLIC_TENANT_ID` | Production scope | — | Tenant header when not using JWT claim |
@@ -69,7 +70,7 @@
 | `KEYCLOAK_ADMIN_PASSWORD` | Yes | — | Keycloak admin password |
 | `KEYCLOAK_PORT` | No | `8080` | Host port (Docker Compose) |
 
-Optional JWT claims for scope binding: `agencyos_tenant_id`, `agencyos_workspace_id`. JWT `sub` must map to the AgencyOS user id.
+Optional JWT claims for scope binding: `agencyos_tenant_id`, `agencyos_workspace_id`. JWT `sub` is mapped to AgencyOS `User.id` via `users.keycloak_subject` (or `User.id` when `sub` is that UUID).
 
 ## Production / Docker
 

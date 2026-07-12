@@ -4,20 +4,28 @@ import type { JwtPayload } from './strategies/jwt.strategy';
 
 interface AuthenticatedRequest extends Request {
   user?: JwtPayload;
+  agencyUserId?: string;
 }
 
 /**
- * Authentication scaffold — validates JWT via JwtAuthGuard.
- * Full identity lifecycle is delegated to Keycloak (see Tech Stack §8).
+ * Authentication endpoints — JWT validation via JwtAuthGuard.
+ * Login / logout / refresh are handled by Keycloak OIDC on the frontend.
  */
 @Controller('auth')
 export class AuthController {
   @Get('me')
-  me(@Req() request: AuthenticatedRequest): { user: JwtPayload } {
+  me(@Req() request: AuthenticatedRequest): {
+    user: JwtPayload & { agencyUserId?: string };
+  } {
     if (!request.user) {
       throw new UnauthorizedException();
     }
 
-    return { user: request.user };
+    return {
+      user: {
+        ...request.user,
+        agencyUserId: request.agencyUserId,
+      },
+    };
   }
 }

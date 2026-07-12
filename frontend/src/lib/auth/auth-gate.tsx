@@ -4,23 +4,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { LoadingState, PageContainer } from '@/design-system';
 import { SectionTitle } from '@/design-system/typography';
-import { getAccessToken } from '@/lib/auth/access-token';
-import { getKeycloakLoginUrl } from '@/lib/auth/config';
+import { hasAuthSession } from '@/lib/auth/access-token';
+import { isAuthExplicitlyEnabled, redirectToLogin } from '@/lib/auth/config';
+import { ensureFreshAccessToken } from '@/lib/auth/oidc';
 
 interface AuthGateProps {
   readonly children: ReactNode;
-}
-
-/**
- * Auth is on only when explicitly enabled. Either flag set to `false` bypasses the gate.
- * Prefer `NEXT_PUBLIC_AUTH_ENABLED` for the client bundle; `AUTH_ENABLED` is checked for parity.
- */
-function isAuthExplicitlyEnabled(): boolean {
-  if (process.env.AUTH_ENABLED === 'false' || process.env.NEXT_PUBLIC_AUTH_ENABLED === 'false') {
-    return false;
-  }
-
-  return process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' || process.env.AUTH_ENABLED === 'true';
 }
 
 /**
@@ -48,9 +37,17 @@ function EnforcedAuthGate({ children }: AuthGateProps) {
       return;
     }
 
-    const token = getAccessToken();
-    setAuthenticated(token !== null && token.length > 0);
-    setReady(true);
+    void (async () => {
+      if (!hasAuthSession()) {
+        setAuthenticated(false);
+        setReady(true);
+        return;
+      }
+
+      const token = await ensureFreshAccessToken();
+      setAuthenticated(token !== null && token.length > 0);
+      setReady(true);
+    })();
   }, [allowUnauthenticatedShell]);
 
   if (!ready) {
@@ -72,7 +69,7 @@ function EnforcedAuthGate({ children }: AuthGateProps) {
           <Button
             type="button"
             onClick={() => {
-              window.location.assign(getKeycloakLoginUrl());
+              void redirectToLogin('/');
             }}
           >
             Sign in

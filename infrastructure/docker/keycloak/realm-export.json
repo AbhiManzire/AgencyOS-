@@ -10,8 +10,30 @@
       "publicClient": true,
       "directAccessGrantsEnabled": true,
       "standardFlowEnabled": true,
-      "redirectUris": ["http://localhost:3000/*"],
-      "webOrigins": ["http://localhost:3000"]
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "https://damsole.in/*",
+        "https://www.damsole.in/*"
+      ],
+      "webOrigins": ["http://localhost:3000", "https://damsole.in", "https://www.damsole.in", "+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-agencyos-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "agencyos-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "agencyos-api",

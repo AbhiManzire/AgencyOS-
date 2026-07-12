@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthDisabledGuard } from './guards/auth-disabled.guard';
 import { BindJwtIdentityGuard } from './guards/bind-jwt-identity.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { IdentityResolutionService } from './services/identity-resolution.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 const authConfiguration = resolveAuthConfigurationFromEnv();
@@ -17,6 +18,7 @@ const authProviders: Provider[] = [
     useValue: authConfiguration,
   },
   AuthBootstrapService,
+  IdentityResolutionService,
   {
     provide: APP_GUARD,
     useFactory: (reflector: Reflector) =>
@@ -37,6 +39,6 @@ if (authConfiguration.enabled) {
   imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
   controllers: [AuthController],
   providers: authProviders,
-  exports: [PassportModule],
+  exports: [PassportModule, IdentityResolutionService],
 })
 export class AuthModule {}
