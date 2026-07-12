@@ -2,34 +2,58 @@ import type { SettingsNavItem } from '@/features/settings/api/settings.types';
 
 export const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
   {
-    title: 'Company Profile',
+    title: 'Company',
     href: '/settings/company',
-    description: 'Agency name and legal identity.',
+    description: 'Agency identity, branding, address, and tax details.',
     permission: 'settings.read',
   },
   {
     title: 'Workspace',
     href: '/settings/workspace',
-    description: 'Workspace name and status.',
+    description: 'Workspace profile, hours, formats, and archive status.',
     permission: 'settings.read',
   },
   {
     title: 'Preferences',
     href: '/settings/preferences',
-    description: 'Timezone and currency defaults.',
+    description: 'Category defaults for invoice, finance, sales, and more.',
     permission: 'settings.read',
   },
   {
     title: 'Users',
     href: '/settings/users',
-    description: 'Workspace members and role assignments.',
+    description: 'Invite members and manage access lifecycle.',
     permission: 'settings.read',
   },
   {
     title: 'Roles',
     href: '/settings/roles',
-    description: 'Roles and permission catalogs.',
+    description: 'Roles and permission matrix.',
     permission: 'settings.read',
+  },
+  {
+    title: 'Audit Logs',
+    href: '/settings/audit',
+    description: 'Security and change history for this workspace.',
+    permission: 'audit.read',
+  },
+  {
+    title: 'Notifications',
+    href: '/settings/notifications',
+    description: 'In-app notification inbox.',
+    permission: 'notifications.read',
+  },
+  {
+    title: 'Security',
+    href: '/settings/security',
+    description: 'Password policy, lockout, and personal access tokens.',
+    permission: 'security.manage',
+  },
+  {
+    title: 'System',
+    href: '/settings/system',
+    description: 'Feature flags, maintenance mode, and upload limits.',
+    permission: 'admin.system',
   },
   {
     title: 'Workflows',

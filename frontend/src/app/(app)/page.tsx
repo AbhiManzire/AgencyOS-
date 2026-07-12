@@ -24,8 +24,8 @@ export default function DashboardPage() {
     <PermissionRoute permission="dashboard.read">
       <PageContainer size="2xl">
         <PageHeader
-          title="Dashboard"
-          description="Executive overview of clients, activity, and upcoming work."
+          title="Founder Dashboard"
+          description="Live executive control center — revenue, delivery, sales, and finance."
         />
 
         <div className="space-y-6">

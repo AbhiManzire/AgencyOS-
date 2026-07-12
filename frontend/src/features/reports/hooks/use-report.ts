@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getReport } from '@/features/reports/api/reports.api';
 import type {
   FounderReport,
-  ReportDateRangeParams,
+  ReportQueryParams,
   ReportType,
 } from '@/features/reports/api/reports.types';
 import { reportsQueryKeys } from '@/features/reports/hooks/reports-query-keys';
@@ -18,10 +18,10 @@ interface UseReportResult {
   readonly refetch: () => void;
 }
 
-/** TanStack Query hook for founder report aggregates. */
+/** TanStack Query hook for operational reports. */
 export function useReport(
   reportType: ReportType,
-  params: ReportDateRangeParams,
+  params: ReportQueryParams,
   enabled = true,
 ): UseReportResult {
   const query = useQuery({

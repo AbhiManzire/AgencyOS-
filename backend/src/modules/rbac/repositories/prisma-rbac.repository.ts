@@ -104,6 +104,205 @@ export class PrismaRbacRepository implements RbacRepository {
     return roles.map(toRoleRecord);
   }
 
+  async findRoleById(tenantId: string, roleId: string): Promise<RoleRecord | null> {
+    const role = await this.prisma.role.findFirst({
+      where: {
+        id: roleId,
+        tenantId,
+        deletedAt: null,
+      },
+    });
+
+    return role ? toRoleRecord(role) : null;
+  }
+
+  async createCustomRole(entry: {
+    readonly id: string;
+    readonly tenantId: string;
+    readonly name: string;
+    readonly slug: string;
+    readonly description?: string | null;
+    readonly now: Date;
+  }): Promise<RoleRecord> {
+    const role = await this.prisma.role.create({
+      data: {
+        id: entry.id,
+        tenantId: entry.tenantId,
+        name: entry.name,
+        slug: entry.slug,
+        description: entry.description ?? null,
+        isSystem: false,
+        createdAt: entry.now,
+        updatedAt: entry.now,
+      },
+    });
+
+    return toRoleRecord(role);
+  }
+
+  async updateRole(
+    tenantId: string,
+    roleId: string,
+    patch: {
+      readonly name?: string;
+      readonly slug?: string;
+      readonly description?: string | null;
+      readonly now: Date;
+    },
+  ): Promise<RoleRecord | null> {
+    const existing = await this.prisma.role.findFirst({
+      where: { id: roleId, tenantId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    const role = await this.prisma.role.update({
+      where: { id: roleId },
+      data: {
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
+        ...(patch.description !== undefined ? { description: patch.description } : {}),
+        updatedAt: patch.now,
+      },
+    });
+
+    return toRoleRecord(role);
+  }
+
+  async softDeleteRole(tenantId: string, roleId: string, now: Date): Promise<boolean> {
+    const existing = await this.prisma.role.findFirst({
+      where: { id: roleId, tenantId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return false;
+    }
+
+    await this.prisma.role.update({
+      where: { id: roleId },
+      data: {
+        deletedAt: now,
+        updatedAt: now,
+      },
+    });
+
+    return true;
+  }
+
+  async setRolePermissions(
+    tenantId: string,
+    roleId: string,
+    permissionIds: readonly string[],
+    now: Date,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.rolePermission.deleteMany({
+        where: { tenantId, roleId },
+      });
+
+      if (permissionIds.length === 0) {
+        return;
+      }
+
+      await tx.rolePermission.createMany({
+        data: permissionIds.map((permissionId) => ({
+          id: randomUUID(),
+          tenantId,
+          roleId,
+          permissionId,
+          createdAt: now,
+        })),
+      });
+    });
+  }
+
+  async countPermissionIds(permissionIds: readonly string[]): Promise<number> {
+    if (permissionIds.length === 0) {
+      return 0;
+    }
+
+    return this.prisma.permission.count({
+      where: {
+        id: { in: [...permissionIds] },
+        deletedAt: null,
+      },
+    });
+  }
+
+  async countUsersWithAdminRoles(
+    tenantId: string,
+    workspaceId: string,
+    adminSlugs: readonly string[],
+  ): Promise<number> {
+    if (adminSlugs.length === 0) {
+      return 0;
+    }
+
+    const assignments = await this.prisma.userRole.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        role: {
+          tenantId,
+          deletedAt: null,
+          slug: { in: [...adminSlugs] },
+        },
+        user: {
+          deletedAt: null,
+          isActive: true,
+          employees: {
+            some: {
+              tenantId,
+              workspaceId,
+              deletedAt: null,
+              isActive: true,
+            },
+          },
+        },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+
+    return assignments.length;
+  }
+
+  async userHasAdminRole(
+    tenantId: string,
+    userId: string,
+    adminSlugs: readonly string[],
+  ): Promise<boolean> {
+    const count = await this.countUserAdminRoles(tenantId, userId, adminSlugs);
+    return count > 0;
+  }
+
+  async countUserAdminRoles(
+    tenantId: string,
+    userId: string,
+    adminSlugs: readonly string[],
+  ): Promise<number> {
+    if (adminSlugs.length === 0) {
+      return 0;
+    }
+
+    return this.prisma.userRole.count({
+      where: {
+        tenantId,
+        userId,
+        deletedAt: null,
+        role: {
+          tenantId,
+          deletedAt: null,
+          slug: { in: [...adminSlugs] },
+        },
+      },
+    });
+  }
+
   async upsertPermissionCatalogEntry(entry: {
     readonly id: string;
     readonly key: string;

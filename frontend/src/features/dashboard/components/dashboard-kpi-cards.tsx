@@ -14,6 +14,10 @@ interface DashboardKpiCardsProps {
   readonly onRetry: () => void;
 }
 
+function formatPercent(ratio: number): string {
+  return `${(ratio * 100).toFixed(1)}%`;
+}
+
 export function DashboardKpiCards({
   summary,
   isLoading,
@@ -43,6 +47,99 @@ export function DashboardKpiCards({
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       <DataCard
+        label="Revenue"
+        value={formatMoney(summary.revenue.invoicedMonthly, currency, 0)}
+        hint="Invoiced this month"
+      />
+      <DataCard
+        label="MRR"
+        value={formatMoney(summary.finance.mrr, currency, 0)}
+        hint="Monthly recurring revenue"
+      />
+      <DataCard
+        label="ARR"
+        value={formatMoney(summary.finance.arr, currency, 0)}
+        hint="Annual recurring revenue"
+      />
+      <DataCard
+        label="Collections"
+        value={formatMoney(summary.finance.collections, currency, 0)}
+        hint="Payments received this month"
+      />
+      <DataCard
+        label="Outstanding"
+        value={formatMoney(summary.invoices.outstandingAmount, currency, 0)}
+        hint="Sent and overdue"
+      />
+      <DataCard
+        label="Expenses"
+        value={formatMoney(summary.finance.expensesMonthly, currency, 0)}
+        hint="Expenses this month"
+      />
+      <DataCard
+        label="Net Profit"
+        value={formatMoney(summary.finance.netProfit, currency, 0)}
+        hint="Collections minus expenses"
+      />
+      <DataCard
+        label="Gross Margin"
+        value={formatPercent(summary.finance.grossMargin)}
+        hint="(Revenue − expenses) / revenue"
+      />
+      <DataCard
+        label="Cash Balance"
+        value={formatMoney(summary.finance.cashBalance, currency, 0)}
+        hint="Collections less expenses"
+      />
+      <DataCard
+        label="Pipeline Value"
+        value={formatMoney(summary.sales.pipelineValue, currency, 0)}
+        hint="Open deal value"
+      />
+      <DataCard
+        label="Expected Revenue"
+        value={formatMoney(summary.sales.expectedRevenue, currency, 0)}
+        hint="Weighted by probability"
+      />
+      <DataCard label="Active Clients" value={summary.clients.active} hint="Currently active" />
+      <DataCard
+        label="New Clients"
+        value={summary.clients.newClients}
+        hint="Became clients this month"
+      />
+      <DataCard
+        label="Lost Clients"
+        value={summary.clients.lostClients}
+        hint="Inactive or archived this month"
+      />
+      <DataCard
+        label="Retention"
+        value={formatPercent(summary.clients.retentionRate)}
+        hint="Active / (active + lost)"
+      />
+      <DataCard
+        label="Active Projects"
+        value={summary.projects.active}
+        hint="Projects in delivery"
+      />
+      <DataCard
+        label="Projects At Risk"
+        value={summary.projects.atRisk}
+        hint="Past target end date"
+      />
+      <DataCard
+        label="Completed Projects"
+        value={summary.projects.completed}
+        hint="Total completed"
+      />
+      <DataCard label="Open Tasks" value={summary.tasks.openTotal} hint="All open parent tasks" />
+      <DataCard label="Overdue Tasks" value={summary.tasks.overdue} hint="Past due and open" />
+      <DataCard
+        label="Team Utilization"
+        value={formatPercent(summary.teamUtilization)}
+        hint="Logged hours vs capacity"
+      />
+      <DataCard
         label="Invoiced Monthly"
         value={formatMoney(summary.revenue.invoicedMonthly, currency, 0)}
         hint="Issued this month"
@@ -58,13 +155,7 @@ export function DashboardKpiCards({
         hint="Sent and overdue"
       />
       <DataCard label="Total Clients" value={summary.clients.total} hint="All client accounts" />
-      <DataCard label="Active Clients" value={summary.clients.active} hint="Currently active" />
       <DataCard label="Total Projects" value={summary.projects.total} hint="All non-archived" />
-      <DataCard
-        label="Active Projects"
-        value={summary.projects.active}
-        hint="Projects in delivery"
-      />
       <DataCard
         label="Planning Projects"
         value={summary.projects.planning}
@@ -76,21 +167,11 @@ export function DashboardKpiCards({
         hint="Temporarily paused"
       />
       <DataCard
-        label="Completed Projects"
-        value={summary.projects.completed}
-        hint="Total completed"
-      />
-      <DataCard
         label="Cancelled Projects"
         value={summary.projects.cancelled}
         hint="Cancelled engagements"
       />
       <DataCard label="Ending Soon" value={summary.projects.endingSoon} hint="Due within 7 days" />
-      <DataCard
-        label="At Risk Projects"
-        value={summary.projects.atRisk}
-        hint="Past target end date"
-      />
       <DataCard
         label="Over Budget"
         value={summary.projects.overBudget}
@@ -101,7 +182,6 @@ export function DashboardKpiCards({
         value={summary.tasks.dueToday}
         hint="Open tasks due today"
       />
-      <DataCard label="Overdue Tasks" value={summary.tasks.overdue} hint="Past due and open" />
       <DataCard
         label="My Open Tasks"
         value={summary.tasks.myTasks.openTotal}
@@ -140,16 +220,6 @@ export function DashboardKpiCards({
         hint="Ready for pipeline"
       />
       <DataCard
-        label="Pipeline Value"
-        value={formatMoney(summary.sales.pipelineValue, currency, 0)}
-        hint="Open deal value"
-      />
-      <DataCard
-        label="Expected Revenue"
-        value={formatMoney(summary.sales.expectedRevenue, currency, 0)}
-        hint="Weighted by probability"
-      />
-      <DataCard
         label="Won Revenue"
         value={formatMoney(summary.sales.wonRevenue, currency, 0)}
         hint="Closed-won value"
@@ -161,18 +231,13 @@ export function DashboardKpiCards({
       />
       <DataCard
         label="Conversion Rate"
-        value={`${(summary.sales.conversionRate * 100).toFixed(1)}%`}
+        value={formatPercent(summary.sales.conversionRate)}
         hint="Won / (won + lost)"
       />
       <DataCard
         label="Avg Deal Size"
         value={formatMoney(summary.sales.averageDealSize, currency, 0)}
         hint="Across all deals"
-      />
-      <DataCard
-        label="Monthly Expenses"
-        value={formatMoney(summary.finance.expensesMonthly, currency, 0)}
-        hint="Expenses this month"
       />
       <DataCard
         label="Monthly Profit"
@@ -185,11 +250,6 @@ export function DashboardKpiCards({
         hint="Past-due invoices"
       />
       <DataCard
-        label="Cash Balance"
-        value={formatMoney(summary.finance.cashBalance, currency, 0)}
-        hint="Collections less expenses"
-      />
-      <DataCard
         label="Monthly Collections"
         value={formatMoney(summary.finance.monthlyCollections, currency, 0)}
         hint="Payments received"
@@ -198,16 +258,6 @@ export function DashboardKpiCards({
         label="AP Expenses"
         value={formatMoney(summary.finance.monthlyExpenses, currency, 0)}
         hint="Expense outflows"
-      />
-      <DataCard
-        label="MRR"
-        value={formatMoney(summary.finance.mrr, currency, 0)}
-        hint="Monthly recurring revenue"
-      />
-      <DataCard
-        label="ARR"
-        value={formatMoney(summary.finance.arr, currency, 0)}
-        hint="Annual recurring revenue"
       />
     </div>
   );

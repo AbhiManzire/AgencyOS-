@@ -2,6 +2,7 @@
 
 import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { AppBreadcrumb } from './app-breadcrumb';
 
 interface AppHeaderProps {
@@ -40,6 +41,10 @@ export function AppHeader({
       )}
 
       <AppBreadcrumb />
+
+      <div className="ml-auto flex items-center gap-1">
+        <NotificationBell />
+      </div>
     </header>
   );
 }

@@ -1,29 +1,43 @@
 'use client';
 
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { exportReportCsv } from '@/features/reports/api/reports.api';
-import type { ReportDateRangeParams, ReportType } from '@/features/reports/api/reports.types';
+import { exportReport } from '@/features/reports/api/reports.api';
+import type {
+  ExportFormat,
+  ReportQueryParams,
+  ReportType,
+} from '@/features/reports/api/reports.types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 
-interface ExportCsvButtonProps {
+interface ExportButtonsProps {
   readonly reportType: ReportType;
-  readonly params: ReportDateRangeParams;
+  readonly params: ReportQueryParams;
   readonly disabled?: boolean;
 }
 
-/** Triggers CSV download for the active founder report. */
-export function ExportCsvButton({ reportType, params, disabled }: ExportCsvButtonProps) {
-  const [isExporting, setIsExporting] = useState(false);
+const EXPORT_OPTIONS: readonly {
+  format: ExportFormat;
+  label: string;
+  icon: typeof Download;
+}[] = [
+  { format: 'csv', label: 'CSV', icon: Download },
+  { format: 'xlsx', label: 'Excel', icon: FileSpreadsheet },
+  { format: 'pdf', label: 'PDF', icon: FileText },
+];
+
+/** Triggers CSV / Excel / PDF download for the active report. */
+export function ExportButtons({ reportType, params, disabled }: ExportButtonsProps) {
+  const [busyFormat, setBusyFormat] = useState<ExportFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleExport(): Promise<void> {
-    setIsExporting(true);
+  async function handleExport(format: ExportFormat): Promise<void> {
+    setBusyFormat(format);
     setError(null);
 
     try {
-      const { blob, filename } = await exportReportCsv(reportType, params);
+      const { blob, filename } = await exportReport(reportType, params, format);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -33,25 +47,37 @@ export function ExportCsvButton({ reportType, params, disabled }: ExportCsvButto
     } catch (err) {
       setError(extractApiErrorMessage(err));
     } finally {
-      setIsExporting(false);
+      setBusyFormat(null);
     }
   }
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        className="gap-2"
-        disabled={disabled === true || isExporting}
-        onClick={() => {
-          void handleExport();
-        }}
-      >
-        <Download className="size-4" />
-        {isExporting ? 'Exporting…' : 'Export CSV'}
-      </Button>
+      <div className="flex flex-wrap justify-end gap-2">
+        {EXPORT_OPTIONS.map((option) => {
+          const Icon = option.icon;
+          const isBusy = busyFormat === option.format;
+          return (
+            <Button
+              key={option.format}
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={disabled === true || busyFormat !== null}
+              onClick={() => {
+                void handleExport(option.format);
+              }}
+            >
+              <Icon className="size-4" />
+              {isBusy ? 'Exporting…' : option.label}
+            </Button>
+          );
+        })}
+      </div>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
+
+/** @deprecated Prefer ExportButtons */
+export { ExportButtons as ExportCsvButton };

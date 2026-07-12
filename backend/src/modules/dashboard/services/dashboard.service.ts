@@ -1,21 +1,32 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { DashboardScope, DashboardSummary } from '../dashboard.types';
+import { TtlCache } from '../../../common/cache/ttl-cache';
+import type { DashboardAdminSummary, DashboardScope, DashboardSummary } from '../dashboard.types';
 import {
   DASHBOARD_REPOSITORY,
   type DashboardRepository,
 } from '../repositories/dashboard.repository.interface';
 
+const SUMMARY_CACHE_TTL_MS = 60_000;
+
 @Injectable()
 export class DashboardService {
+  private readonly summaryCache = new TtlCache<DashboardSummary>(SUMMARY_CACHE_TTL_MS);
+
   constructor(
     @Inject(DASHBOARD_REPOSITORY)
     private readonly dashboardRepository: DashboardRepository,
   ) {}
 
   async getSummary(scope: DashboardScope, asOf: Date = new Date()): Promise<DashboardSummary> {
+    const cacheKey = `${scope.tenantId}:${scope.workspaceId}`;
+    const cached = this.summaryCache.get(cacheKey);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     const aggregates = await this.dashboardRepository.getSummaryAggregates(scope, asOf);
 
-    return {
+    const summary: DashboardSummary = {
       asOf: asOf.toISOString(),
       currency: aggregates.currency,
       revenue: {
@@ -30,6 +41,9 @@ export class DashboardService {
       clients: {
         total: aggregates.clientsTotal,
         active: aggregates.clientsActive,
+        newClients: aggregates.clientsNew,
+        lostClients: aggregates.clientsLost,
+        retentionRate: aggregates.retentionRate,
       },
       projects: {
         total: aggregates.projectsTotal,
@@ -45,6 +59,7 @@ export class DashboardService {
         overBudget: aggregates.projectsOverBudget,
       },
       tasks: {
+        openTotal: aggregates.tasksOpenGlobal,
         dueToday: aggregates.tasksDueToday,
         overdue: aggregates.tasksOverdue,
         myTasks: {
@@ -76,7 +91,22 @@ export class DashboardService {
         monthlyExpenses: aggregates.monthlyExpenses,
         mrr: aggregates.mrr,
         arr: aggregates.arr,
+        netProfit: aggregates.netProfit,
+        grossMargin: aggregates.grossMargin,
+        collections: aggregates.monthlyCollections,
       },
+      teamUtilization: aggregates.teamUtilization,
     };
+
+    this.summaryCache.set(cacheKey, summary);
+    return summary;
+  }
+
+  async getAdminSummary(
+    scope: DashboardScope,
+    actorUserId: string,
+    asOf: Date = new Date(),
+  ): Promise<DashboardAdminSummary> {
+    return this.dashboardRepository.getAdminSummaryAggregates(scope, actorUserId, asOf);
   }
 }

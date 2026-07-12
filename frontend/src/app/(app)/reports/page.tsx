@@ -3,88 +3,129 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, LoadingState, PageContainer, PageHeader } from '@/design-system';
-import { ExportCsvButton } from '@/features/reports/components/export-csv-button';
-import { ReportFilters } from '@/features/reports/components/report-filters';
+import { AnalyticsPanel } from '@/features/reports/components/analytics-panel';
+import { ExportButtons } from '@/features/reports/components/export-csv-button';
+import {
+  defaultReportFilters,
+  ReportFilters,
+  type ReportFilterState,
+} from '@/features/reports/components/report-filters';
 import { ReportMetrics } from '@/features/reports/components/report-metrics';
 import { ReportTable } from '@/features/reports/components/report-table';
+import { SchedulesPanel } from '@/features/reports/components/schedules-panel';
 import { useReport } from '@/features/reports/hooks/use-report';
-import type { ReportType } from '@/features/reports/api/reports.types';
+import type { ReportQueryParams } from '@/features/reports/api/reports.types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
+import { cn } from '@/lib/utils';
 
-function defaultDateRange(): { from: string; to: string } {
-  const now = new Date();
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+type ReportsTab = 'reports' | 'analytics' | 'schedules';
+
+function toQueryParams(filters: ReportFilterState): ReportQueryParams {
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
+    from: filters.from,
+    to: filters.to,
+    period: filters.period,
+    clientId: filters.clientId || undefined,
+    projectId: filters.projectId || undefined,
+    departmentId: filters.departmentId || undefined,
+    ownerUserId: filters.ownerUserId || undefined,
+    currency: filters.currency || undefined,
   };
 }
 
 export default function ReportsPage() {
-  const defaults = useMemo(() => defaultDateRange(), []);
-  const [reportType, setReportType] = useState<ReportType>('revenue');
-  const [from, setFrom] = useState(defaults.from);
-  const [to, setTo] = useState(defaults.to);
+  const [tab, setTab] = useState<ReportsTab>('reports');
+  const [filters, setFilters] = useState<ReportFilterState>(() => defaultReportFilters('founder'));
 
-  const rangeValid = from.length > 0 && to.length > 0 && from <= to;
-  const params = useMemo(() => ({ from, to }), [from, to]);
+  const rangeValid = filters.from.length > 0 && filters.to.length > 0 && filters.from <= filters.to;
+  const params = useMemo(() => toQueryParams(filters), [filters]);
   const { report, isLoading, isError, error, refetch, isFetching } = useReport(
-    reportType,
+    filters.reportType,
     params,
-    rangeValid,
+    tab === 'reports' && rangeValid,
   );
 
   return (
     <PageContainer size="2xl">
       <PageHeader
-        title="Reports"
-        description="Founder operational reports with date range and CSV export."
-        actions={<ExportCsvButton reportType={reportType} params={params} disabled={!rangeValid} />}
+        title="Reports & Analytics"
+        description="Executive reports, live analytics, and email-ready schedules from workspace data."
+        actions={
+          tab === 'reports' ? (
+            <ExportButtons reportType={filters.reportType} params={params} disabled={!rangeValid} />
+          ) : null
+        }
       />
 
       <div className="space-y-6">
-        <ReportFilters
-          reportType={reportType}
-          from={from}
-          to={to}
-          onReportTypeChange={setReportType}
-          onFromChange={setFrom}
-          onToChange={setTo}
-        />
+        <div className="flex flex-wrap gap-2 border-b border-border pb-2">
+          {(
+            [
+              { id: 'reports', label: 'Reports' },
+              { id: 'analytics', label: 'Analytics' },
+              { id: 'schedules', label: 'Schedules' },
+            ] as const
+          ).map((item) => (
+            <Button
+              key={item.id}
+              type="button"
+              variant={tab === item.id ? 'default' : 'ghost'}
+              className={cn('h-8', tab === item.id ? '' : 'text-muted-foreground')}
+              onClick={() => {
+                setTab(item.id);
+              }}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
 
-        {!rangeValid ? (
-          <EmptyState
-            title="Invalid date range"
-            description="Choose a From date on or before the To date."
-          />
-        ) : null}
-
-        {rangeValid && isLoading ? <LoadingState label="Loading report..." /> : null}
-
-        {rangeValid && isError ? (
-          <ErrorState
-            message={extractApiErrorMessage(error)}
-            action={
-              <Button type="button" variant="outline" onClick={refetch}>
-                Try again
-              </Button>
-            }
-          />
-        ) : null}
-
-        {rangeValid && report ? (
+        {tab === 'reports' ? (
           <div className="space-y-6">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm text-muted-foreground">
-                {report.from} → {report.to}
-                {isFetching ? ' · Refreshing…' : ''}
-              </p>
-            </div>
-            <ReportMetrics report={report} />
-            <ReportTable report={report} />
+            <ReportFilters
+              filters={filters}
+              onChange={(patch) => {
+                setFilters((current) => ({ ...current, ...patch }));
+              }}
+            />
+
+            {!rangeValid ? (
+              <EmptyState
+                title="Invalid date range"
+                description="Choose a From date on or before the To date."
+              />
+            ) : null}
+
+            {rangeValid && isLoading ? <LoadingState label="Loading report..." /> : null}
+
+            {rangeValid && isError ? (
+              <ErrorState
+                message={extractApiErrorMessage(error)}
+                action={
+                  <Button type="button" variant="outline" onClick={refetch}>
+                    Try again
+                  </Button>
+                }
+              />
+            ) : null}
+
+            {rangeValid && report ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    {report.from} → {report.to}
+                    {isFetching ? ' · Refreshing…' : ''}
+                  </p>
+                </div>
+                <ReportMetrics report={report} />
+                <ReportTable report={report} />
+              </div>
+            ) : null}
           </div>
         ) : null}
+
+        {tab === 'analytics' ? <AnalyticsPanel /> : null}
+        {tab === 'schedules' ? <SchedulesPanel /> : null}
       </div>
     </PageContainer>
   );

@@ -13,6 +13,9 @@ export interface DashboardSummary {
   readonly clients: {
     readonly total: number;
     readonly active: number;
+    readonly newClients: number;
+    readonly lostClients: number;
+    readonly retentionRate: number;
   };
   readonly projects: {
     readonly total: number;
@@ -28,6 +31,7 @@ export interface DashboardSummary {
     readonly overBudget: number;
   };
   readonly tasks: {
+    readonly openTotal: number;
     readonly dueToday: number;
     readonly overdue: number;
     readonly myTasks: {
@@ -59,5 +63,9 @@ export interface DashboardSummary {
     readonly monthlyExpenses: number;
     readonly mrr: number;
     readonly arr: number;
+    readonly netProfit: number;
+    readonly grossMargin: number;
+    readonly collections: number;
   };
+  readonly teamUtilization: number;
 }

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { DEFAULT_SYSTEM_ROLE_SLUGS, type DefaultSystemRoleSlug } from './rbac.constants';
 import { RBAC_REPOSITORY, type RbacRepository } from './repositories/rbac.repository.interface';
 
 interface PermissionSeedDefinition {
@@ -8,6 +9,14 @@ interface PermissionSeedDefinition {
   readonly name: string;
   readonly description: string;
   readonly module: string;
+}
+
+interface SystemRoleSeedDefinition {
+  readonly slug: DefaultSystemRoleSlug;
+  readonly name: string;
+  readonly description: string;
+  /** Exact keys, prefix patterns (`sales.*`), or suffix patterns (`*.read`). Empty = all catalog keys. */
+  readonly permissionPatterns: readonly string[];
 }
 
 const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
@@ -20,7 +29,7 @@ const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
   {
     key: 'reports.read',
     name: 'View Reports',
-    description: 'Access founder operational reports and CSV export.',
+    description: 'Access reports, analytics, exports, and scheduled report delivery.',
     module: 'reports',
   },
   {
@@ -34,6 +43,54 @@ const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
     name: 'Update Settings',
     description: 'Update company profile, workspace settings, preferences, and user roles.',
     module: 'settings',
+  },
+  {
+    key: 'settings.export',
+    name: 'Export Settings',
+    description: 'Export workspace configuration and settings data.',
+    module: 'settings',
+  },
+  {
+    key: 'users.manage',
+    name: 'Manage Users',
+    description: 'Invite, deactivate, reactivate, archive, and update workspace users.',
+    module: 'settings',
+  },
+  {
+    key: 'roles.manage',
+    name: 'Manage Roles',
+    description: 'Create, update, delete custom roles and assign permissions.',
+    module: 'settings',
+  },
+  {
+    key: 'audit.read',
+    name: 'View Audit Logs',
+    description: 'View platform audit log entries.',
+    module: 'admin',
+  },
+  {
+    key: 'notifications.read',
+    name: 'View Notifications',
+    description: 'View in-app notifications.',
+    module: 'notifications',
+  },
+  {
+    key: 'notifications.manage',
+    name: 'Manage Notifications',
+    description: 'Manage notification delivery and preferences.',
+    module: 'notifications',
+  },
+  {
+    key: 'security.manage',
+    name: 'Manage Security',
+    description: 'Manage security settings, locks, and access tokens.',
+    module: 'admin',
+  },
+  {
+    key: 'admin.system',
+    name: 'System Administration',
+    description: 'Perform privileged platform administration actions.',
+    module: 'admin',
   },
   {
     key: 'clients.read',
@@ -331,6 +388,117 @@ const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
   },
 ];
 
+const SYSTEM_ROLE_SEEDS: readonly SystemRoleSeedDefinition[] = [
+  {
+    slug: 'super-admin',
+    name: 'Super Admin',
+    description: 'Full workspace access with permission bypass.',
+    permissionPatterns: [],
+  },
+  {
+    slug: 'founder',
+    name: 'Founder',
+    description: 'Full tenant access equivalent to super-admin.',
+    permissionPatterns: [],
+  },
+  {
+    slug: 'admin',
+    name: 'Admin',
+    description: 'Full workspace administration access.',
+    permissionPatterns: [],
+  },
+  {
+    slug: 'manager',
+    name: 'Manager',
+    description: 'Operational oversight across clients, projects, tasks, sales, and reports.',
+    permissionPatterns: [
+      'dashboard.read',
+      'clients.*',
+      'projects.*',
+      'tasks.*',
+      'sales.read',
+      'sales.update',
+      'reports.read',
+      'settings.read',
+    ],
+  },
+  {
+    slug: 'sales',
+    name: 'Sales',
+    description: 'Sales pipeline, quotes, proposals, and client visibility.',
+    permissionPatterns: ['sales.*', 'quotes.*', 'proposals.*', 'clients.read', 'dashboard.read'],
+  },
+  {
+    slug: 'finance',
+    name: 'Finance',
+    description: 'Invoices, finance modules, payments, and reporting.',
+    permissionPatterns: ['invoices.*', 'finance.*', 'reports.read', 'dashboard.read'],
+  },
+  {
+    slug: 'project-manager',
+    name: 'Project Manager',
+    description: 'Projects, tasks, time tracking, and related reporting.',
+    permissionPatterns: [
+      'projects.*',
+      'tasks.*',
+      'clients.read',
+      'time.*',
+      'dashboard.read',
+      'reports.read',
+    ],
+  },
+  {
+    slug: 'developer',
+    name: 'Developer',
+    description: 'Task execution with project and time visibility.',
+    permissionPatterns: [
+      'tasks.*',
+      'projects.read',
+      'time.*',
+      'comments.*',
+      'files.*',
+      'dashboard.read',
+    ],
+  },
+  {
+    slug: 'designer',
+    name: 'Designer',
+    description: 'Task execution with project and time visibility.',
+    permissionPatterns: [
+      'tasks.*',
+      'projects.read',
+      'time.*',
+      'comments.*',
+      'files.*',
+      'dashboard.read',
+    ],
+  },
+  {
+    slug: 'qa',
+    name: 'QA',
+    description: 'Task and project visibility for quality assurance.',
+    permissionPatterns: ['tasks.*', 'projects.read', 'dashboard.read'],
+  },
+  {
+    slug: 'support',
+    name: 'Support',
+    description: 'Client visibility with task read and update access.',
+    permissionPatterns: ['clients.read', 'tasks.read', 'tasks.update', 'dashboard.read'],
+  },
+  {
+    slug: 'client',
+    name: 'Client',
+    description: 'Limited client-facing visibility.',
+    permissionPatterns: ['clients.read'],
+  },
+  {
+    slug: 'viewer',
+    name: 'Viewer',
+    description: 'Read-only access across modules.',
+    permissionPatterns: ['*.read'],
+  },
+];
+
 /** Ensures the platform permission catalog exists at startup. */
 @Injectable()
 export class RbacBootstrapService implements OnModuleInit {
@@ -346,17 +514,14 @@ export class RbacBootstrapService implements OnModuleInit {
     await this.seedPermissionCatalog();
   }
 
-  /** Seeds default permissions and super-admin role for a tenant workspace fixture. */
+  /** Seeds default permissions and system roles for a tenant workspace fixture. */
   async seedTenantRbac(
     tenantId: string,
     userId: string,
     superAdminRoleSlug = 'super-admin',
   ): Promise<void> {
     const now = new Date();
-    const catalog = await this.prisma.permission.findMany({
-      where: { deletedAt: null },
-      select: { id: true },
-    });
+    await this.seedDefaultSystemRoles(tenantId, now);
 
     const superAdminRole = await this.rbacRepository.upsertSystemRole({
       id: randomUUID(),
@@ -365,6 +530,11 @@ export class RbacBootstrapService implements OnModuleInit {
       slug: superAdminRoleSlug,
       description: 'Full workspace access with permission bypass.',
       now,
+    });
+
+    const catalog = await this.prisma.permission.findMany({
+      where: { deletedAt: null },
+      select: { id: true },
     });
 
     for (const permission of catalog) {
@@ -377,6 +547,45 @@ export class RbacBootstrapService implements OnModuleInit {
     }
 
     await this.rbacRepository.ensureUserRoleAssignment(tenantId, userId, superAdminRole.id, now);
+  }
+
+  /** Seeds DEFAULT_SYSTEM_ROLE_SLUGS with permission subsets for a tenant. */
+  async seedDefaultSystemRoles(tenantId: string, now = new Date()): Promise<void> {
+    const catalog = await this.prisma.permission.findMany({
+      where: { deletedAt: null },
+      select: { id: true, key: true },
+    });
+    const catalogKeys = catalog.map((entry) => entry.key);
+    const permissionIdByKey = new Map(catalog.map((entry) => [entry.key, entry.id]));
+
+    for (const definition of SYSTEM_ROLE_SEEDS) {
+      if (!(DEFAULT_SYSTEM_ROLE_SLUGS as readonly string[]).includes(definition.slug)) {
+        continue;
+      }
+
+      const role = await this.rbacRepository.upsertSystemRole({
+        id: randomUUID(),
+        tenantId,
+        name: definition.name,
+        slug: definition.slug,
+        description: definition.description,
+        now,
+      });
+
+      const matchedKeys =
+        definition.permissionPatterns.length === 0
+          ? catalogKeys
+          : matchPermissionKeys(catalogKeys, definition.permissionPatterns);
+
+      await this.rbacRepository.setRolePermissions(
+        tenantId,
+        role.id,
+        matchedKeys
+          .map((key) => permissionIdByKey.get(key))
+          .filter((id): id is string => id !== undefined),
+        now,
+      );
+    }
   }
 
   private async seedPermissionCatalog(): Promise<void> {
@@ -398,3 +607,40 @@ export class RbacBootstrapService implements OnModuleInit {
     );
   }
 }
+
+function matchPermissionKeys(
+  catalogKeys: readonly string[],
+  patterns: readonly string[],
+): string[] {
+  const matched = new Set<string>();
+
+  for (const pattern of patterns) {
+    if (pattern.endsWith('.*')) {
+      const prefix = pattern.slice(0, -1);
+      for (const key of catalogKeys) {
+        if (key.startsWith(prefix) || key === pattern.slice(0, -2)) {
+          matched.add(key);
+        }
+      }
+      continue;
+    }
+
+    if (pattern.startsWith('*.')) {
+      const suffix = pattern.slice(1);
+      for (const key of catalogKeys) {
+        if (key.endsWith(suffix)) {
+          matched.add(key);
+        }
+      }
+      continue;
+    }
+
+    if (catalogKeys.includes(pattern)) {
+      matched.add(pattern);
+    }
+  }
+
+  return [...matched].sort();
+}
+
+export { DEFAULT_SYSTEM_ROLE_SLUGS };

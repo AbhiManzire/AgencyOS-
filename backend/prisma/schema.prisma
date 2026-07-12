@@ -92,6 +92,11 @@ model Tenant {
   workflows               Workflow[]
   workflowTriggers        WorkflowTrigger[]
   workflowActions         WorkflowAction[]
+  scheduledReports        ScheduledReport[]
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+  userInvitations         UserInvitation[]
+  personalAccessTokens    PersonalAccessToken[]
 
   @@index([status], map: "idx_platform_tenants_status")
   @@index([deletedAt], map: "idx_platform_tenants_deleted_at")
@@ -106,7 +111,11 @@ model User {
   firstName        String? @map("first_name")
   lastName         String? @map("last_name")
   displayName      String? @map("display_name")
+  avatarUrl        String? @map("avatar_url")
   isActive         Boolean @default(true) @map("is_active")
+  lastLoginAt      DateTime? @map("last_login_at") @db.Timestamptz
+  failedLoginCount Int       @default(0) @map("failed_login_count")
+  lockedUntil      DateTime? @map("locked_until") @db.Timestamptz
 
   createdAt        DateTime  @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @map("updated_at") @db.Timestamptz
@@ -258,6 +267,14 @@ model User {
   workflowsCreated               Workflow[]         @relation("WorkflowCreatedBy")
   workflowsUpdated               Workflow[]         @relation("WorkflowUpdatedBy")
   workflowsDeleted               Workflow[]         @relation("WorkflowDeletedBy")
+  scheduledReportsCreated        ScheduledReport[]  @relation("ScheduledReportCreatedBy")
+  scheduledReportsUpdated        ScheduledReport[]  @relation("ScheduledReportUpdatedBy")
+  scheduledReportsDeleted        ScheduledReport[]  @relation("ScheduledReportDeletedBy")
+  auditLogsActed                 AuditLog[]         @relation("AuditLogActor")
+  notificationsReceived          Notification[]     @relation("NotificationRecipient")
+  invitationsSent                UserInvitation[]   @relation("UserInvitationInviter")
+  personalAccessTokens           PersonalAccessToken[] @relation("PersonalAccessTokenOwner")
+  employeesManaged               Employee[]         @relation("EmployeeManager")
 
   @@index([deletedAt], map: "idx_users_deleted_at")
   @@map("users")
@@ -384,6 +401,17 @@ model Agency {
   name      String
   slug      String  @unique
   legalName String? @map("legal_name")
+  logoUrl   String? @map("logo_url")
+  addressLine1 String? @map("address_line_1")
+  addressLine2 String? @map("address_line_2")
+  city         String?
+  stateRegion  String? @map("state_region")
+  postalCode   String? @map("postal_code")
+  countryCode  String? @map("country_code") @db.Char(2)
+  gstin        String?
+  pan          String?
+  brandPrimaryColor String? @map("brand_primary_color")
+  brandSecondaryColor String? @map("brand_secondary_color")
   isActive  Boolean @default(true) @map("is_active")
 
   createdAt        DateTime  @map("created_at") @db.Timestamptz
@@ -412,6 +440,24 @@ model Workspace {
   slug     String
   timezone String @default("UTC")
   currency String @default("USD") @db.Char(3)
+  logoUrl  String? @map("logo_url")
+  addressLine1 String? @map("address_line_1")
+  addressLine2 String? @map("address_line_2")
+  city         String?
+  stateRegion  String? @map("state_region")
+  postalCode   String? @map("postal_code")
+  countryCode  String? @map("country_code") @db.Char(2)
+  gstin        String?
+  pan          String?
+  financialYearStartMonth Int @default(4) @map("financial_year_start_month")
+  businessHoursStart String @default("09:00") @map("business_hours_start")
+  businessHoursEnd   String @default("18:00") @map("business_hours_end")
+  workingDays  Json    @default("[1,2,3,4,5]") @map("working_days")
+  language     String  @default("en")
+  dateFormat   String  @default("YYYY-MM-DD") @map("date_format")
+  numberFormat String  @default("en-US") @map("number_format")
+  /// Category preferences: branding, invoice, finance, sales, task, project, notification, email, security, system.
+  preferencesJson Json @default("{}") @map("preferences_json")
   isActive Boolean @default(true) @map("is_active")
 
   createdAt        DateTime  @map("created_at") @db.Timestamptz
@@ -465,6 +511,11 @@ model Workspace {
   workflows         Workflow[]
   workflowTriggers  WorkflowTrigger[]
   workflowActions   WorkflowAction[]
+  scheduledReports  ScheduledReport[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  userInvitations   UserInvitation[]
+  personalAccessTokens PersonalAccessToken[]
 
   @@unique([agencyId, slug], map: "uq_workspaces_agency_id_slug")
   @@index([tenantId], map: "idx_workspaces_tenant_id")
@@ -550,6 +601,7 @@ model Employee {
   workspaceId    String           @map("workspace_id") @db.Uuid
   departmentId   String?          @map("department_id") @db.Uuid
   teamId         String?          @map("team_id") @db.Uuid
+  managerUserId  String?          @map("manager_user_id") @db.Uuid
   employeeNumber String?          @map("employee_number")
   jobTitle       String?          @map("job_title")
   status         EmploymentStatus @default(ACTIVE)
@@ -568,6 +620,7 @@ model Employee {
   workspace     Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   department    Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   team          Team?       @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  managerUser   User?       @relation("EmployeeManager", fields: [managerUserId], references: [id], onDelete: SetNull)
   createdByUser User?       @relation("EmployeeCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   updatedByUser User?       @relation("EmployeeUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   deletedByUser User?       @relation("EmployeeDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
@@ -577,6 +630,7 @@ model Employee {
   @@index([tenantId, workspaceId], map: "idx_employees_tenant_id_workspace_id")
   @@index([tenantId, departmentId], map: "idx_employees_tenant_id_department_id")
   @@index([tenantId, teamId], map: "idx_employees_tenant_id_team_id")
+  @@index([tenantId, managerUserId], map: "idx_employees_tenant_id_manager_user_id")
   @@index([tenantId, deletedAt], map: "idx_employees_tenant_id_deleted_at")
   @@map("employees")
 }
@@ -2435,3 +2489,233 @@ model LedgerEntry {
   @@index([tenantId, workspaceId, entityType, entityId], map: "idx_ledger_entries_scope_entity")
   @@map("ledger_entries")
 }
+
+// ---------------------------------------------------------------------------
+// Reports — scheduled report delivery
+// ---------------------------------------------------------------------------
+
+enum ScheduledReportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+
+  @@map("scheduled_report_frequency")
+}
+
+enum ScheduledReportExportFormat {
+  CSV
+  PDF
+  XLSX
+
+  @@map("scheduled_report_export_format")
+}
+
+enum ScheduledReportRunStatus {
+  PENDING
+  SENT
+  FAILED
+
+  @@map("scheduled_report_run_status")
+}
+
+/// Workspace-scoped scheduled report definition (email-ready delivery).
+model ScheduledReport {
+  id            String                      @id @db.Uuid
+  tenantId      String                      @map("tenant_id") @db.Uuid
+  workspaceId   String                      @map("workspace_id") @db.Uuid
+  name          String
+  reportType    String                      @map("report_type")
+  frequency     ScheduledReportFrequency
+  exportFormat  ScheduledReportExportFormat @default(CSV) @map("export_format")
+  recipientEmails String[]                  @map("recipient_emails")
+  filters       Json                        @default("{}")
+  isActive      Boolean                     @default(true) @map("is_active")
+  nextRunAt     DateTime                    @map("next_run_at") @db.Timestamptz
+  lastRunAt     DateTime?                   @map("last_run_at") @db.Timestamptz
+  lastStatus    ScheduledReportRunStatus?   @map("last_status")
+  lastError     String?                     @map("last_error")
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  createdByUserId  String?   @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?   @map("updated_by_user_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedByUserId  String?   @map("deleted_by_user_id") @db.Uuid
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  createdByUser User?     @relation("ScheduledReportCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("ScheduledReportUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("ScheduledReportDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, deletedAt], map: "idx_scheduled_reports_scope_deleted")
+  @@index([tenantId, workspaceId, isActive, nextRunAt, deletedAt], map: "idx_scheduled_reports_scope_active_next")
+  @@map("scheduled_reports")
+}
+
+// ---------------------------------------------------------------------------
+// Platform Administration — audit, notifications, invitations, tokens
+// ---------------------------------------------------------------------------
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  ARCHIVE
+  RESTORE
+  PERMISSION_CHANGE
+  ROLE_CHANGE
+  SETTINGS_CHANGE
+  FINANCE_CHANGE
+  SALES_CHANGE
+  PROJECT_CHANGE
+  TASK_CHANGE
+  USER_CHANGE
+  SECURITY_CHANGE
+  OTHER
+
+  @@map("audit_action")
+}
+
+model AuditLog {
+  id          String      @id @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  workspaceId String      @map("workspace_id") @db.Uuid
+  actorUserId String?     @map("actor_user_id") @db.Uuid
+  action      AuditAction
+  category    String
+  entityType  String?     @map("entity_type")
+  entityId    String?     @map("entity_id") @db.Uuid
+  summary     String
+  metadata    Json?
+  ipAddress   String?     @map("ip_address")
+  userAgent   String?     @map("user_agent")
+  occurredAt  DateTime    @map("occurred_at") @db.Timestamptz
+  createdAt   DateTime    @map("created_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actorUser User?     @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, occurredAt], map: "idx_audit_logs_scope_occurred")
+  @@index([tenantId, workspaceId, action, occurredAt], map: "idx_audit_logs_scope_action_occurred")
+  @@index([tenantId, workspaceId, actorUserId, occurredAt], map: "idx_audit_logs_scope_actor_occurred")
+  @@index([tenantId, workspaceId, category, occurredAt], map: "idx_audit_logs_scope_category_occurred")
+  @@map("audit_logs")
+}
+
+enum NotificationCategory {
+  TASK
+  PROJECT
+  FINANCE
+  SALES
+  CLIENT
+  SYSTEM
+
+  @@map("notification_category")
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("notification_priority")
+}
+
+model Notification {
+  id            String               @id @db.Uuid
+  tenantId      String               @map("tenant_id") @db.Uuid
+  workspaceId   String               @map("workspace_id") @db.Uuid
+  recipientUserId String             @map("recipient_user_id") @db.Uuid
+  category      NotificationCategory
+  priority      NotificationPriority @default(NORMAL)
+  title         String
+  body          String
+  entityType    String?              @map("entity_type")
+  entityId      String?              @map("entity_id") @db.Uuid
+  linkPath      String?              @map("link_path")
+  isRead        Boolean              @default(false) @map("is_read")
+  readAt        DateTime?            @map("read_at") @db.Timestamptz
+  emailReady    Boolean              @default(false) @map("email_ready")
+  emailSentAt   DateTime?            @map("email_sent_at") @db.Timestamptz
+  metadata      Json?
+
+  createdAt DateTime  @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  recipientUser   User      @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, workspaceId, recipientUserId, isRead, deletedAt], map: "idx_notifications_scope_recipient_read")
+  @@index([tenantId, workspaceId, recipientUserId, createdAt], map: "idx_notifications_scope_recipient_created")
+  @@index([tenantId, workspaceId, category, deletedAt], map: "idx_notifications_scope_category")
+  @@map("notifications")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+
+  @@map("invitation_status")
+}
+
+model UserInvitation {
+  id              String           @id @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  workspaceId     String           @map("workspace_id") @db.Uuid
+  email           String
+  roleId          String?          @map("role_id") @db.Uuid
+  invitedByUserId String?          @map("invited_by_user_id") @db.Uuid
+  tokenHash       String           @map("token_hash")
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime         @map("expires_at") @db.Timestamptz
+  acceptedAt      DateTime?        @map("accepted_at") @db.Timestamptz
+
+  createdAt        DateTime  @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invitedByUser User?     @relation("UserInvitationInviter", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_user_invitations_scope_status")
+  @@index([tenantId, workspaceId, email, deletedAt], map: "idx_user_invitations_scope_email")
+  @@unique([tenantId, workspaceId, tokenHash], map: "uq_user_invitations_scope_token_hash")
+  @@map("user_invitations")
+}
+
+model PersonalAccessToken {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  name        String
+  tokenPrefix String    @map("token_prefix")
+  tokenHash   String    @map("token_hash")
+  scopes      String[]  @default([])
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz
+
+  createdAt DateTime  @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user      User      @relation("PersonalAccessTokenOwner", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, workspaceId, userId, deletedAt], map: "idx_personal_access_tokens_scope_user")
+  @@unique([tokenHash], map: "uq_personal_access_tokens_token_hash")
+  @@map("personal_access_tokens")
+}
+

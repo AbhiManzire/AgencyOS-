@@ -14,7 +14,9 @@ import type {
   FounderReport,
   ReportColumn,
   ReportDateRange,
+  ReportFilters,
   ReportMetric,
+  ReportQuery,
   ReportsScope,
   ReportType,
 } from '../reports.types';
@@ -67,53 +69,73 @@ export class PrismaReportsRepository implements ReportsRepository {
   async getReport(
     scope: ReportsScope,
     reportType: ReportType,
-    range: ReportDateRange,
+    query: ReportQuery,
   ): Promise<FounderReport> {
-    const currency = await this.resolveCurrency(scope);
+    const range: ReportDateRange = { from: query.from, to: query.to };
+    const currency = query.currency ?? (await this.resolveCurrency(scope));
     const fromIso = toDateOnly(range.from);
     const toIso = toDateOnly(range.to);
+    const filters = extractReportFilters(query);
 
     switch (reportType) {
       case 'revenue':
-        return this.buildRevenueReport(scope, range, currency, fromIso, toIso);
+        return this.buildRevenueReport(scope, range, currency, fromIso, toIso, filters);
       case 'clients':
-        return this.buildClientsReport(scope, range, currency, fromIso, toIso);
+        return this.buildClientsReport(scope, range, currency, fromIso, toIso, filters);
       case 'projects':
-        return this.buildProjectsReport(scope, range, currency, fromIso, toIso);
+        return this.buildProjectsReport(scope, range, currency, fromIso, toIso, filters);
       case 'tasks':
-        return this.buildTasksReport(scope, range, currency, fromIso, toIso);
+        return this.buildTasksReport(scope, range, currency, fromIso, toIso, filters);
       case 'invoices':
-        return this.buildInvoicesReport(scope, range, currency, fromIso, toIso);
+        return this.buildInvoicesReport(scope, range, currency, fromIso, toIso, filters);
       case 'sales_pipeline':
-        return this.buildSalesPipelineReport(scope, range, currency, fromIso, toIso);
+        return this.buildSalesPipelineReport(scope, range, currency, fromIso, toIso, filters);
       case 'sales_conversion':
-        return this.buildSalesConversionReport(scope, range, currency, fromIso, toIso);
+        return this.buildSalesConversionReport(scope, range, currency, fromIso, toIso, filters);
       case 'sales_forecast':
-        return this.buildSalesForecastReport(scope, range, currency, fromIso, toIso);
+        return this.buildSalesForecastReport(scope, range, currency, fromIso, toIso, filters);
       case 'sales_lead_source':
-        return this.buildSalesLeadSourceReport(scope, range, currency, fromIso, toIso);
+        return this.buildSalesLeadSourceReport(scope, range, currency, fromIso, toIso, filters);
       case 'sales_performance':
-        return this.buildSalesPerformanceReport(scope, range, currency, fromIso, toIso);
+        return this.buildSalesPerformanceReport(scope, range, currency, fromIso, toIso, filters);
       case 'profit_loss':
-        return this.buildProfitLossReport(scope, range, currency, fromIso, toIso);
+        return this.buildProfitLossReport(scope, range, currency, fromIso, toIso, filters);
       case 'cash_flow':
-        return this.buildCashFlowReport(scope, range, currency, fromIso, toIso);
+        return this.buildCashFlowReport(scope, range, currency, fromIso, toIso, filters);
       case 'receivables':
-        return this.buildReceivablesReport(scope, range, currency, fromIso, toIso);
+        return this.buildReceivablesReport(scope, range, currency, fromIso, toIso, filters);
       case 'payables':
-        return this.buildPayablesReport(scope, range, currency, fromIso, toIso);
+        return this.buildPayablesReport(scope, range, currency, fromIso, toIso, filters);
       case 'gst_summary':
-        return this.buildGstSummaryReport(scope, range, currency, fromIso, toIso);
+        return this.buildGstSummaryReport(scope, range, currency, fromIso, toIso, filters);
       case 'sales_register':
-        return this.buildSalesRegisterReport(scope, range, currency, fromIso, toIso);
+        return this.buildSalesRegisterReport(scope, range, currency, fromIso, toIso, filters);
       case 'purchase_register':
-        return this.buildPurchaseRegisterReport(scope, range, currency, fromIso, toIso);
+        return this.buildPurchaseRegisterReport(scope, range, currency, fromIso, toIso, filters);
       case 'outstanding':
-        return this.buildOutstandingReport(scope, range, currency, fromIso, toIso);
+        return this.buildOutstandingReport(scope, range, currency, fromIso, toIso, filters);
       case 'client_ledger':
-        return this.buildClientLedgerReport(scope, range, currency, fromIso, toIso);
+        return this.buildClientLedgerReport(scope, range, currency, fromIso, toIso, filters);
       case 'vendor_ledger':
-        return this.buildVendorLedgerReport(scope, range, currency, fromIso, toIso);
+        return this.buildVendorLedgerReport(scope, range, currency, fromIso, toIso, filters);
+      case 'founder':
+        return this.buildFounderExecutiveReport(scope, range, currency, fromIso, toIso, filters);
+      case 'expense':
+        return this.buildExpenseReport(scope, range, currency, fromIso, toIso, filters);
+      case 'sales':
+        return this.buildSalesCompositeReport(scope, range, currency, fromIso, toIso, filters);
+      case 'finance':
+        return this.buildFinanceCompositeReport(scope, range, currency, fromIso, toIso, filters);
+      case 'profit':
+        return this.buildProfitLossReport(
+          scope,
+          range,
+          currency,
+          fromIso,
+          toIso,
+          filters,
+          'profit',
+        );
       default: {
         const exhaustive: never = reportType;
         throw new Error(`Unsupported report type: ${String(exhaustive)}`);
@@ -127,8 +149,10 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
     const baseScope = this.baseScope(scope);
+    const invoiceWhere = invoiceFilters(filters);
     const { start, endExclusive } = toUtcBounds(range);
 
     const [
@@ -140,16 +164,19 @@ export class PrismaReportsRepository implements ReportsRepository {
       invoices,
     ] = await Promise.all([
       this.sumInvoiceLineTotals(scope, {
+        ...invoiceWhere,
         status: { in: [...INVOICED_STATUSES] },
         issueDate: { gte: start, lt: endExclusive },
       }),
       this.sumCompletedPayments(scope, {
         paidAt: { gte: start, lt: endExclusive },
+        ...paymentFilters(filters),
       }),
-      this.computeOutstandingAmount(scope),
+      this.computeOutstandingAmount(scope, filters),
       this.prisma.invoice.count({
         where: {
           ...baseScope,
+          ...invoiceWhere,
           status: { in: [...INVOICED_STATUSES] },
           issueDate: { gte: start, lt: endExclusive },
         },
@@ -159,11 +186,13 @@ export class PrismaReportsRepository implements ReportsRepository {
           ...baseScope,
           status: PaymentStatus.COMPLETED,
           paidAt: { gte: start, lt: endExclusive },
+          ...paymentFilters(filters),
         },
       }),
       this.prisma.invoice.findMany({
         where: {
           ...baseScope,
+          ...invoiceWhere,
           status: { in: [...INVOICED_STATUSES] },
           issueDate: { gte: start, lt: endExclusive },
         },
@@ -246,8 +275,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
-    const baseScope = this.baseScope(scope);
+    const baseScope = { ...this.baseScope(scope), ...clientFilters(filters) };
     const { start, endExclusive } = toUtcBounds(range);
 
     const [statusGroups, createdInRange, becameClientInRange, clients] = await Promise.all([
@@ -354,8 +384,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
-    const baseScope = this.baseScope(scope);
+    const baseScope = { ...this.baseScope(scope), ...projectFilters(filters) };
     const { start, endExclusive } = toUtcBounds(range);
 
     const [statusGroups, completedInRange, invoiceReadyInRange, billableCount, projects] =
@@ -483,8 +514,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
-    const baseScope = this.baseScope(scope);
+    const baseScope = { ...this.baseScope(scope), ...taskFilters(filters) };
     const { start, endExclusive } = toUtcBounds(range);
     const taskBase = { ...baseScope, parentTaskId: null };
 
@@ -615,8 +647,10 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
     const baseScope = this.baseScope(scope);
+    const invoiceWhere = invoiceFilters(filters);
     const { start, endExclusive } = toUtcBounds(range);
 
     const [statusGroups, invoicedAmount, outstandingAmount, overdueAmount, overdueCount, invoices] =
@@ -625,27 +659,32 @@ export class PrismaReportsRepository implements ReportsRepository {
           by: ['status'],
           where: {
             ...baseScope,
+            ...invoiceWhere,
             issueDate: { gte: start, lt: endExclusive },
           },
           _count: { _all: true },
         }),
         this.sumInvoiceLineTotals(scope, {
+          ...invoiceWhere,
           status: { in: [...INVOICED_STATUSES] },
           issueDate: { gte: start, lt: endExclusive },
         }),
-        this.computeOutstandingAmount(scope),
+        this.computeOutstandingAmount(scope, filters),
         this.sumInvoiceLineTotals(scope, {
+          ...invoiceWhere,
           status: InvoiceStatus.OVERDUE,
         }),
         this.prisma.invoice.count({
           where: {
             ...baseScope,
+            ...invoiceWhere,
             status: InvoiceStatus.OVERDUE,
           },
         }),
         this.prisma.invoice.findMany({
           where: {
             ...baseScope,
+            ...invoiceWhere,
             issueDate: { gte: start, lt: endExclusive },
           },
           select: {
@@ -757,8 +796,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
-    const baseScope = this.baseScope(scope);
+    const baseScope = { ...this.baseScope(scope), ...dealFilters(filters) };
 
     const openDeals = await this.prisma.deal.findMany({
       where: {
@@ -854,8 +894,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
-    const baseScope = this.baseScope(scope);
+    const baseScope = { ...this.baseScope(scope), ...dealFilters(filters) };
     const { start, endExclusive } = toUtcBounds(range);
 
     const [wonDeals, lostDeals] = await Promise.all([
@@ -956,8 +997,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
-    const baseScope = this.baseScope(scope);
+    const baseScope = { ...this.baseScope(scope), ...dealFilters(filters) };
     const { start, endExclusive } = toUtcBounds(range);
 
     const openDeals = await this.prisma.deal.findMany({
@@ -1067,7 +1109,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const baseScope = this.baseScope(scope);
     const { start, endExclusive } = toUtcBounds(range);
     const leadWhere = { ...baseScope, createdAt: { gte: start, lt: endExclusive } };
@@ -1139,8 +1183,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
-    const baseScope = this.baseScope(scope);
+    const baseScope = { ...this.baseScope(scope), ...dealFilters(filters) };
     const { start, endExclusive } = toUtcBounds(range);
 
     const deals = await this.prisma.deal.findMany({
@@ -1243,6 +1288,8 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
+    reportTypeOverride: ReportType = 'profit_loss',
   ): Promise<FounderReport> {
     const { start, endExclusive } = toUtcBounds(range);
 
@@ -1281,8 +1328,9 @@ export class PrismaReportsRepository implements ReportsRepository {
       { category: 'Net profit', amount: roundMoney(netProfit) },
     ];
 
+    void filters;
     return {
-      reportType: 'profit_loss',
+      reportType: reportTypeOverride,
       from: fromIso,
       to: toIso,
       currency,
@@ -1298,7 +1346,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const { start, endExclusive } = toUtcBounds(range);
 
     const [inflows, expenseOutflows, purchaseOutflows] = await Promise.all([
@@ -1368,7 +1418,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const baseScope = this.baseScope(scope);
 
     const invoices = await this.prisma.invoice.findMany({
@@ -1448,7 +1500,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const baseScope = this.baseScope(scope);
 
     const bills = await this.prisma.purchaseBill.findMany({
@@ -1516,7 +1570,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const baseScope = this.baseScope(scope);
     const { start, endExclusive } = toUtcBounds(range);
 
@@ -1627,7 +1683,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const baseScope = this.baseScope(scope);
     const { start, endExclusive } = toUtcBounds(range);
 
@@ -1712,7 +1770,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const baseScope = this.baseScope(scope);
     const { start, endExclusive } = toUtcBounds(range);
 
@@ -1786,7 +1846,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const baseScope = this.baseScope(scope);
 
     const [receivableInvoices, payableBills] = await Promise.all([
@@ -1897,7 +1959,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const { start, endExclusive } = toUtcBounds(range);
 
     const entries = await this.prisma.ledgerEntry.findMany({
@@ -1986,7 +2050,9 @@ export class PrismaReportsRepository implements ReportsRepository {
     currency: string,
     fromIso: string,
     toIso: string,
+    filters: ReportFilters,
   ): Promise<FounderReport> {
+    void filters;
     const { start, endExclusive } = toUtcBounds(range);
 
     const entries = await this.prisma.ledgerEntry.findMany({
@@ -2069,6 +2135,432 @@ export class PrismaReportsRepository implements ReportsRepository {
     };
   }
 
+  private async buildFounderExecutiveReport(
+    scope: ReportsScope,
+    range: ReportDateRange,
+    currency: string,
+    fromIso: string,
+    toIso: string,
+    filters: ReportFilters,
+  ): Promise<FounderReport> {
+    const baseScope = this.baseScope(scope);
+    const { start, endExclusive } = toUtcBounds(range);
+
+    const [
+      invoicedAmount,
+      collectedAmount,
+      expenses,
+      outstandingAmount,
+      openDeals,
+      invoices,
+      deals,
+    ] = await Promise.all([
+      this.sumInvoiceLineTotals(scope, {
+        ...invoiceFilters(filters),
+        status: { in: [...INVOICED_STATUSES] },
+        issueDate: { gte: start, lt: endExclusive },
+      }),
+      this.sumCompletedPayments(scope, {
+        paidAt: { gte: start, lt: endExclusive },
+        ...paymentFilters(filters),
+      }),
+      this.sumExpenses(scope, {
+        ...expenseFilters(filters),
+        expenseDate: { gte: start, lt: endExclusive },
+        approvalStatus: { in: [...NON_REJECTED_APPROVAL] },
+      }),
+      this.computeOutstandingAmount(scope, filters),
+      this.prisma.deal.findMany({
+        where: {
+          ...baseScope,
+          ...dealFilters(filters),
+          stage: { in: [...OPEN_DEAL_STAGES] },
+        },
+        select: { value: true, probability: true },
+      }),
+      this.prisma.invoice.findMany({
+        where: {
+          ...baseScope,
+          ...invoiceFilters(filters),
+          status: { in: [...INVOICED_STATUSES] },
+          issueDate: { gte: start, lt: endExclusive },
+        },
+        select: {
+          invoiceNumber: true,
+          status: true,
+          issueDate: true,
+          client: { select: { displayName: true } },
+          lineItems: { where: { deletedAt: null }, select: { total: true } },
+        },
+        orderBy: { issueDate: 'desc' },
+        take: 25,
+      }),
+      this.prisma.deal.findMany({
+        where: {
+          ...baseScope,
+          ...dealFilters(filters),
+          OR: [
+            { createdAt: { gte: start, lt: endExclusive } },
+            { wonAt: { gte: start, lt: endExclusive } },
+            { lostAt: { gte: start, lt: endExclusive } },
+          ],
+        },
+        select: {
+          title: true,
+          stage: true,
+          value: true,
+          client: { select: { displayName: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 25,
+      }),
+    ]);
+
+    let pipeline = 0;
+    for (const deal of openDeals) {
+      pipeline += decimalToNumber(deal.value);
+    }
+    const profit = collectedAmount - expenses;
+
+    const metrics: ReportMetric[] = [
+      { key: 'revenue', label: 'Revenue (invoiced)', value: invoicedAmount, format: 'currency' },
+      { key: 'collections', label: 'Collections', value: collectedAmount, format: 'currency' },
+      { key: 'expenses', label: 'Expenses', value: expenses, format: 'currency' },
+      { key: 'profit', label: 'Profit', value: roundMoney(profit), format: 'currency' },
+      { key: 'outstanding', label: 'Outstanding', value: outstandingAmount, format: 'currency' },
+      { key: 'pipeline', label: 'Pipeline', value: roundMoney(pipeline), format: 'currency' },
+    ];
+
+    const columns: ReportColumn[] = [
+      { key: 'kind', label: 'Kind' },
+      { key: 'reference', label: 'Reference' },
+      { key: 'clientName', label: 'Client' },
+      { key: 'status', label: 'Status' },
+      { key: 'amount', label: 'Amount' },
+    ];
+
+    const rows: Record<string, string | number | null>[] = [
+      ...invoices.map((invoice) => ({
+        kind: 'Invoice',
+        reference: invoice.invoiceNumber,
+        clientName: invoice.client.displayName,
+        status: invoice.status,
+        amount: roundMoney(
+          invoice.lineItems.reduce((sum, item) => sum + decimalToNumber(item.total), 0),
+        ),
+      })),
+      ...deals.map((deal) => ({
+        kind: 'Deal',
+        reference: deal.title,
+        clientName: deal.client.displayName,
+        status: deal.stage,
+        amount: roundMoney(decimalToNumber(deal.value)),
+      })),
+    ];
+
+    return {
+      reportType: 'founder',
+      from: fromIso,
+      to: toIso,
+      currency,
+      metrics,
+      columns,
+      rows,
+    };
+  }
+
+  private async buildExpenseReport(
+    scope: ReportsScope,
+    range: ReportDateRange,
+    currency: string,
+    fromIso: string,
+    toIso: string,
+    filters: ReportFilters,
+  ): Promise<FounderReport> {
+    const baseScope = this.baseScope(scope);
+    const { start, endExclusive } = toUtcBounds(range);
+
+    const [totalExpenses, byCategory, expenses] = await Promise.all([
+      this.sumExpenses(scope, {
+        ...expenseFilters(filters),
+        expenseDate: { gte: start, lt: endExclusive },
+        approvalStatus: { in: [...NON_REJECTED_APPROVAL] },
+      }),
+      this.prisma.expense.groupBy({
+        by: ['category'],
+        where: {
+          ...baseScope,
+          ...expenseFilters(filters),
+          expenseDate: { gte: start, lt: endExclusive },
+          approvalStatus: { in: [...NON_REJECTED_APPROVAL] },
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      this.prisma.expense.findMany({
+        where: {
+          ...baseScope,
+          ...expenseFilters(filters),
+          expenseDate: { gte: start, lt: endExclusive },
+          approvalStatus: { in: [...NON_REJECTED_APPROVAL] },
+        },
+        select: {
+          category: true,
+          amount: true,
+          expenseDate: true,
+          description: true,
+          approvalStatus: true,
+          vendor: { select: { name: true } },
+        },
+        orderBy: { amount: 'desc' },
+        take: ROW_LIMIT,
+      }),
+    ]);
+
+    const metrics: ReportMetric[] = [
+      { key: 'totalExpenses', label: 'Total expenses', value: totalExpenses, format: 'currency' },
+      { key: 'categoryCount', label: 'Categories', value: byCategory.length, format: 'number' },
+      { key: 'rowCount', label: 'Expense rows', value: expenses.length, format: 'number' },
+    ];
+
+    const columns: ReportColumn[] = [
+      { key: 'expenseDate', label: 'Date' },
+      { key: 'category', label: 'Category' },
+      { key: 'vendorName', label: 'Vendor' },
+      { key: 'description', label: 'Description' },
+      { key: 'approvalStatus', label: 'Approval' },
+      { key: 'amount', label: 'Amount' },
+    ];
+
+    const rows = expenses.map((expense) => ({
+      expenseDate: toDateOnly(expense.expenseDate),
+      category: expense.category,
+      vendorName: expense.vendor?.name ?? null,
+      description: expense.description,
+      approvalStatus: expense.approvalStatus,
+      amount: roundMoney(decimalToNumber(expense.amount)),
+    }));
+
+    return {
+      reportType: 'expense',
+      from: fromIso,
+      to: toIso,
+      currency,
+      metrics,
+      columns,
+      rows,
+    };
+  }
+
+  private async buildSalesCompositeReport(
+    scope: ReportsScope,
+    range: ReportDateRange,
+    currency: string,
+    fromIso: string,
+    toIso: string,
+    filters: ReportFilters,
+  ): Promise<FounderReport> {
+    const baseScope = this.baseScope(scope);
+    const { start, endExclusive } = toUtcBounds(range);
+    const dealWhere = dealFilters(filters);
+
+    const [openDeals, wonValue, lostValue, wonCount, lostCount, deals] = await Promise.all([
+      this.prisma.deal.findMany({
+        where: {
+          ...baseScope,
+          ...dealWhere,
+          stage: { in: [...OPEN_DEAL_STAGES] },
+        },
+        select: { value: true, probability: true },
+      }),
+      this.prisma.deal.aggregate({
+        where: {
+          ...baseScope,
+          ...dealWhere,
+          stage: DealStage.WON,
+          wonAt: { gte: start, lt: endExclusive },
+        },
+        _sum: { value: true },
+      }),
+      this.prisma.deal.aggregate({
+        where: {
+          ...baseScope,
+          ...dealWhere,
+          stage: DealStage.LOST,
+          lostAt: { gte: start, lt: endExclusive },
+        },
+        _sum: { value: true },
+      }),
+      this.prisma.deal.count({
+        where: {
+          ...baseScope,
+          ...dealWhere,
+          stage: DealStage.WON,
+          wonAt: { gte: start, lt: endExclusive },
+        },
+      }),
+      this.prisma.deal.count({
+        where: {
+          ...baseScope,
+          ...dealWhere,
+          stage: DealStage.LOST,
+          lostAt: { gte: start, lt: endExclusive },
+        },
+      }),
+      this.prisma.deal.findMany({
+        where: {
+          ...baseScope,
+          ...dealWhere,
+          OR: [
+            { createdAt: { gte: start, lt: endExclusive } },
+            { wonAt: { gte: start, lt: endExclusive } },
+            { lostAt: { gte: start, lt: endExclusive } },
+            { stage: { in: [...OPEN_DEAL_STAGES] } },
+          ],
+        },
+        select: {
+          title: true,
+          stage: true,
+          value: true,
+          probability: true,
+          ownerUser: { select: { displayName: true, email: true } },
+          client: { select: { displayName: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: ROW_LIMIT,
+      }),
+    ]);
+
+    let pipeline = 0;
+    let expected = 0;
+    for (const deal of openDeals) {
+      const value = decimalToNumber(deal.value);
+      pipeline += value;
+      expected += value * ((deal.probability ?? 0) / 100);
+    }
+
+    const conversion = wonCount + lostCount > 0 ? wonCount / (wonCount + lostCount) : 0;
+
+    const metrics: ReportMetric[] = [
+      { key: 'pipeline', label: 'Pipeline', value: roundMoney(pipeline), format: 'currency' },
+      { key: 'expected', label: 'Expected', value: roundMoney(expected), format: 'currency' },
+      {
+        key: 'won',
+        label: 'Won',
+        value: roundMoney(decimalToNumber(wonValue._sum.value)),
+        format: 'currency',
+      },
+      {
+        key: 'lost',
+        label: 'Lost',
+        value: roundMoney(decimalToNumber(lostValue._sum.value)),
+        format: 'currency',
+      },
+      {
+        key: 'conversion',
+        label: 'Conversion %',
+        value: Math.round(conversion * 10000) / 100,
+        format: 'percent',
+      },
+    ];
+
+    const columns: ReportColumn[] = [
+      { key: 'title', label: 'Deal' },
+      { key: 'clientName', label: 'Client' },
+      { key: 'owner', label: 'Owner' },
+      { key: 'stage', label: 'Stage' },
+      { key: 'probability', label: 'Probability' },
+      { key: 'value', label: 'Value' },
+    ];
+
+    const rows = deals.map((deal) => ({
+      title: deal.title,
+      clientName: deal.client.displayName,
+      owner: deal.ownerUser?.displayName ?? deal.ownerUser?.email ?? null,
+      stage: deal.stage,
+      probability: deal.probability,
+      value: roundMoney(decimalToNumber(deal.value)),
+    }));
+
+    return {
+      reportType: 'sales',
+      from: fromIso,
+      to: toIso,
+      currency,
+      metrics,
+      columns,
+      rows,
+    };
+  }
+
+  private async buildFinanceCompositeReport(
+    scope: ReportsScope,
+    range: ReportDateRange,
+    currency: string,
+    fromIso: string,
+    toIso: string,
+    filters: ReportFilters,
+  ): Promise<FounderReport> {
+    const { start, endExclusive } = toUtcBounds(range);
+
+    const [collections, expenses, purchaseOutflows, outstanding, creditNotes] = await Promise.all([
+      this.sumCompletedPayments(scope, {
+        paidAt: { gte: start, lt: endExclusive },
+        ...paymentFilters(filters),
+      }),
+      this.sumExpenses(scope, {
+        ...expenseFilters(filters),
+        expenseDate: { gte: start, lt: endExclusive },
+        approvalStatus: { in: [...NON_REJECTED_APPROVAL] },
+      }),
+      this.sumPurchasePayments(scope, {
+        paidAt: { gte: start, lt: endExclusive },
+      }),
+      this.computeOutstandingAmount(scope, filters),
+      this.sumCreditNotes(scope, {
+        issueDate: { gte: start, lt: endExclusive },
+        status: { in: [CreditNoteStatus.ISSUED, CreditNoteStatus.APPLIED] },
+      }),
+    ]);
+
+    const profit = collections - expenses;
+    const cashFlow = collections - expenses - purchaseOutflows;
+
+    const metrics: ReportMetric[] = [
+      { key: 'collections', label: 'Collections', value: collections, format: 'currency' },
+      { key: 'expenses', label: 'Expenses', value: expenses, format: 'currency' },
+      { key: 'profit', label: 'Profit', value: roundMoney(profit), format: 'currency' },
+      { key: 'cashFlow', label: 'Cash flow', value: roundMoney(cashFlow), format: 'currency' },
+      { key: 'outstanding', label: 'Outstanding', value: outstanding, format: 'currency' },
+      { key: 'creditNotes', label: 'Credit notes', value: creditNotes, format: 'currency' },
+    ];
+
+    const columns: ReportColumn[] = [
+      { key: 'category', label: 'Category' },
+      { key: 'amount', label: 'Amount' },
+    ];
+
+    const rows = [
+      { category: 'Collections', amount: collections },
+      { category: 'Expenses', amount: expenses },
+      { category: 'Purchase payments', amount: purchaseOutflows },
+      { category: 'Credit notes', amount: creditNotes },
+      { category: 'Profit', amount: roundMoney(profit) },
+      { category: 'Cash flow', amount: roundMoney(cashFlow) },
+      { category: 'Outstanding', amount: outstanding },
+    ];
+
+    return {
+      reportType: 'finance',
+      from: fromIso,
+      to: toIso,
+      currency,
+      metrics,
+      columns,
+      rows,
+    };
+  }
+
   private baseScope(scope: ReportsScope) {
     return {
       tenantId: scope.tenantId,
@@ -2130,13 +2622,17 @@ export class PrismaReportsRepository implements ReportsRepository {
     return roundMoney(decimalToNumber(result._sum.amount));
   }
 
-  private async computeOutstandingAmount(scope: ReportsScope): Promise<number> {
+  private async computeOutstandingAmount(
+    scope: ReportsScope,
+    filters: ReportFilters = {},
+  ): Promise<number> {
     const invoices = await this.prisma.invoice.findMany({
       where: {
         tenantId: scope.tenantId,
         workspaceId: scope.workspaceId,
         deletedAt: null,
         status: { in: [...OUTSTANDING_STATUSES] },
+        ...invoiceFilters(filters),
       },
       select: {
         balanceDue: true,
@@ -2228,6 +2724,86 @@ export class PrismaReportsRepository implements ReportsRepository {
       groups.map((group) => [group.invoiceId, roundMoney(decimalToNumber(group._sum.amount))]),
     );
   }
+}
+
+function extractReportFilters(query: ReportQuery): ReportFilters {
+  return {
+    ...(query.clientId !== undefined ? { clientId: query.clientId } : {}),
+    ...(query.projectId !== undefined ? { projectId: query.projectId } : {}),
+    ...(query.departmentId !== undefined ? { departmentId: query.departmentId } : {}),
+    ...(query.ownerUserId !== undefined ? { ownerUserId: query.ownerUserId } : {}),
+    ...(query.currency !== undefined ? { currency: query.currency } : {}),
+    ...(query.period !== undefined ? { period: query.period } : {}),
+  };
+}
+
+function invoiceFilters(filters: ReportFilters): Prisma.InvoiceWhereInput {
+  return {
+    ...(filters.clientId !== undefined ? { clientId: filters.clientId } : {}),
+    ...(filters.projectId !== undefined ? { projectId: filters.projectId } : {}),
+  };
+}
+
+function paymentFilters(filters: ReportFilters): Prisma.PaymentWhereInput {
+  if (filters.clientId === undefined && filters.projectId === undefined) {
+    return {};
+  }
+  return {
+    invoice: {
+      deletedAt: null,
+      ...(filters.clientId !== undefined ? { clientId: filters.clientId } : {}),
+      ...(filters.projectId !== undefined ? { projectId: filters.projectId } : {}),
+    },
+  };
+}
+
+function expenseFilters(filters: ReportFilters): Prisma.ExpenseWhereInput {
+  return {
+    ...(filters.departmentId !== undefined ? { departmentId: filters.departmentId } : {}),
+  };
+}
+
+function dealFilters(filters: ReportFilters): Prisma.DealWhereInput {
+  return {
+    ...(filters.clientId !== undefined ? { clientId: filters.clientId } : {}),
+    ...(filters.ownerUserId !== undefined ? { ownerUserId: filters.ownerUserId } : {}),
+  };
+}
+
+function clientFilters(filters: ReportFilters): Prisma.ClientWhereInput {
+  return {
+    ...(filters.clientId !== undefined ? { id: filters.clientId } : {}),
+    ...(filters.ownerUserId !== undefined ? { ownerUserId: filters.ownerUserId } : {}),
+  };
+}
+
+function projectFilters(filters: ReportFilters): Prisma.ProjectWhereInput {
+  return {
+    ...(filters.clientId !== undefined ? { clientId: filters.clientId } : {}),
+    ...(filters.projectId !== undefined ? { id: filters.projectId } : {}),
+    ...(filters.departmentId !== undefined ? { departmentId: filters.departmentId } : {}),
+    ...(filters.ownerUserId !== undefined ? { projectManagerUserId: filters.ownerUserId } : {}),
+  };
+}
+
+function taskFilters(filters: ReportFilters): Prisma.TaskWhereInput {
+  return {
+    ...(filters.projectId !== undefined ? { projectId: filters.projectId } : {}),
+    ...(filters.clientId !== undefined ||
+    filters.departmentId !== undefined ||
+    filters.ownerUserId !== undefined
+      ? {
+          project: {
+            deletedAt: null,
+            ...(filters.clientId !== undefined ? { clientId: filters.clientId } : {}),
+            ...(filters.departmentId !== undefined ? { departmentId: filters.departmentId } : {}),
+            ...(filters.ownerUserId !== undefined
+              ? { projectManagerUserId: filters.ownerUserId }
+              : {}),
+          },
+        }
+      : {}),
+  };
 }
 
 function decimalToNumber(value: Prisma.Decimal | null | undefined): number {

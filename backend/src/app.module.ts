@@ -5,11 +5,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppConfigModule } from './config/config.module';
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
 import { ActivitiesModule } from './modules/activities/activities.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { SecurityModule } from './modules/security/security.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { CommentsModule } from './modules/comments/comments.module';
@@ -47,6 +50,9 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
     DashboardModule,
     ReportsModule,
     SettingsModule,
+    SecurityModule,
+    AuditModule,
+    NotificationsModule,
     ActivitiesModule,
     CommentsModule,
     FilesModule,

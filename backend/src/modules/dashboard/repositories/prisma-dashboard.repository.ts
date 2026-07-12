@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
   ApprovalStatus,
+  ClientActivityType,
+  ClientStatus,
   DealStage,
+  InvitationStatus,
   InvoiceStatus,
   PaymentStatus,
   Prisma,
@@ -9,7 +12,11 @@ import {
   TaskStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { DashboardScope, DashboardSummaryAggregates } from '../dashboard.types';
+import type {
+  DashboardAdminSummary,
+  DashboardScope,
+  DashboardSummaryAggregates,
+} from '../dashboard.types';
 import type { DashboardRepository } from './dashboard.repository.interface';
 
 const OPEN_TASK_STATUSES: readonly TaskStatus[] = [
@@ -45,6 +52,12 @@ const NON_REJECTED_APPROVAL: readonly ApprovalStatus[] = [
   ApprovalStatus.PENDING,
   ApprovalStatus.NOT_REQUIRED,
 ];
+const LOST_CLIENT_STATUSES: readonly ClientStatus[] = [
+  ClientStatus.INACTIVE,
+  ClientStatus.ARCHIVED,
+];
+const LOST_STATUS_SET = new Set<string>(LOST_CLIENT_STATUSES);
+const STANDARD_MONTH_CAPACITY_MINUTES = 160 * 60;
 
 @Injectable()
 export class PrismaDashboardRepository implements DashboardRepository {
@@ -71,6 +84,9 @@ export class PrismaDashboardRepository implements DashboardRepository {
       outstandingCount,
       clientsTotal,
       clientsActive,
+      clientsNew,
+      statusChangeActivities,
+      clientsLostFallback,
       projectsTotal,
       projectsActive,
       projectsPlanning,
@@ -85,6 +101,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
       tasksDueToday,
       tasksOverdue,
       tasksOpenTotal,
+      tasksOpenGlobal,
       tasksCompleted,
       tasksBlocked,
       tasksAssignedDueToday,
@@ -105,6 +122,9 @@ export class PrismaDashboardRepository implements DashboardRepository {
       allTimeExpenses,
       allTimePurchasePayments,
       recurringInvoices,
+      timeLoggedMinutes,
+      activeEmployeeCount,
+      distinctTimeEntryUsers,
     ] = await Promise.all([
       this.prisma.workspace.findFirst({
         where: {
@@ -139,7 +159,39 @@ export class PrismaDashboardRepository implements DashboardRepository {
       this.prisma.client.count({
         where: {
           ...baseScope,
-          status: 'ACTIVE',
+          status: ClientStatus.ACTIVE,
+        },
+      }),
+      this.prisma.client.count({
+        where: {
+          ...baseScope,
+          OR: [
+            { becameClientAt: { gte: monthStart, lt: monthEnd } },
+            {
+              becameClientAt: null,
+              status: ClientStatus.ACTIVE,
+              createdAt: { gte: monthStart, lt: monthEnd },
+            },
+          ],
+        },
+      }),
+      this.prisma.clientActivity.findMany({
+        where: {
+          tenantId: scope.tenantId,
+          activityType: ClientActivityType.STATUS_CHANGE,
+          occurredAt: { gte: monthStart, lt: monthEnd },
+          client: {
+            workspaceId: scope.workspaceId,
+            deletedAt: null,
+          },
+        },
+        select: { metadata: true },
+      }),
+      this.prisma.client.count({
+        where: {
+          ...baseScope,
+          status: { in: [...LOST_CLIENT_STATUSES] },
+          updatedAt: { gte: monthStart, lt: monthEnd },
         },
       }),
       this.prisma.project.count({
@@ -229,6 +281,13 @@ export class PrismaDashboardRepository implements DashboardRepository {
           parentTaskId: null,
           status: { in: [...OPEN_TASK_STATUSES] },
           assigneeUserId: { not: null },
+        },
+      }),
+      this.prisma.task.count({
+        where: {
+          ...baseScope,
+          parentTaskId: null,
+          status: { in: [...OPEN_TASK_STATUSES] },
         },
       }),
       this.prisma.task.count({
@@ -332,6 +391,28 @@ export class PrismaDashboardRepository implements DashboardRepository {
         },
         select: { frequency: true, template: true },
       }),
+      this.prisma.timeEntry.aggregate({
+        where: {
+          ...baseScope,
+          startTime: { gte: monthStart, lt: monthEnd },
+          durationMinutes: { not: null },
+        },
+        _sum: { durationMinutes: true },
+      }),
+      this.prisma.employee.count({
+        where: {
+          ...baseScope,
+          isActive: true,
+        },
+      }),
+      this.prisma.timeEntry.findMany({
+        where: {
+          ...baseScope,
+          startTime: { gte: monthStart, lt: monthEnd },
+        },
+        select: { userId: true },
+        distinct: ['userId'],
+      }),
     ]);
 
     let pipelineValue = 0;
@@ -348,10 +429,23 @@ export class PrismaDashboardRepository implements DashboardRepository {
     const conversionRate =
       wonDealsCount + lostDealsCount > 0 ? wonDealsCount / (wonDealsCount + lostDealsCount) : 0;
 
+    const clientsLost = resolveClientsLost(statusChangeActivities, clientsLostFallback);
+    const retentionRate = clientsActive / Math.max(clientsActive + clientsLost, 1);
+
     const mrr = estimateMrr(recurringInvoices);
     const arr = mrr * 12;
     const profitMonthly = collectedMonthly - expensesMonthly;
+    const netProfit = profitMonthly;
+    const grossMargin =
+      invoicedMonthly > 0 ? (invoicedMonthly - expensesMonthly) / invoicedMonthly : 0;
     const cashBalance = allTimePayments - allTimeExpenses - allTimePurchasePayments;
+
+    const loggedMinutes = timeLoggedMinutes._sum.durationMinutes ?? 0;
+    const capacityPeople =
+      activeEmployeeCount > 0 ? activeEmployeeCount : distinctTimeEntryUsers.length;
+    const capacityMinutes = capacityPeople * STANDARD_MONTH_CAPACITY_MINUTES;
+    const teamUtilization =
+      capacityMinutes > 0 ? Math.min(1.5, Math.max(0, loggedMinutes / capacityMinutes)) : 0;
 
     return {
       currency: workspace?.currency ?? 'USD',
@@ -362,6 +456,9 @@ export class PrismaDashboardRepository implements DashboardRepository {
       outstandingCount,
       clientsTotal,
       clientsActive,
+      clientsNew,
+      clientsLost,
+      retentionRate,
       projectsTotal,
       projectsActive,
       projectsPlanning,
@@ -376,6 +473,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
       tasksDueToday,
       tasksOverdue,
       tasksOpenTotal,
+      tasksOpenGlobal,
       tasksCompleted,
       tasksBlocked,
       tasksAssignedDueToday,
@@ -397,6 +495,72 @@ export class PrismaDashboardRepository implements DashboardRepository {
       monthlyExpenses: expensesMonthly,
       mrr,
       arr,
+      netProfit,
+      grossMargin,
+      teamUtilization,
+    };
+  }
+
+  async getAdminSummaryAggregates(
+    scope: DashboardScope,
+    actorUserId: string,
+    asOf: Date,
+  ): Promise<DashboardAdminSummary> {
+    const since = new Date(asOf.getTime() - 24 * 60 * 60 * 1000);
+
+    const [activeUsers, workspaceCount, pendingInvites, unreadNotifications, auditEventsLast24h] =
+      await Promise.all([
+        this.prisma.employee.count({
+          where: {
+            tenantId: scope.tenantId,
+            workspaceId: scope.workspaceId,
+            deletedAt: null,
+            isActive: true,
+            user: {
+              deletedAt: null,
+              isActive: true,
+            },
+          },
+        }),
+        this.prisma.workspace.count({
+          where: {
+            tenantId: scope.tenantId,
+            deletedAt: null,
+          },
+        }),
+        this.prisma.userInvitation.count({
+          where: {
+            tenantId: scope.tenantId,
+            workspaceId: scope.workspaceId,
+            deletedAt: null,
+            status: InvitationStatus.PENDING,
+            expiresAt: { gt: asOf },
+          },
+        }),
+        this.prisma.notification.count({
+          where: {
+            tenantId: scope.tenantId,
+            workspaceId: scope.workspaceId,
+            recipientUserId: actorUserId,
+            isRead: false,
+            deletedAt: null,
+          },
+        }),
+        this.prisma.auditLog.count({
+          where: {
+            tenantId: scope.tenantId,
+            workspaceId: scope.workspaceId,
+            occurredAt: { gte: since, lte: asOf },
+          },
+        }),
+      ]);
+
+    return {
+      activeUsers,
+      workspaceCount,
+      pendingInvites,
+      unreadNotifications,
+      auditEventsLast24h,
     };
   }
 
@@ -597,6 +761,69 @@ export class PrismaDashboardRepository implements DashboardRepository {
 
     return decimalToNumber(result._sum.amount);
   }
+}
+
+/** Counts STATUS_CHANGE activities that transition to INACTIVE/ARCHIVED; falls back when metadata shape is unknown. */
+function resolveClientsLost(
+  activities: readonly { readonly metadata: Prisma.JsonValue | null }[],
+  fallback: number,
+): number {
+  if (activities.length === 0) {
+    return fallback;
+  }
+
+  let lost = 0;
+  let recognized = 0;
+  for (const activity of activities) {
+    const transition = parseLostStatusTransition(activity.metadata);
+    if (transition === null) {
+      continue;
+    }
+    recognized += 1;
+    if (transition) {
+      lost += 1;
+    }
+  }
+
+  if (recognized === 0) {
+    return fallback;
+  }
+
+  return lost;
+}
+
+/** Returns true/false when metadata encodes a status transition; null when shape is unrecognized. */
+function parseLostStatusTransition(metadata: Prisma.JsonValue | null): boolean | null {
+  if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const record = metadata as Record<string, unknown>;
+  const candidates = [
+    record.toStatus,
+    record.newStatus,
+    record.status,
+    record.to,
+    record.after,
+    record.currentStatus,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim() !== '') {
+      return LOST_STATUS_SET.has(candidate);
+    }
+  }
+
+  const nestedTo = record.to;
+  if (nestedTo !== null && typeof nestedTo === 'object' && !Array.isArray(nestedTo)) {
+    const nestedRecord = nestedTo as Record<string, unknown>;
+    const nestedStatus = nestedRecord.status;
+    if (typeof nestedStatus === 'string' && nestedStatus.trim() !== '') {
+      return LOST_STATUS_SET.has(nestedStatus);
+    }
+  }
+
+  return null;
 }
 
 function estimateMrr(

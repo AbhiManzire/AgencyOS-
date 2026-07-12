@@ -19,14 +19,11 @@ interface HealthSegment {
   readonly label: string;
   readonly count: number;
   readonly barClassName: string;
+  readonly total: number;
+  readonly suffix?: string;
 }
 
-function HealthProgressCard({
-  label,
-  count,
-  total,
-  barClassName,
-}: HealthSegment & { total: number }) {
+function HealthProgressCard({ label, count, total, barClassName, suffix }: HealthSegment) {
   const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
 
   return (
@@ -35,8 +32,10 @@ function HealthProgressCard({
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-sm">{label}</CardTitle>
           <Caption className="font-medium text-foreground">
-            {count}
-            <span className="text-muted-foreground"> · {percentage}%</span>
+            {suffix ?? count}
+            {suffix === undefined ? (
+              <span className="text-muted-foreground"> · {percentage}%</span>
+            ) : null}
           </Caption>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -79,26 +78,61 @@ export function DashboardClientHealth({
     );
   }
 
+  const hasSprint6ClientKpis =
+    typeof summary.clients.newClients === 'number' &&
+    typeof summary.clients.lostClients === 'number' &&
+    typeof summary.clients.retentionRate === 'number';
+
   const active = summary.clients.active;
-  const other = Math.max(summary.clients.total - active, 0);
   const totalForHealth = summary.clients.total;
-  const segments: readonly HealthSegment[] = [
-    {
-      label: 'Active',
-      count: active,
-      barClassName: 'bg-success',
-    },
-    {
-      label: 'Other',
-      count: other,
-      barClassName: 'bg-muted-foreground/50',
-    },
-  ];
+
+  const segments: readonly HealthSegment[] = hasSprint6ClientKpis
+    ? [
+        {
+          label: 'Active',
+          count: active,
+          total: Math.max(totalForHealth, 1),
+          barClassName: 'bg-success',
+        },
+        {
+          label: 'New',
+          count: summary.clients.newClients,
+          total: Math.max(active + summary.clients.newClients, 1),
+          barClassName: 'bg-primary',
+        },
+        {
+          label: 'Lost',
+          count: summary.clients.lostClients,
+          total: Math.max(active + summary.clients.lostClients, 1),
+          barClassName: 'bg-destructive',
+        },
+        {
+          label: 'Retention',
+          count: Math.round(summary.clients.retentionRate * 100),
+          total: 100,
+          barClassName: 'bg-success',
+          suffix: `${(summary.clients.retentionRate * 100).toFixed(1)}%`,
+        },
+      ]
+    : [
+        {
+          label: 'Active',
+          count: active,
+          total: totalForHealth,
+          barClassName: 'bg-success',
+        },
+        {
+          label: 'Other',
+          count: Math.max(summary.clients.total - active, 0),
+          total: totalForHealth,
+          barClassName: 'bg-muted-foreground/50',
+        },
+      ];
 
   return (
     <div className="space-y-3">
       {segments.map((segment) => (
-        <HealthProgressCard key={segment.label} {...segment} total={totalForHealth} />
+        <HealthProgressCard key={segment.label} {...segment} />
       ))}
     </div>
   );
