@@ -5,16 +5,17 @@ Use before promoting AgencyOS v1.0 to production.
 ## Environment
 
 - [ ] `NODE_ENV=production`
-- [ ] `AUTH_ENABLED=true`
-- [ ] `NEXT_PUBLIC_AUTH_ENABLED=true` (rebuild frontend after changing)
+- [ ] `AUTH_ENABLED=false` for v1.0 without Keycloak (or `true` when Keycloak is live)
+- [ ] `NEXT_PUBLIC_AUTH_ENABLED` matches backend auth mode (rebuild frontend after changing)
 - [ ] `RBAC_ENFORCED=true`
 - [ ] `CORS_ORIGIN` is a non-localhost HTTPS origin
 - [ ] `DATABASE_URL` points at production PostgreSQL
-- [ ] Keycloak `KEYCLOAK_ISSUER_URL` / `KEYCLOAK_JWKS_URI` configured (issuer must match JWT `iss`)
-- [ ] `NEXT_PUBLIC_KEYCLOAK_URL` points at reachable Keycloak (`https://<host>/auth` when using nginx `/auth/` proxy)
-- [ ] AgencyOS users have `keycloak_subject` set to Keycloak `sub`
-- [ ] Strong `POSTGRES_PASSWORD` / Keycloak admin password
-- [ ] No `NEXT_PUBLIC_DEV_*` or `NEXT_PUBLIC_ALLOW_DEV_IDENTITY_HEADERS` in prod
+- [ ] When auth is on: Keycloak `KEYCLOAK_ISSUER_URL` / `KEYCLOAK_JWKS_URI` configured (issuer must match JWT `iss`)
+- [ ] When auth is on: `NEXT_PUBLIC_KEYCLOAK_URL` points at reachable Keycloak
+- [ ] When auth is on: AgencyOS users have `keycloak_subject` set to Keycloak `sub`
+- [ ] When auth is off: demo identity headers (`NEXT_PUBLIC_DEV_*` or deploy defaults) match seeded users
+- [ ] Strong `POSTGRES_PASSWORD` / Keycloak admin password (if Keycloak is used)
+- [ ] No `NEXT_PUBLIC_ALLOW_DEV_IDENTITY_HEADERS` unless intentionally running a production demo
 - [ ] `SWAGGER_ENABLED=false` (unless intentionally open behind auth)
 - [ ] `STORAGE_*` allowlists reviewed
 - [ ] `AI_ENABLED=false` until providers are configured
@@ -37,7 +38,7 @@ Use before promoting AgencyOS v1.0 to production.
 - [ ] Nginx config from `infrastructure/nginx/agencyos.vps.conf`
 - [ ] TLS certificates valid
 - [ ] `/api/` proxies to `127.0.0.1:3001`
-- [ ] `/auth/` proxies to Keycloak (`127.0.0.1:8080`) — required for same-origin OIDC
+- [ ] `/auth/` proxies to Keycloak (`127.0.0.1:8080`) — only required when OIDC auth is enabled
 - [ ] Security headers present (frame deny, nosniff, HSTS)
 
 ## Health & monitoring

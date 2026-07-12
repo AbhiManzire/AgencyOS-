@@ -9,8 +9,15 @@ import { isAuthExplicitlyEnabled, redirectToLogin } from '@/lib/auth/config';
 
 const SESSION_TIMEOUT_EVENT = 'agencyos:session-timeout';
 
-/** Dispatched when the API returns 401 Unauthorized and refresh cannot recover. */
+/**
+ * Dispatched when the API returns 401 Unauthorized and refresh cannot recover.
+ * No-op when AUTH_ENABLED / NEXT_PUBLIC_AUTH_ENABLED is not explicitly true (demo mode).
+ */
 export function dispatchSessionTimeout(): void {
+  if (!isAuthExplicitlyEnabled()) {
+    return;
+  }
+
   window.dispatchEvent(new CustomEvent(SESSION_TIMEOUT_EVENT));
 }
 
@@ -18,11 +25,15 @@ interface SessionTimeoutDialogProps {
   readonly onSignInAgain?: () => void;
 }
 
-/** Listens for session timeout events and prompts the user to sign in again. */
+/** Listens for session timeout events and prompts the user to sign in again (OIDC only). */
 export function SessionTimeoutHandler({ onSignInAgain }: SessionTimeoutDialogProps) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    if (!isAuthExplicitlyEnabled()) {
+      return;
+    }
+
     const handleTimeout = (): void => {
       clearAuthSession();
       setOpen(true);
@@ -34,7 +45,7 @@ export function SessionTimeoutHandler({ onSignInAgain }: SessionTimeoutDialogPro
     };
   }, []);
 
-  if (!open) {
+  if (!isAuthExplicitlyEnabled() || !open) {
     return null;
   }
 
@@ -44,12 +55,7 @@ export function SessionTimeoutHandler({ onSignInAgain }: SessionTimeoutDialogPro
       return;
     }
 
-    if (isAuthExplicitlyEnabled()) {
-      void redirectToLogin('/');
-      return;
-    }
-
-    window.location.assign('/');
+    void redirectToLogin('/');
   };
 
   return (

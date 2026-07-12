@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LoadingState, PageContainer } from '@/design-system';
 import { SectionTitle } from '@/design-system/typography';
 import { Button } from '@/components/ui/button';
-import { consumeOidcReturnTo, redirectToLogin } from '@/lib/auth/config';
+import { consumeOidcReturnTo, isAuthExplicitlyEnabled, redirectToLogin } from '@/lib/auth/config';
 import { exchangeAuthorizationCode } from '@/lib/auth/oidc';
 
 /** Completes Keycloak authorization-code + PKCE exchange and restores the app session. */
@@ -14,6 +14,11 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isAuthExplicitlyEnabled()) {
+      router.replace('/');
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const oidcError = params.get('error');
@@ -39,6 +44,14 @@ export default function AuthCallbackPage() {
       }
     })();
   }, [router]);
+
+  if (!isAuthExplicitlyEnabled()) {
+    return (
+      <PageContainer size="sm">
+        <LoadingState label="Redirecting..." />
+      </PageContainer>
+    );
+  }
 
   if (error) {
     return (

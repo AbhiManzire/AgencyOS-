@@ -63,6 +63,10 @@ function randomVerifier(): string {
 
 /** Persists PKCE verifier + optional return path, then returns the authorize URL. */
 export async function beginLoginRedirect(returnTo?: string): Promise<string> {
+  if (!isAuthExplicitlyEnabled()) {
+    return returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/';
+  }
+
   const verifier = randomVerifier();
   const challenge = await sha256Base64Url(verifier);
 
@@ -113,8 +117,15 @@ export function consumeOidcReturnTo(): string {
   return '/';
 }
 
-/** Starts interactive Keycloak login (PKCE). */
+/** Starts interactive Keycloak login (PKCE). No-op redirect home when auth is disabled. */
 export async function redirectToLogin(returnTo?: string): Promise<void> {
+  if (!isAuthExplicitlyEnabled()) {
+    const target =
+      returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/';
+    window.location.assign(target);
+    return;
+  }
+
   const url = await beginLoginRedirect(returnTo);
   window.location.assign(url);
 }

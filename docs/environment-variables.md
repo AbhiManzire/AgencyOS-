@@ -31,7 +31,7 @@
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `NEXT_PUBLIC_API_URL` | Docker/prod: Yes | `http://localhost:3001/api` | Backend API base URL |
-| `NEXT_PUBLIC_AUTH_ENABLED` | Production: Yes (`true`) | unset/`false` | Enables AuthGate + OIDC session on the client |
+| `NEXT_PUBLIC_AUTH_ENABLED` | Production: Yes | unset/`false` | Must be `true` only when Keycloak OIDC is live. When not `true`, AuthGate is open and demo identity headers are used (no Keycloak redirects). |
 | `NEXT_PUBLIC_KEYCLOAK_URL` | No | `http://localhost:8080` | Keycloak public base URL (use `https://<host>/auth` behind nginx `/auth/` proxy) |
 | `NEXT_PUBLIC_KEYCLOAK_REALM` | No | `agencyos` | Keycloak realm |
 | `NEXT_PUBLIC_KEYCLOAK_CLIENT_ID` | No | `agencyos-web` | OIDC client ID |

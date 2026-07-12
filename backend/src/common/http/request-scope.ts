@@ -16,8 +16,9 @@ export function readHeader(
   headers: Record<string, string | string[] | undefined>,
   name: string,
 ): string {
-  const value = headers[name];
-  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+  const value = headers[name] ?? headers[name.toLowerCase()];
+  const raw = Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+  return typeof raw === 'string' ? raw.trim() : '';
 }
 
 /** Resolves tenant + workspace scope from request headers. */

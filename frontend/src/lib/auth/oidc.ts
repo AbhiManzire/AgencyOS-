@@ -4,6 +4,7 @@ import {
   getOidcBaseUrl,
   getOidcCallbackUrl,
   getKeycloakLogoutUrl,
+  isAuthExplicitlyEnabled,
 } from '@/lib/auth/config';
 import {
   clearAuthSession,
@@ -144,6 +145,12 @@ export async function ensureFreshAccessToken(skewMs = REFRESH_SKEW_MS): Promise<
 
 /** Clears local session and redirects to Keycloak end-session (invalidates SSO). */
 export function logout(): void {
+  if (!isAuthExplicitlyEnabled()) {
+    clearAuthSession();
+    window.location.assign('/');
+    return;
+  }
+
   const idToken = getIdToken();
   clearAuthSession();
   window.location.assign(getKeycloakLogoutUrl(idToken));

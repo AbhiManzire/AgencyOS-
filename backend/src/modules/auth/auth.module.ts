@@ -1,4 +1,10 @@
-import { Module, type Provider } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  type Provider,
+  RequestMethod,
+} from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { PassportModule } from '@nestjs/passport';
 import { AuthBootstrapService } from './auth-bootstrap.service';
@@ -7,6 +13,7 @@ import { AuthController } from './auth.controller';
 import { AuthDisabledGuard } from './guards/auth-disabled.guard';
 import { BindJwtIdentityGuard } from './guards/bind-jwt-identity.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { DemoIdentityMiddleware } from './middleware/demo-identity.middleware';
 import { IdentityResolutionService } from './services/identity-resolution.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
@@ -19,6 +26,7 @@ const authProviders: Provider[] = [
   },
   AuthBootstrapService,
   IdentityResolutionService,
+  DemoIdentityMiddleware,
   {
     provide: APP_GUARD,
     useFactory: (reflector: Reflector) =>
@@ -41,4 +49,11 @@ if (authConfiguration.enabled) {
   providers: authProviders,
   exports: [PassportModule, IdentityResolutionService],
 })
-export class AuthModule {}
+export class AuthModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // Demo mode only: inject identity headers before controllers validate them.
+    if (!authConfiguration.enabled) {
+      consumer.apply(DemoIdentityMiddleware).forRoutes({ path: '*', method: RequestMethod.ALL });
+    }
+  }
+}

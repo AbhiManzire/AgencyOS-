@@ -14,7 +14,8 @@ interface AuthGateProps {
 
 /**
  * Production route gate: requires a stored access token before rendering the app shell.
- * Bypassed when AUTH_ENABLED / NEXT_PUBLIC_AUTH_ENABLED is not explicitly true.
+ * When AUTH_ENABLED / NEXT_PUBLIC_AUTH_ENABLED is not explicitly `true`, immediately
+ * allows the app (demo header identity — no Keycloak).
  */
 export function AuthGate({ children }: AuthGateProps) {
   if (!isAuthExplicitlyEnabled()) {
