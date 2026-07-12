@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
   ...(process.env.DOCKER_BUILD === 'true' ? { output: 'standalone' as const } : {}),
   transpilePackages: ['@agencyos/shared'],
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
   },
   headers() {
     return Promise.resolve([

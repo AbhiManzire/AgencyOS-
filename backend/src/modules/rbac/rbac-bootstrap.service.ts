@@ -386,6 +386,18 @@ const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
     description: 'Create new automation workflows.',
     module: 'settings',
   },
+  {
+    key: 'ai.read',
+    name: 'View AI Settings',
+    description: 'View AI settings, feature flags, prompts, conversations, and usage.',
+    module: 'ai',
+  },
+  {
+    key: 'ai.manage',
+    name: 'Manage AI',
+    description: 'Configure AI providers, settings, feature flags, and prompt templates.',
+    module: 'ai',
+  },
 ];
 
 const SYSTEM_ROLE_SEEDS: readonly SystemRoleSeedDefinition[] = [

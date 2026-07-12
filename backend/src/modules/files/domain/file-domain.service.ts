@@ -16,6 +16,30 @@ export class FileDomainService {
         'File exceeds the maximum allowed size.',
       );
     }
+
+    const mimeType = input.mimeType?.trim().toLowerCase() ?? '';
+    const allowedMimeTypes = input.allowedMimeTypes;
+    if (allowedMimeTypes !== undefined && allowedMimeTypes.length > 0) {
+      const allowed = allowedMimeTypes.map((value) => value.trim().toLowerCase());
+      if (!allowed.includes(mimeType)) {
+        throw new FileDomainError(
+          FILE_DOMAIN_ERROR_CODES.FILE_TYPE_NOT_ALLOWED,
+          'File MIME type is not allowed.',
+        );
+      }
+    }
+
+    const allowedExtensions = input.allowedExtensions;
+    if (allowedExtensions !== undefined && allowedExtensions.length > 0) {
+      const extension = this.extractExtension(input.originalName ?? '');
+      const allowed = allowedExtensions.map((value) => value.trim().toLowerCase());
+      if (!allowed.includes(extension)) {
+        throw new FileDomainError(
+          FILE_DOMAIN_ERROR_CODES.FILE_TYPE_NOT_ALLOWED,
+          'File extension is not allowed.',
+        );
+      }
+    }
   }
 
   extractExtension(originalName: string): string {

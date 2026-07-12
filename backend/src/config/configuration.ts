@@ -23,6 +23,20 @@ export default () => {
         process.env.STORAGE_MAX_FILE_SIZE_BYTES ?? String(10 * 1024 * 1024),
         10,
       ),
+      allowedMimeTypes: (
+        process.env.STORAGE_ALLOWED_MIME_TYPES ??
+        'image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+      allowedExtensions: (
+        process.env.STORAGE_ALLOWED_EXTENSIONS ??
+        'jpg,jpeg,png,gif,webp,pdf,txt,csv,doc,docx,xls,xlsx'
+      )
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value.length > 0),
     },
     throttler: {
       ttlMs: parseInt(process.env.THROTTLE_TTL_MS ?? '60000', 10),
@@ -30,6 +44,10 @@ export default () => {
     },
     swagger: {
       enabled: (process.env.SWAGGER_ENABLED ?? swaggerDefault) === 'true',
+    },
+    ai: {
+      enabled: (process.env.AI_ENABLED ?? 'false') === 'true',
+      defaultProvider: process.env.AI_DEFAULT_PROVIDER ?? 'NULL',
     },
   };
 };

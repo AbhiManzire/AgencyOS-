@@ -23,7 +23,9 @@ import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { AutomationModule } from './modules/automation/automation.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
     FilesModule,
     TimeEntriesModule,
     WorkflowsModule,
+    AutomationModule,
+    AiModule,
   ],
   providers: [
     {

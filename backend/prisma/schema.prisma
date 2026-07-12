@@ -92,11 +92,22 @@ model Tenant {
   workflows               Workflow[]
   workflowTriggers        WorkflowTrigger[]
   workflowActions         WorkflowAction[]
+  workflowConditions      WorkflowCondition[]
+  workflowSchedules       WorkflowSchedule[]
+  workflowExecutions      WorkflowExecution[]
+  workflowExecutionLogs   WorkflowExecutionLog[]
   scheduledReports        ScheduledReport[]
   auditLogs               AuditLog[]
   notifications           Notification[]
   userInvitations         UserInvitation[]
   personalAccessTokens    PersonalAccessToken[]
+  featureFlags            FeatureFlag[]
+  aiProviderConfigs       AiProviderConfig[]
+  aiPromptTemplates       AiPromptTemplate[]
+  aiConversations         AiConversation[]
+  aiMessages              AiMessage[]
+  aiUsageEvents           AiUsageEvent[]
+  aiSettings              AiSettings[]
 
   @@index([status], map: "idx_platform_tenants_status")
   @@index([deletedAt], map: "idx_platform_tenants_deleted_at")
@@ -267,6 +278,7 @@ model User {
   workflowsCreated               Workflow[]         @relation("WorkflowCreatedBy")
   workflowsUpdated               Workflow[]         @relation("WorkflowUpdatedBy")
   workflowsDeleted               Workflow[]         @relation("WorkflowDeletedBy")
+  workflowExecutionsTriggered    WorkflowExecution[] @relation("WorkflowExecutionTriggeredBy")
   scheduledReportsCreated        ScheduledReport[]  @relation("ScheduledReportCreatedBy")
   scheduledReportsUpdated        ScheduledReport[]  @relation("ScheduledReportUpdatedBy")
   scheduledReportsDeleted        ScheduledReport[]  @relation("ScheduledReportDeletedBy")
@@ -274,6 +286,9 @@ model User {
   notificationsReceived          Notification[]     @relation("NotificationRecipient")
   invitationsSent                UserInvitation[]   @relation("UserInvitationInviter")
   personalAccessTokens           PersonalAccessToken[] @relation("PersonalAccessTokenOwner")
+  aiConversationsOwned           AiConversation[]   @relation("AiConversationOwner")
+  aiMessagesCreated              AiMessage[]        @relation("AiMessageCreatedBy")
+  aiUsageEventsActed             AiUsageEvent[]     @relation("AiUsageEventActor")
   employeesManaged               Employee[]         @relation("EmployeeManager")
 
   @@index([deletedAt], map: "idx_users_deleted_at")
@@ -511,11 +526,22 @@ model Workspace {
   workflows         Workflow[]
   workflowTriggers  WorkflowTrigger[]
   workflowActions   WorkflowAction[]
+  workflowConditions WorkflowCondition[]
+  workflowSchedules WorkflowSchedule[]
+  workflowExecutions WorkflowExecution[]
+  workflowExecutionLogs WorkflowExecutionLog[]
   scheduledReports  ScheduledReport[]
   auditLogs         AuditLog[]
   notifications     Notification[]
   userInvitations   UserInvitation[]
   personalAccessTokens PersonalAccessToken[]
+  featureFlags      FeatureFlag[]
+  aiProviderConfigs AiProviderConfig[]
+  aiPromptTemplates AiPromptTemplate[]
+  aiConversations   AiConversation[]
+  aiMessages        AiMessage[]
+  aiUsageEvents     AiUsageEvent[]
+  aiSettings        AiSettings[]
 
   @@unique([agencyId, slug], map: "uq_workspaces_agency_id_slug")
   @@index([tenantId], map: "idx_workspaces_tenant_id")
@@ -2072,6 +2098,9 @@ model Workflow {
   deletedByUser User?     @relation("WorkflowDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
   triggers      WorkflowTrigger[]
   actions       WorkflowAction[]
+  conditions    WorkflowCondition[]
+  schedules     WorkflowSchedule[]
+  executions    WorkflowExecution[]
 
   @@index([tenantId, workspaceId, status, deletedAt], map: "idx_workflows_scope_status_deleted")
   @@map("workflows")
@@ -2100,13 +2129,15 @@ model WorkflowTrigger {
 
 /// Action executed when a workflow runs.
 model WorkflowAction {
-  id          String             @id @db.Uuid
-  tenantId    String             @map("tenant_id") @db.Uuid
-  workspaceId String             @map("workspace_id") @db.Uuid
-  workflowId  String             @map("workflow_id") @db.Uuid
-  type        WorkflowActionType
-  config      Json               @default("{}")
-  sortOrder   Int                @default(0) @map("sort_order")
+  id           String             @id @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  workspaceId  String             @map("workspace_id") @db.Uuid
+  workflowId   String             @map("workflow_id") @db.Uuid
+  type         WorkflowActionType
+  config       Json               @default("{}")
+  sortOrder    Int                @default(0) @map("sort_order")
+  maxRetries   Int                @default(0) @map("max_retries")
+  retryDelayMs Int                @default(1000) @map("retry_delay_ms")
 
   createdAt DateTime @map("created_at") @db.Timestamptz
   updatedAt DateTime @map("updated_at") @db.Timestamptz
@@ -2574,6 +2605,8 @@ enum AuditAction {
   TASK_CHANGE
   USER_CHANGE
   SECURITY_CHANGE
+  AI_CHANGE
+  AUTOMATION_CHANGE
   OTHER
 
   @@map("audit_action")
@@ -2717,5 +2750,364 @@ model PersonalAccessToken {
   @@index([tenantId, workspaceId, userId, deletedAt], map: "idx_personal_access_tokens_scope_user")
   @@unique([tokenHash], map: "uq_personal_access_tokens_token_hash")
   @@map("personal_access_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 8 — Automation engine foundation (conditions, schedules, executions)
+// ---------------------------------------------------------------------------
+
+enum WorkflowConditionOperator {
+  EQUALS
+  NOT_EQUALS
+  CONTAINS
+  GREATER_THAN
+  LESS_THAN
+  IS_SET
+  IS_NOT_SET
+
+  @@map("workflow_condition_operator")
+}
+
+/// Condition evaluated before workflow actions run.
+model WorkflowCondition {
+  id          String                     @id @db.Uuid
+  tenantId    String                     @map("tenant_id") @db.Uuid
+  workspaceId String                     @map("workspace_id") @db.Uuid
+  workflowId  String                     @map("workflow_id") @db.Uuid
+  field       String
+  operator    WorkflowConditionOperator
+  value       Json?
+  sortOrder   Int                        @default(0) @map("sort_order")
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  workflow  Workflow  @relation(fields: [workflowId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, workspaceId, workflowId, sortOrder], map: "idx_workflow_conditions_scope_workflow_sort")
+  @@map("workflow_conditions")
+}
+
+enum WorkflowScheduleFrequency {
+  ONCE
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  CRON
+
+  @@map("workflow_schedule_frequency")
+}
+
+/// Schedule that can trigger a workflow independently of domain events.
+model WorkflowSchedule {
+  id          String                    @id @db.Uuid
+  tenantId    String                    @map("tenant_id") @db.Uuid
+  workspaceId String                    @map("workspace_id") @db.Uuid
+  workflowId  String                    @map("workflow_id") @db.Uuid
+  frequency   WorkflowScheduleFrequency
+  cronExpression String?                @map("cron_expression")
+  timezone    String                    @default("UTC")
+  nextRunAt   DateTime?                 @map("next_run_at") @db.Timestamptz
+  lastRunAt   DateTime?                 @map("last_run_at") @db.Timestamptz
+  isActive    Boolean                   @default(true) @map("is_active")
+  config      Json                      @default("{}")
+
+  createdAt DateTime  @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  workflow  Workflow  @relation(fields: [workflowId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, workspaceId, workflowId, deletedAt], map: "idx_workflow_schedules_scope_workflow")
+  @@index([tenantId, workspaceId, isActive, nextRunAt, deletedAt], map: "idx_workflow_schedules_scope_active_next")
+  @@map("workflow_schedules")
+}
+
+enum WorkflowExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  RETRYING
+  CANCELLED
+  SKIPPED
+
+  @@map("workflow_execution_status")
+}
+
+/// Single run of a workflow definition (engine foundation — no business actions yet).
+model WorkflowExecution {
+  id              String                  @id @db.Uuid
+  tenantId        String                  @map("tenant_id") @db.Uuid
+  workspaceId     String                  @map("workspace_id") @db.Uuid
+  workflowId      String                  @map("workflow_id") @db.Uuid
+  status          WorkflowExecutionStatus @default(PENDING)
+  triggerType     String?                 @map("trigger_type")
+  triggerPayload  Json?                   @map("trigger_payload")
+  attempt         Int                     @default(0)
+  maxAttempts     Int                     @default(3) @map("max_attempts")
+  nextRetryAt     DateTime?               @map("next_retry_at") @db.Timestamptz
+  startedAt       DateTime?               @map("started_at") @db.Timestamptz
+  finishedAt      DateTime?               @map("finished_at") @db.Timestamptz
+  errorMessage    String?                 @map("error_message")
+  triggeredByUserId String?               @map("triggered_by_user_id") @db.Uuid
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  workflow        Workflow  @relation(fields: [workflowId], references: [id], onDelete: Restrict)
+  triggeredByUser User?     @relation("WorkflowExecutionTriggeredBy", fields: [triggeredByUserId], references: [id], onDelete: SetNull)
+  logs            WorkflowExecutionLog[]
+
+  @@index([tenantId, workspaceId, workflowId, createdAt], map: "idx_workflow_executions_scope_workflow_created")
+  @@index([tenantId, workspaceId, status, nextRetryAt], map: "idx_workflow_executions_scope_status_retry")
+  @@map("workflow_executions")
+}
+
+enum WorkflowExecutionLogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+
+  @@map("workflow_execution_log_level")
+}
+
+/// Step / log entry for a workflow execution.
+model WorkflowExecutionLog {
+  id          String                     @id @db.Uuid
+  tenantId    String                     @map("tenant_id") @db.Uuid
+  workspaceId String                     @map("workspace_id") @db.Uuid
+  executionId String                     @map("execution_id") @db.Uuid
+  level       WorkflowExecutionLogLevel  @default(INFO)
+  stepKey     String?                    @map("step_key")
+  message     String
+  details     Json?
+  occurredAt  DateTime                   @map("occurred_at") @db.Timestamptz
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  execution WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, workspaceId, executionId, occurredAt], map: "idx_workflow_execution_logs_scope_execution")
+  @@map("workflow_execution_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 8 — AI infrastructure (no business LLM features yet)
+// ---------------------------------------------------------------------------
+
+enum AiProviderKind {
+  NULL
+  OPENAI
+  ANTHROPIC
+  AZURE_OPENAI
+  CUSTOM
+
+  @@map("ai_provider_kind")
+}
+
+/// Workspace-scoped feature flag for gradual rollout (AI and future modules).
+model FeatureFlag {
+  id          String  @id @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  workspaceId String  @map("workspace_id") @db.Uuid
+  key         String
+  name        String
+  description String?
+  enabled     Boolean @default(false)
+  metadata    Json?
+
+  createdAt DateTime  @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, workspaceId, key], map: "uq_feature_flags_scope_key")
+  @@index([tenantId, workspaceId, enabled, deletedAt], map: "idx_feature_flags_scope_enabled")
+  @@map("feature_flags")
+}
+
+/// Provider configuration — API keys stored encrypted or as env references only.
+model AiProviderConfig {
+  id             String         @id @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  workspaceId    String         @map("workspace_id") @db.Uuid
+  kind           AiProviderKind
+  name           String
+  isDefault      Boolean        @default(false) @map("is_default")
+  isEnabled      Boolean        @default(false) @map("is_enabled")
+  baseUrl        String?        @map("base_url")
+  model          String?
+  /// Never store raw secrets here in production — use envRef or encryptedCiphertext.
+  apiKeyEnvRef   String?        @map("api_key_env_ref")
+  encryptedApiKey String?       @map("encrypted_api_key")
+  config         Json           @default("{}")
+
+  createdAt DateTime  @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, workspaceId, kind, deletedAt], map: "idx_ai_provider_configs_scope_kind")
+  @@index([tenantId, workspaceId, isDefault, deletedAt], map: "idx_ai_provider_configs_scope_default")
+  @@map("ai_provider_configs")
+}
+
+/// Versioned prompt template for future AI features.
+model AiPromptTemplate {
+  id          String  @id @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  workspaceId String  @map("workspace_id") @db.Uuid
+  key         String
+  name        String
+  description String?
+  systemPrompt String @map("system_prompt") @db.Text
+  userPromptTemplate String @map("user_prompt_template") @db.Text
+  version     Int     @default(1)
+  isActive    Boolean @default(true) @map("is_active")
+  metadata    Json?
+
+  createdAt DateTime  @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, workspaceId, key, version], map: "uq_ai_prompt_templates_scope_key_version")
+  @@index([tenantId, workspaceId, key, isActive, deletedAt], map: "idx_ai_prompt_templates_scope_key_active")
+  @@map("ai_prompt_templates")
+}
+
+enum AiConversationStatus {
+  ACTIVE
+  ARCHIVED
+  CLOSED
+
+  @@map("ai_conversation_status")
+}
+
+model AiConversation {
+  id          String               @id @db.Uuid
+  tenantId    String               @map("tenant_id") @db.Uuid
+  workspaceId String               @map("workspace_id") @db.Uuid
+  ownerUserId String               @map("owner_user_id") @db.Uuid
+  title       String?
+  status      AiConversationStatus @default(ACTIVE)
+  providerKind AiProviderKind?     @map("provider_kind")
+  model       String?
+  metadata    Json?
+
+  createdAt DateTime  @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  ownerUser User        @relation("AiConversationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  messages  AiMessage[]
+  usageEvents AiUsageEvent[]
+
+  @@index([tenantId, workspaceId, ownerUserId, deletedAt], map: "idx_ai_conversations_scope_owner")
+  @@index([tenantId, workspaceId, status, deletedAt], map: "idx_ai_conversations_scope_status")
+  @@map("ai_conversations")
+}
+
+enum AiMessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+
+  @@map("ai_message_role")
+}
+
+model AiMessage {
+  id             String        @id @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  workspaceId    String        @map("workspace_id") @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  role           AiMessageRole
+  content        String        @db.Text
+  tokenCount     Int?          @map("token_count")
+  createdByUserId String?      @map("created_by_user_id") @db.Uuid
+  metadata       Json?
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdByUser User?         @relation("AiMessageCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, conversationId, createdAt], map: "idx_ai_messages_scope_conversation_created")
+  @@map("ai_messages")
+}
+
+/// Token / cost usage tracking per AI call.
+model AiUsageEvent {
+  id             String         @id @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  workspaceId    String         @map("workspace_id") @db.Uuid
+  conversationId String?        @map("conversation_id") @db.Uuid
+  actorUserId    String?        @map("actor_user_id") @db.Uuid
+  providerKind   AiProviderKind @map("provider_kind")
+  model          String?
+  promptTokens   Int            @default(0) @map("prompt_tokens")
+  completionTokens Int          @default(0) @map("completion_tokens")
+  totalTokens    Int            @default(0) @map("total_tokens")
+  estimatedCostUsd Decimal?     @map("estimated_cost_usd") @db.Decimal(12, 6)
+  featureKey     String?        @map("feature_key")
+  metadata       Json?
+  occurredAt     DateTime       @map("occurred_at") @db.Timestamptz
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  conversation AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  actorUser    User?           @relation("AiUsageEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, workspaceId, occurredAt], map: "idx_ai_usage_events_scope_occurred")
+  @@index([tenantId, workspaceId, providerKind, occurredAt], map: "idx_ai_usage_events_scope_provider")
+  @@index([tenantId, workspaceId, featureKey, occurredAt], map: "idx_ai_usage_events_scope_feature")
+  @@map("ai_usage_events")
+}
+
+/// Workspace AI settings and defaults.
+model AiSettings {
+  id                 String  @id @db.Uuid
+  tenantId           String  @map("tenant_id") @db.Uuid
+  workspaceId        String  @map("workspace_id") @db.Uuid
+  enabled            Boolean @default(false)
+  defaultProviderKind AiProviderKind? @map("default_provider_kind")
+  defaultModel       String? @map("default_model")
+  maxTokensPerRequest Int    @default(4096) @map("max_tokens_per_request")
+  monthlyTokenBudget Int?    @map("monthly_token_budget")
+  auditPrompts       Boolean @default(true) @map("audit_prompts")
+  preferences        Json    @default("{}")
+
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, workspaceId], map: "uq_ai_settings_scope")
+  @@map("ai_settings")
 }
 

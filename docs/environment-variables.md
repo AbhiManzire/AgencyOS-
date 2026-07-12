@@ -21,6 +21,10 @@
 | `THROTTLE_LIMIT` | No | `100` | Max requests per window |
 | `STORAGE_LOCAL_PATH` | No | `uploads` | File storage directory |
 | `STORAGE_MAX_FILE_SIZE_BYTES` | No | `10485760` | Max upload size (10 MB) |
+| `STORAGE_ALLOWED_MIME_TYPES` | No | common images/docs | Comma-separated MIME allowlist |
+| `STORAGE_ALLOWED_EXTENSIONS` | No | jpg,png,pdf,… | Comma-separated extension allowlist |
+| `AI_ENABLED` | No | `false` | Workspace AI master switch default (DB settings also apply) |
+| `AI_DEFAULT_PROVIDER` | No | `NULL` | Default provider kind label |
 
 ## Frontend
 

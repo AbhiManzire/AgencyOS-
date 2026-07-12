@@ -1,9 +1,9 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, LoadingState, PageContainer, PageHeader } from '@/design-system';
-import { AnalyticsPanel } from '@/features/reports/components/analytics-panel';
 import { ExportButtons } from '@/features/reports/components/export-csv-button';
 import {
   defaultReportFilters,
@@ -12,11 +12,20 @@ import {
 } from '@/features/reports/components/report-filters';
 import { ReportMetrics } from '@/features/reports/components/report-metrics';
 import { ReportTable } from '@/features/reports/components/report-table';
-import { SchedulesPanel } from '@/features/reports/components/schedules-panel';
 import { useReport } from '@/features/reports/hooks/use-report';
 import type { ReportQueryParams } from '@/features/reports/api/reports.types';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
+
+const AnalyticsPanel = dynamic(
+  () => import('@/features/reports/components/analytics-panel').then((mod) => mod.AnalyticsPanel),
+  { loading: () => <LoadingState label="Loading analytics..." /> },
+);
+
+const SchedulesPanel = dynamic(
+  () => import('@/features/reports/components/schedules-panel').then((mod) => mod.SchedulesPanel),
+  { loading: () => <LoadingState label="Loading schedules..." /> },
+);
 
 type ReportsTab = 'reports' | 'analytics' | 'schedules';
 

@@ -55,10 +55,16 @@ export class FileService {
     context: FileApplicationContext,
   ): Promise<FileRecord> {
     const maxFileSizeBytes = this.configService.get<number>('storage.maxFileSizeBytes', 10_485_760);
+    const allowedMimeTypes = this.configService.get<string[]>('storage.allowedMimeTypes', []);
+    const allowedExtensions = this.configService.get<string[]>('storage.allowedExtensions', []);
 
     this.fileDomainService.validateUpload({
       buffer: command.buffer,
       maxFileSizeBytes,
+      mimeType: command.mimeType,
+      originalName: command.originalName,
+      allowedMimeTypes,
+      allowedExtensions,
     });
 
     const fileId = randomUUID();
