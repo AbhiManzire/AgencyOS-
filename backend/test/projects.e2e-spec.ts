@@ -75,7 +75,7 @@ describe('Projects (e2e)', () => {
       .send({
         displayName: `Project Client ${suffix}`,
         slug: `project-client-${suffix}`,
-        status: 'ACTIVE',
+        status: 'PROSPECT',
       })
       .expect(201);
 

@@ -288,7 +288,7 @@ async function createTestClient(
     .send({
       displayName: name,
       slug: `contact-test-client-${suffix}`,
-      status: 'ACTIVE',
+      status: 'PROSPECT',
     })
     .expect(201);
 
