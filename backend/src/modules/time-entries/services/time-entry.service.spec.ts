@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ActivityType } from '@prisma/client';
 import { ActivityService } from '../../activities/services/activity.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TASK_REPOSITORY } from '../../tasks/repositories/task.repository.interface';
@@ -105,6 +106,7 @@ describe('TimeEntryService', () => {
     );
 
     expect(entry).toBe(createdEntry);
+
     expect(timeEntryRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         taskId,
@@ -114,12 +116,20 @@ describe('TimeEntryService', () => {
         notes: 'Implementation',
       }),
     );
+
     expect(activityService.createActivity).toHaveBeenCalledWith(
       scope,
       expect.objectContaining({
         entityType: 'task',
         entityId: taskId,
-        type: 'time.logged',
+        type: ActivityType.CUSTOM,
+        title: '1h logged',
+        description: 'Implementation',
+        metadata: expect.objectContaining({
+          timeEntryId: createdEntry.id,
+          durationMinutes: 60,
+          billable: true,
+        }),
       }),
       { actorUserId },
     );
