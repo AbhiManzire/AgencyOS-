@@ -6,6 +6,9 @@ import type { ListWorkflowsParams } from '@/features/workflows/api/workflow.type
 export const workflowsQueryKeys = {
   all: ['workflows'] as const,
   list: (params: ListWorkflowsParams) => [...workflowsQueryKeys.all, 'list', params] as const,
+  detail: (workflowId: string) => [...workflowsQueryKeys.all, 'detail', workflowId] as const,
+  executions: (workflowId: string, params: object) =>
+    [...workflowsQueryKeys.all, 'executions', workflowId, params] as const,
 };
 
 export function useWorkflows(params: ListWorkflowsParams = {}, options?: { enabled?: boolean }) {

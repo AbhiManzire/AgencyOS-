@@ -5,7 +5,8 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmptyState, ErrorState, LoadingState, PageContainer, PageHeader } from '@/design-system';
-import { CreateWorkflowDrawer } from '@/features/workflows/components/create-workflow-drawer';
+import { ExecuteWorkflowDialog } from '@/features/workflows/components/execute-workflow-dialog';
+import { WorkflowBuilderDrawer } from '@/features/workflows/components/workflow-builder-drawer';
 import { WorkflowListTable } from '@/features/workflows/components/workflow-list-table';
 import { useWorkflows } from '@/features/workflows/hooks/use-workflows';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
@@ -15,6 +16,7 @@ export default function WorkflowsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [executeWorkflowId, setExecuteWorkflowId] = useState<string | null>(null);
   const pageSize = 10;
 
   const listParams = useMemo(
@@ -44,6 +46,13 @@ export default function WorkflowsPage() {
     );
   }, [data, search]);
 
+  const executeWorkflowName = useMemo(() => {
+    if (!executeWorkflowId || !data) {
+      return undefined;
+    }
+    return data.items.find((item) => item.id === executeWorkflowId)?.name;
+  }, [data, executeWorkflowId]);
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1;
   const hasActiveFilters = search.trim().length > 0;
 
@@ -68,7 +77,17 @@ export default function WorkflowsPage() {
         }
       />
 
-      <CreateWorkflowDrawer open={createDrawerOpen} onOpenChange={setCreateDrawerOpen} />
+      <WorkflowBuilderDrawer open={createDrawerOpen} onOpenChange={setCreateDrawerOpen} />
+      <ExecuteWorkflowDialog
+        open={executeWorkflowId != null}
+        workflowId={executeWorkflowId}
+        workflowName={executeWorkflowName}
+        onOpenChange={(open) => {
+          if (!open) {
+            setExecuteWorkflowId(null);
+          }
+        }}
+      />
 
       <div className="space-y-4">
         <div className="relative max-w-sm">
@@ -132,7 +151,12 @@ export default function WorkflowsPage() {
           />
         ) : (
           <>
-            <WorkflowListTable workflows={filteredWorkflows} />
+            <WorkflowListTable
+              workflows={filteredWorkflows}
+              onExecute={(workflowId) => {
+                setExecuteWorkflowId(workflowId);
+              }}
+            />
             {search.trim().length === 0 && data && data.total > pageSize ? (
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">

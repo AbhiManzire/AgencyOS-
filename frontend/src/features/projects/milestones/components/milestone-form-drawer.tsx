@@ -33,6 +33,8 @@ interface MilestoneFormDrawerProps {
   readonly mode: MilestoneDrawerMode;
   readonly milestone?: ProjectMilestoneListItem;
   readonly availableOwners: readonly WorkspaceOwnerOption[];
+  /** Other milestones available as dependency targets. */
+  readonly availableMilestones?: readonly ProjectMilestoneListItem[];
   readonly isPending?: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSave: (values: MilestoneFormValues, mode: MilestoneDrawerMode) => Promise<void>;
@@ -43,6 +45,7 @@ export function MilestoneFormDrawer({
   mode,
   milestone,
   availableOwners,
+  availableMilestones = [],
   isPending = false,
   onOpenChange,
   onSave,
@@ -61,6 +64,11 @@ export function MilestoneFormDrawer({
   const isDirty = useMemo(
     () => !areMilestoneFormValuesEqual(values, initialValues),
     [initialValues, values],
+  );
+
+  const dependencyOptions = useMemo(
+    () => availableMilestones.filter((item) => item.id !== milestone?.id),
+    [availableMilestones, milestone],
   );
 
   useEffect(() => {
@@ -243,6 +251,55 @@ export function MilestoneFormDrawer({
                   </option>
                 ))}
               </NativeSelect>
+            </ContactFormField>
+
+            <ContactFormField
+              label="Completion %"
+              htmlFor="completionPercent"
+              error={errors.completionPercent}
+            >
+              <Input
+                id="completionPercent"
+                type="number"
+                min={0}
+                max={100}
+                value={values.completionPercent}
+                onChange={(event) => {
+                  updateField('completionPercent', event.target.value);
+                }}
+                disabled={isSaving}
+              />
+            </ContactFormField>
+
+            <ContactFormField label="Depends on" htmlFor="dependsOnMilestoneIds">
+              <select
+                id="dependsOnMilestoneIds"
+                multiple
+                value={values.dependsOnMilestoneIds}
+                disabled={isSaving || dependencyOptions.length === 0}
+                onChange={(event) => {
+                  const selected = Array.from(event.target.selectedOptions).map(
+                    (option) => option.value,
+                  );
+                  updateField('dependsOnMilestoneIds', selected);
+                }}
+                className="flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {dependencyOptions.length === 0 ? (
+                  <option value="" disabled>
+                    No other milestones
+                  </option>
+                ) : (
+                  dependencyOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))
+                )}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Hold Ctrl/Cmd to select multiple milestones.
+              </p>
             </ContactFormField>
 
             {errors.form ? (

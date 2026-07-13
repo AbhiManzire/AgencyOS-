@@ -8,6 +8,8 @@ export const DEFAULT_MILESTONE_FORM_VALUES: MilestoneFormValues = {
   startDate: '',
   dueDate: '',
   ownerUserId: '',
+  completionPercent: '0',
+  dependsOnMilestoneIds: [],
 };
 
 export function milestoneToFormValues(milestone: ProjectMilestoneListItem): MilestoneFormValues {
@@ -18,6 +20,8 @@ export function milestoneToFormValues(milestone: ProjectMilestoneListItem): Mile
     startDate: milestone.startDate ? milestone.startDate.slice(0, 10) : '',
     dueDate: milestone.dueDate ? milestone.dueDate.slice(0, 10) : '',
     ownerUserId: milestone.ownerUserId ?? '',
+    completionPercent: String(milestone.completionPercent),
+    dependsOnMilestoneIds: [...milestone.dependsOnMilestoneIds],
   };
 }
 
@@ -31,7 +35,9 @@ export function areMilestoneFormValuesEqual(
     left.status === right.status &&
     left.startDate === right.startDate &&
     left.dueDate === right.dueDate &&
-    left.ownerUserId === right.ownerUserId
+    left.ownerUserId === right.ownerUserId &&
+    left.completionPercent === right.completionPercent &&
+    left.dependsOnMilestoneIds.join(',') === right.dependsOnMilestoneIds.join(',')
   );
 }
 
@@ -48,10 +54,20 @@ export function validateMilestoneForm(values: MilestoneFormValues): Record<strin
     }
   }
 
+  const completion = values.completionPercent.trim();
+  if (completion.length > 0) {
+    const parsed = Number(completion);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+      errors.completionPercent = 'Completion must be a whole number between 0 and 100';
+    }
+  }
+
   return errors;
 }
 
 export function toCreateMilestonePayload(values: MilestoneFormValues) {
+  const completion = values.completionPercent.trim();
+
   return {
     name: values.name.trim(),
     ...(values.description.trim().length > 0 ? { description: values.description.trim() } : {}),
@@ -59,10 +75,16 @@ export function toCreateMilestonePayload(values: MilestoneFormValues) {
     ...(values.startDate.trim().length > 0 ? { startDate: values.startDate.trim() } : {}),
     ...(values.dueDate.trim().length > 0 ? { dueDate: values.dueDate.trim() } : {}),
     ...(values.ownerUserId.trim().length > 0 ? { ownerUserId: values.ownerUserId.trim() } : {}),
+    ...(completion.length > 0 ? { completionPercent: Number(completion) } : {}),
+    ...(values.dependsOnMilestoneIds.length > 0
+      ? { dependsOnMilestoneIds: values.dependsOnMilestoneIds }
+      : {}),
   };
 }
 
 export function toUpdateMilestonePayload(values: MilestoneFormValues) {
+  const completion = values.completionPercent.trim();
+
   return {
     name: values.name.trim(),
     description: values.description.trim().length > 0 ? values.description.trim() : null,
@@ -70,5 +92,7 @@ export function toUpdateMilestonePayload(values: MilestoneFormValues) {
     startDate: values.startDate.trim().length > 0 ? values.startDate.trim() : null,
     dueDate: values.dueDate.trim().length > 0 ? values.dueDate.trim() : null,
     ownerUserId: values.ownerUserId.trim().length > 0 ? values.ownerUserId.trim() : null,
+    completionPercent: completion.length > 0 ? Number(completion) : 0,
+    dependsOnMilestoneIds: values.dependsOnMilestoneIds,
   };
 }

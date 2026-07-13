@@ -1,10 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../activities/services/activity.service';
+import { WorkflowEventDispatcher } from '../../automation/services/workflow-event-dispatcher.service';
+import { NOTIFICATION_EVENT_KEYS } from '../../notifications/events/notification-event.catalog';
+import { ProjectNotificationEmitter } from '../../notifications/events/project-notification.emitter';
+import { PrismaService } from '../../prisma/prisma.service';
 import { TaskDomainService } from '../domain/task-domain.service';
 import { TASK_DOMAIN_ERROR_CODES, TaskDomainError } from '../domain/task-domain.errors';
-import { PrismaService } from '../../prisma/prisma.service';
 import {
   TASK_DEPENDENCY_REPOSITORY,
   TASK_REPOSITORY,
@@ -30,6 +33,8 @@ import type {
 
 @Injectable()
 export class TaskService {
+  private readonly logger = new Logger(TaskService.name);
+
   constructor(
     @Inject(TASK_REPOSITORY)
     private readonly taskRepository: TaskRepository,
@@ -37,6 +42,8 @@ export class TaskService {
     private readonly taskDependencyRepository: TaskDependencyRepository,
     private readonly taskDomainService: TaskDomainService,
     private readonly activityService: ActivityService,
+    private readonly projectNotificationEmitter: ProjectNotificationEmitter,
+    private readonly workflowEventDispatcher: WorkflowEventDispatcher,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -108,11 +115,18 @@ export class TaskService {
         await this.emitActivity(
           scope,
           created.id,
-          'task.assigned',
+          'TASK_ASSIGNED',
           'Task Assigned',
           context,
           { assigneeUserId: created.assigneeUserId },
           'Task was assigned.',
+        );
+        await this.emitTaskAssignedNotification(
+          scope,
+          created.id,
+          created.projectId,
+          created.title,
+          created.assigneeUserId,
         );
       }
 
@@ -201,12 +215,14 @@ export class TaskService {
           await this.emitActivity(
             scope,
             updated.id,
-            'task.completed',
+            'TASK',
             'Task Completed',
             context,
             undefined,
             'Task was completed.',
+            `task.completed:${updated.id}`,
           );
+          this.emitWorkflowEvent(scope, updated, context.actorUserId);
         }
       } else {
         await this.emitActivity(
@@ -224,28 +240,25 @@ export class TaskService {
         command.assigneeUserId !== undefined &&
         command.assigneeUserId !== existing.assigneeUserId
       ) {
-        if (existing.assigneeUserId !== null && command.assigneeUserId !== null) {
+        if (command.assigneeUserId !== null) {
           await this.emitActivity(
             scope,
             updated.id,
-            'task.reassigned',
-            'Task Reassigned',
+            'TASK_ASSIGNED',
+            'Task Assigned',
             context,
             {
               from: existing.assigneeUserId,
               to: command.assigneeUserId,
             },
-            'Task was reassigned.',
+            existing.assigneeUserId !== null ? 'Task was reassigned.' : 'Task was assigned.',
           );
-        } else if (command.assigneeUserId !== null) {
-          await this.emitActivity(
+          await this.emitTaskAssignedNotification(
             scope,
             updated.id,
-            'task.assigned',
-            'Task Assigned',
-            context,
-            { assigneeUserId: command.assigneeUserId },
-            'Task was assigned.',
+            updated.projectId,
+            updated.title,
+            command.assigneeUserId,
           );
         }
       }
@@ -507,11 +520,12 @@ export class TaskService {
           await this.emitActivity(
             scope,
             updated.id,
-            'task.completed',
+            'TASK',
             'Task Completed',
             context,
             undefined,
             'Subtask was completed.',
+            `task.completed:${updated.id}`,
           );
         }
       }
@@ -615,6 +629,69 @@ export class TaskService {
     }
   }
 
+  private async emitTaskAssignedNotification(
+    scope: TaskScope,
+    taskId: string,
+    projectId: string,
+    taskTitle: string,
+    assigneeUserId: string,
+  ): Promise<void> {
+    try {
+      const project = await this.prisma.project.findFirst({
+        where: {
+          id: projectId,
+          tenantId: scope.tenantId,
+          workspaceId: scope.workspaceId,
+        },
+        select: { name: true },
+      });
+
+      await this.projectNotificationEmitter.emit(
+        NOTIFICATION_EVENT_KEYS.PROJECT_TASK_ASSIGNED,
+        scope,
+        assigneeUserId,
+        { title: taskTitle, projectName: project?.name ?? 'Project' },
+        {
+          entityType: 'Task',
+          entityId: taskId,
+          linkPath: `/projects/${projectId}/tasks/${taskId}`,
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to emit PROJECT_TASK_ASSIGNED for task ${taskId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  private emitWorkflowEvent(scope: TaskScope, task: TaskRecord, actorUserId?: string | null): void {
+    void this.workflowEventDispatcher
+      .dispatch({
+        scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+        triggerType: 'TASK_COMPLETED',
+        entityType: 'task',
+        entityId: task.id,
+        actorUserId: actorUserId ?? undefined,
+        payload: {
+          entityType: 'task',
+          entityId: task.id,
+          id: task.id,
+          projectId: task.projectId,
+          status: task.status,
+          title: task.title,
+          assigneeUserId: task.assigneeUserId,
+        },
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Workflow emit TASK_COMPLETED failed for task ${task.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+  }
+
   private async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async () => work());
   }
@@ -627,8 +704,9 @@ export class TaskService {
     context: TaskApplicationContext,
     metadata?: Prisma.InputJsonValue,
     description?: string,
+    dedupeKey?: string,
   ): Promise<void> {
-    await this.activityService.createActivity(
+    await this.activityService.logSystemEvent(
       scope,
       {
         entityType: 'task',
@@ -637,6 +715,7 @@ export class TaskService {
         title,
         ...(description !== undefined ? { description } : {}),
         ...(metadata !== undefined ? { metadata } : {}),
+        ...(dedupeKey !== undefined ? { dedupeKey } : {}),
       },
       { actorUserId: context.actorUserId },
     );

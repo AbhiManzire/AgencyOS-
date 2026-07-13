@@ -1,13 +1,19 @@
 import { ProjectMilestoneStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayUnique,
+  IsArray,
   IsDate,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateProjectMilestoneDto {
@@ -39,4 +45,18 @@ export class UpdateProjectMilestoneDto {
   @IsOptional()
   @IsUUID()
   ownerUserId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  completionPercent?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  dependsOnMilestoneIds?: string[];
 }

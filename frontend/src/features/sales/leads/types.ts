@@ -4,7 +4,17 @@ export type LeadStatus =
 export type LeadPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export type LeadSource =
-  'WEBSITE' | 'REFERRAL' | 'COLD_OUTREACH' | 'SOCIAL' | 'EVENT' | 'PARTNER' | 'OTHER';
+  | 'MANUAL'
+  | 'WEBSITE'
+  | 'META_ADS'
+  | 'GOOGLE_ADS'
+  | 'WHATSAPP'
+  | 'EMAIL'
+  | 'CALL'
+  | 'REFERRAL'
+  | 'IMPORT'
+  | 'API'
+  | 'WEBHOOK';
 
 export type LeadSortField = 'updatedAt' | 'createdAt' | 'company' | 'leadScore' | 'priority';
 
@@ -34,6 +44,7 @@ export interface LeadListItem {
   readonly status: LeadStatus;
   readonly priority: LeadPriority;
   readonly source: LeadSource | null;
+  readonly campaignId: string | null;
   readonly assignedTo: string;
   readonly leadScore: number | null;
   readonly expectedDealSize: number | null;

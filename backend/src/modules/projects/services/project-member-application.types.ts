@@ -11,6 +11,7 @@ export interface ProjectMemberApplicationContext {
 export interface CreateProjectMemberCommand {
   readonly userId: string;
   readonly role?: ProjectMemberRole;
+  readonly customRoleLabel?: string | null;
   readonly allocationPercent?: number | null;
   readonly startDate?: Date | null;
   readonly status?: ProjectMemberStatus;
@@ -18,6 +19,7 @@ export interface CreateProjectMemberCommand {
 
 export interface UpdateProjectMemberCommand {
   readonly role?: ProjectMemberRole;
+  readonly customRoleLabel?: string | null;
   readonly allocationPercent?: number | null;
   readonly startDate?: Date | null;
   readonly status?: ProjectMemberStatus;

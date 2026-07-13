@@ -1,8 +1,15 @@
 'use client';
 
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, LoadingState } from '@/design-system';
 import { Body, Caption, CardTitle } from '@/design-system/typography';
 import type { ProjectRecord } from '@/features/projects/api/project.types';
+import type { ProjectHealthResult } from '@/features/projects/delivery/api/delivery.types';
+import {
+  useProjectHealth,
+  useRefreshProjectHealth,
+} from '@/features/projects/delivery/hooks/use-project-health';
 import { useProjectProgress } from '@/features/projects/hooks/use-project-progress';
 import {
   computeProjectHealth,
@@ -42,6 +49,15 @@ const INDICATOR_DOT: Record<ProjectHealthIndicator, string> = {
   red: 'bg-danger',
 };
 
+const API_STATUS_TO_INDICATOR: Record<
+  ProjectHealthResult['status'],
+  { indicator: ProjectHealthIndicator; label: string }
+> = {
+  GREEN: { indicator: 'green', label: 'On track' },
+  YELLOW: { indicator: 'yellow', label: 'At risk' },
+  RED: { indicator: 'red', label: 'Critical' },
+};
+
 function formatPercent(value: number | null): string {
   return value === null ? '—' : `${String(value)}%`;
 }
@@ -63,9 +79,17 @@ function formatDaysRemaining(value: number | null): string {
 }
 
 export function ProjectHealthCard({ project }: ProjectHealthCardProps) {
-  const { metrics, isLoading } = useProjectProgress(project.id);
+  const { metrics, isLoading: isLoadingProgress } = useProjectProgress(project.id);
+  const {
+    data: apiHealth,
+    isLoading: isLoadingHealth,
+    isError: isHealthError,
+  } = useProjectHealth(project.id);
+  const { mutateAsync: refreshHealth, isPending: isRefreshing } = useRefreshProjectHealth(
+    project.id,
+  );
 
-  if (isLoading || metrics === undefined) {
+  if (isLoadingProgress || metrics === undefined || isLoadingHealth) {
     return (
       <Card>
         <CardHeader>
@@ -78,31 +102,75 @@ export function ProjectHealthCard({ project }: ProjectHealthCardProps) {
     );
   }
 
-  const health = computeProjectHealth({
+  const computed = computeProjectHealth({
     project,
     completionPercent: metrics.completionPercent,
     spentAmount: null,
   });
 
+  const fromApi = apiHealth
+    ? {
+        indicator: API_STATUS_TO_INDICATOR[apiHealth.status].indicator,
+        indicatorLabel: API_STATUS_TO_INDICATOR[apiHealth.status].label,
+        completionPercent: apiHealth.factors.completionPercent ?? computed.completionPercent,
+        budgetUtilizationPercent:
+          apiHealth.factors.budgetUtilizationPercent ?? computed.budgetUtilizationPercent,
+        hoursUtilizationPercent:
+          apiHealth.factors.hoursUtilizationPercent ?? computed.hoursUtilizationPercent,
+        daysRemaining: apiHealth.factors.daysRemaining ?? computed.daysRemaining,
+        score: apiHealth.score,
+      }
+    : {
+        ...computed,
+        score: null as number | null,
+      };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>Project Health</CardTitle>
-        <span
-          className={cn(
-            'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
-            INDICATOR_STYLES[health.indicator],
-          )}
-        >
-          <span className={cn('size-2 rounded-full', INDICATOR_DOT[health.indicator])} />
-          {health.indicatorLabel}
-        </span>
+        <div className="flex items-center gap-3">
+          <CardTitle>Project Health</CardTitle>
+          {fromApi.score !== null ? (
+            <span className="text-sm text-muted-foreground">Score {fromApi.score}</span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          {!isHealthError ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={isRefreshing}
+              onClick={() => {
+                void refreshHealth().catch(() => undefined);
+              }}
+            >
+              <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
+              Refresh
+            </Button>
+          ) : null}
+          <span
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
+              INDICATOR_STYLES[fromApi.indicator],
+            )}
+          >
+            <span className={cn('size-2 rounded-full', INDICATOR_DOT[fromApi.indicator])} />
+            {fromApi.indicatorLabel}
+          </span>
+        </div>
       </CardHeader>
       <CardContent>
+        {isHealthError ? (
+          <Body className="mb-3 text-muted-foreground">
+            Using local health estimate — API health unavailable.
+          </Body>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <HealthMetric
             label="% Complete"
-            value={formatPercent(health.completionPercent)}
+            value={formatPercent(fromApi.completionPercent)}
             hint={
               metrics.milestonesTotal === 0
                 ? 'No milestones yet'
@@ -111,18 +179,18 @@ export function ProjectHealthCard({ project }: ProjectHealthCardProps) {
           />
           <HealthMetric
             label="Budget Utilization"
-            value={formatPercent(health.budgetUtilizationPercent)}
+            value={formatPercent(fromApi.budgetUtilizationPercent)}
             hint={
               project.budgetAmount === null
                 ? 'No budget set'
-                : health.budgetUtilizationPercent === null
+                : fromApi.budgetUtilizationPercent === null
                   ? 'Invoiced spend not loaded on detail'
                   : 'Invoiced spend vs budget'
             }
           />
           <HealthMetric
             label="Hours Utilization"
-            value={formatPercent(health.hoursUtilizationPercent)}
+            value={formatPercent(fromApi.hoursUtilizationPercent)}
             hint={
               project.estimatedHours === null
                 ? 'No estimate set'
@@ -131,7 +199,7 @@ export function ProjectHealthCard({ project }: ProjectHealthCardProps) {
           />
           <HealthMetric
             label="Days Remaining"
-            value={formatDaysRemaining(health.daysRemaining)}
+            value={formatDaysRemaining(fromApi.daysRemaining)}
             hint={project.targetEndDate === null ? 'No end date set' : 'Until target end date'}
           />
         </div>

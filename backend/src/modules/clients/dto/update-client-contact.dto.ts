@@ -25,6 +25,11 @@ export class UpdateClientContactDto {
   @IsOptional()
   @IsString()
   @MaxLength(120)
+  role?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
   jobTitle?: string;
 
   @IsOptional()
@@ -56,6 +61,21 @@ export class UpdateClientContactDto {
   @Type(() => Boolean)
   @IsBoolean()
   isDecisionMaker?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isFinance?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isTechnical?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isProcurement?: boolean;
 
   @IsOptional()
   @IsEnum(ClientContactStatus)

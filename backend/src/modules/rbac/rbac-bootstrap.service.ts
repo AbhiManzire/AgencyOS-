@@ -387,6 +387,12 @@ const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
     module: 'settings',
   },
   {
+    key: 'workflows.update',
+    name: 'Update Workflows',
+    description: 'Update, enable, disable, and archive automation workflows.',
+    module: 'settings',
+  },
+  {
     key: 'ai.read',
     name: 'View AI Settings',
     description: 'View AI settings, feature flags, prompts, conversations, and usage.',
@@ -397,6 +403,18 @@ const PERMISSION_CATALOG_SEED: readonly PermissionSeedDefinition[] = [
     name: 'Manage AI',
     description: 'Configure AI providers, settings, feature flags, and prompt templates.',
     module: 'ai',
+  },
+  {
+    key: 'integrations.read',
+    name: 'View Integrations',
+    description: 'View Integration Hub catalog, connections, health, sync logs, and webhooks.',
+    module: 'integrations',
+  },
+  {
+    key: 'integrations.manage',
+    name: 'Manage Integrations',
+    description: 'Connect, disconnect, sync, and configure Integration Hub providers and webhooks.',
+    module: 'integrations',
   },
 ];
 
@@ -432,6 +450,8 @@ const SYSTEM_ROLE_SEEDS: readonly SystemRoleSeedDefinition[] = [
       'sales.update',
       'reports.read',
       'settings.read',
+      'integrations.read',
+      'integrations.manage',
     ],
   },
   {
@@ -444,7 +464,13 @@ const SYSTEM_ROLE_SEEDS: readonly SystemRoleSeedDefinition[] = [
     slug: 'finance',
     name: 'Finance',
     description: 'Invoices, finance modules, payments, and reporting.',
-    permissionPatterns: ['invoices.*', 'finance.*', 'reports.read', 'dashboard.read'],
+    permissionPatterns: [
+      'invoices.*',
+      'finance.*',
+      'reports.read',
+      'dashboard.read',
+      'integrations.read',
+    ],
   },
   {
     slug: 'project-manager',

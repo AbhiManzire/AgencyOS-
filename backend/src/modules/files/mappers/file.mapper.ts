@@ -7,6 +7,7 @@ export const FileMapper = {
     return {
       entityType: dto.entityType,
       entityId: dto.entityId,
+      folder: dto.folder,
       originalName: file.originalname,
       mimeType: file.mimetype,
       buffer: file.buffer,

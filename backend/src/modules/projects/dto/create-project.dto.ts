@@ -1,4 +1,4 @@
-import { ProjectPriority, ProjectStatus } from '@prisma/client';
+import { ProjectPriority, ProjectServiceType, ProjectStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -42,6 +42,27 @@ export class CreateProjectDto {
   @IsOptional()
   @IsUUID()
   departmentId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  dealId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  primaryContactId?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectServiceType)
+  serviceType?: ProjectServiceType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  serviceLabel?: string;
 
   @IsOptional()
   @IsEnum(ProjectPriority)

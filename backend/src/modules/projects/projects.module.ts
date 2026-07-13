@@ -1,14 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ActivitiesModule } from '../activities/activities.module';
+import { WorkflowEventsModule } from '../automation/workflow-events.module';
 import { ClientsModule } from '../clients/clients.module';
 import {
   CLIENT_REPOSITORY,
   type ClientRepository,
 } from '../clients/repositories/client.repository.interface';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectMembersController } from './controllers/project-members.controller';
 import { ProjectMilestonesController } from './controllers/project-milestones.controller';
 import { ProjectTagsController } from './controllers/project-tags.controller';
 import { ProjectsController } from './controllers/projects.controller';
+import { ProjectDeliveryController } from './delivery/controllers/project-delivery.controller';
+import { ProjectDeliverySchedulerService } from './delivery/services/project-delivery-scheduler.service';
+import { ProjectDeliveryService } from './delivery/services/project-delivery.service';
+import { ProjectHealthService } from './delivery/services/project-health.service';
 import { ProjectMemberDomainService } from './domain/project-member-domain.service';
 import { ProjectMilestoneDomainService } from './domain/project-milestone-domain.service';
 import { ProjectDomainService } from './domain/project-domain.service';
@@ -27,9 +33,14 @@ import { ProjectMemberService } from './services/project-member.service';
 import { ProjectMilestoneService } from './services/project-milestone.service';
 import { ProjectTagService } from './services/project-tag.service';
 import { ProjectService } from './services/project.service';
+import { ProjectTemplatesController } from './templates/controllers/project-templates.controller';
+import { PROJECT_TEMPLATE_REPOSITORY } from './templates/repositories/project-template.repository.interface';
+import { PrismaProjectTemplateRepository } from './templates/repositories/prisma-project-template.repository';
+import { ProjectTemplateApplyService } from './templates/services/project-template-apply.service';
+import { ProjectTemplateService } from './templates/services/project-template.service';
 
 @Module({
-  imports: [ClientsModule, ActivitiesModule],
+  imports: [ClientsModule, ActivitiesModule, NotificationsModule, WorkflowEventsModule],
   providers: [
     {
       provide: PROJECT_REPOSITORY,
@@ -48,6 +59,10 @@ import { ProjectService } from './services/project.service';
       useClass: PrismaProjectTagRepository,
     },
     {
+      provide: PROJECT_TEMPLATE_REPOSITORY,
+      useClass: PrismaProjectTemplateRepository,
+    },
+    {
       provide: ProjectDomainService,
       useFactory: (projectRepository: ProjectRepository, clientRepository: ClientRepository) =>
         new ProjectDomainService(projectRepository, clientRepository),
@@ -59,9 +74,16 @@ import { ProjectService } from './services/project.service';
     ProjectMemberService,
     ProjectMilestoneService,
     ProjectTagService,
+    ProjectTemplateService,
+    ProjectTemplateApplyService,
+    ProjectHealthService,
+    ProjectDeliveryService,
+    ProjectDeliverySchedulerService,
   ],
   controllers: [
+    ProjectDeliveryController,
     ProjectsController,
+    ProjectTemplatesController,
     ProjectMembersController,
     ProjectMilestonesController,
     ProjectTagsController,
@@ -71,6 +93,7 @@ import { ProjectService } from './services/project.service';
     PROJECT_MEMBER_REPOSITORY,
     PROJECT_MILESTONE_REPOSITORY,
     PROJECT_TAG_REPOSITORY,
+    PROJECT_TEMPLATE_REPOSITORY,
     ProjectDomainService,
     ProjectMemberDomainService,
     ProjectMilestoneDomainService,
@@ -78,6 +101,10 @@ import { ProjectService } from './services/project.service';
     ProjectMemberService,
     ProjectMilestoneService,
     ProjectTagService,
+    ProjectTemplateService,
+    ProjectTemplateApplyService,
+    ProjectHealthService,
+    ProjectDeliveryService,
   ],
 })
 export class ProjectsModule {}

@@ -3,31 +3,74 @@
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type ClientDetailTab = 'overview' | 'contacts' | 'notes' | 'activity' | 'documents';
+export type ClientDetailTab =
+  | 'overview'
+  | 'contacts'
+  | 'deals'
+  | 'projects'
+  | 'invoices'
+  | 'payments'
+  | 'activities'
+  | 'documents'
+  | 'notes'
+  | 'renewals'
+  | 'timeline';
 
 interface ClientDetailTabsProps {
   readonly overview: ReactNode;
   readonly contacts: ReactNode;
-  readonly notes: ReactNode;
-  readonly activity: ReactNode;
+  readonly deals: ReactNode;
+  readonly projects: ReactNode;
+  readonly invoices: ReactNode;
+  readonly payments: ReactNode;
+  readonly activities: ReactNode;
   readonly documents: ReactNode;
+  readonly notes: ReactNode;
+  readonly renewals: ReactNode;
+  readonly timeline: ReactNode;
   readonly defaultTab?: ClientDetailTab;
 }
 
 const TAB_LABELS: Record<ClientDetailTab, string> = {
   overview: 'Overview',
   contacts: 'Contacts',
-  notes: 'Notes',
-  activity: 'Activity',
+  deals: 'Deals',
+  projects: 'Projects',
+  invoices: 'Invoices',
+  payments: 'Payments',
+  activities: 'Activities',
   documents: 'Documents',
+  notes: 'Notes',
+  renewals: 'Renewals',
+  timeline: 'Timeline',
 };
+
+const TAB_ORDER: readonly ClientDetailTab[] = [
+  'overview',
+  'contacts',
+  'deals',
+  'projects',
+  'invoices',
+  'payments',
+  'activities',
+  'documents',
+  'notes',
+  'renewals',
+  'timeline',
+];
 
 export function ClientDetailTabs({
   overview,
   contacts,
-  notes,
-  activity,
+  deals,
+  projects,
+  invoices,
+  payments,
+  activities,
   documents,
+  notes,
+  renewals,
+  timeline,
   defaultTab = 'overview',
 }: ClientDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<ClientDetailTab>(defaultTab);
@@ -35,16 +78,22 @@ export function ClientDetailTabs({
   const tabContent: Record<ClientDetailTab, ReactNode> = {
     overview,
     contacts,
-    notes,
-    activity,
+    deals,
+    projects,
+    invoices,
+    payments,
+    activities,
     documents,
+    notes,
+    renewals,
+    timeline,
   };
 
   return (
     <div className="mt-6">
       <div className="border-b border-border">
         <nav className="-mb-px flex gap-6 overflow-x-auto" aria-label="Client detail sections">
-          {(Object.keys(TAB_LABELS) as ClientDetailTab[]).map((tab) => (
+          {TAB_ORDER.map((tab) => (
             <button
               key={tab}
               type="button"

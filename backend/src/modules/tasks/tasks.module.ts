@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ActivitiesModule } from '../activities/activities.module';
+import { WorkflowEventsModule } from '../automation/workflow-events.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
 import {
   PROJECT_MILESTONE_REPOSITORY,
@@ -9,6 +11,10 @@ import {
   PROJECT_REPOSITORY,
   type ProjectRepository,
 } from '../projects/repositories/project.repository.interface';
+import { TaskChecklistController } from './checklist/controllers/task-checklist.controller';
+import { TASK_CHECKLIST_ITEM_REPOSITORY } from './checklist/repositories/task-checklist-item.repository.interface';
+import { PrismaTaskChecklistItemRepository } from './checklist/repositories/prisma-task-checklist-item.repository';
+import { TaskChecklistItemService } from './checklist/services/task-checklist-item.service';
 import { TaskDependenciesController } from './controllers/task-dependencies.controller';
 import { TaskSubtasksController } from './controllers/task-subtasks.controller';
 import { TaskTagsController } from './controllers/task-tags.controller';
@@ -28,7 +34,7 @@ import { TaskTagService } from './services/task-tag.service';
 import { TaskService } from './services/task.service';
 
 @Module({
-  imports: [ProjectsModule, ActivitiesModule],
+  imports: [ProjectsModule, ActivitiesModule, NotificationsModule, WorkflowEventsModule],
   providers: [
     {
       provide: TASK_REPOSITORY,
@@ -41,6 +47,10 @@ import { TaskService } from './services/task.service';
     {
       provide: TASK_TAG_REPOSITORY,
       useClass: PrismaTaskTagRepository,
+    },
+    {
+      provide: TASK_CHECKLIST_ITEM_REPOSITORY,
+      useClass: PrismaTaskChecklistItemRepository,
     },
     {
       provide: TaskDomainService,
@@ -65,13 +75,21 @@ import { TaskService } from './services/task.service';
     },
     TaskService,
     TaskTagService,
+    TaskChecklistItemService,
   ],
   controllers: [
     TasksController,
     TaskSubtasksController,
     TaskDependenciesController,
     TaskTagsController,
+    TaskChecklistController,
   ],
-  exports: [TASK_REPOSITORY, TaskDomainService, TaskService, TaskTagService],
+  exports: [
+    TASK_REPOSITORY,
+    TaskDomainService,
+    TaskService,
+    TaskTagService,
+    TaskChecklistItemService,
+  ],
 })
 export class TasksModule {}

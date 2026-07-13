@@ -1,15 +1,16 @@
 'use client';
 
-import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRef } from 'react';
 import { Caption } from '@/design-system/typography';
+import { DealPriorityBadge } from '@/features/sales/components/deal-priority-badge';
 import type { PipelineDealCard as PipelineDealCardModel } from '@/features/sales/pipeline/pipeline.constants';
 import { DEAL_DRAG_TYPE } from '@/features/sales/pipeline/pipeline.constants';
-import { DealPriorityBadge } from '@/features/sales/components/deal-priority-badge';
 import {
   formatDealDate,
   formatDealProbability,
   formatDealValue,
+  formatWeightedDealValue,
 } from '@/features/sales/utils/deal-display';
 import { usePermission } from '@/lib/rbac/use-permission';
 import { cn } from '@/lib/utils';
@@ -72,8 +73,11 @@ export function PipelineDealCard({ deal, isDragging = false }: PipelineDealCardP
           {formatDealValue(deal.value, deal.currency)}
         </Caption>
         <Caption className="block text-muted-foreground">
-          {formatDealProbability(deal.stage, deal.probability)} · Close{' '}
-          {formatDealDate(deal.expectedCloseDate)}
+          {formatDealProbability(deal.stage, deal.probability)} · Weighted{' '}
+          {formatWeightedDealValue(deal.value, deal.stage, deal.probability, deal.currency)}
+        </Caption>
+        <Caption className="block text-muted-foreground">
+          Close {formatDealDate(deal.expectedCloseDate)}
         </Caption>
         <Caption className="block truncate text-muted-foreground">{deal.ownerName}</Caption>
       </div>

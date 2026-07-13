@@ -144,8 +144,8 @@ function ClientFormFields({
           <NativeSelect
             id="status"
             label="Status"
-            value={values.status}
-            disabled={isPending}
+            value={isEditMode ? values.status : 'PROSPECT'}
+            disabled={isPending || !isEditMode}
             className={cn(fieldClassName(errors.status))}
             onChange={(event) => {
               updateField('status', event.target.value as ClientStatus);
@@ -155,9 +155,14 @@ function ClientFormFields({
             }}
           >
             <option value="PROSPECT">Prospect</option>
-            <option value="ACTIVE">Active</option>
+            {isEditMode ? <option value="ACTIVE">Active</option> : null}
             {isEditMode ? <option value="INACTIVE">Inactive</option> : null}
           </NativeSelect>
+          {!isEditMode ? (
+            <p className="text-xs text-muted-foreground">
+              New clients start as Prospect. Winning a deal activates Client Success.
+            </p>
+          ) : null}
         </FormField>
       </section>
 

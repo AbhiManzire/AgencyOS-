@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { CommentDomainService } from '../domain/comment-domain.service';
 import { COMMENT_DOMAIN_ERROR_CODES, CommentDomainError } from '../domain/comment-domain.errors';
@@ -80,6 +80,7 @@ export class CommentService {
     context: CommentApplicationContext,
   ): Promise<CommentRecord> {
     const existing = await this.requireComment(scope, commentId);
+    this.assertActivityCommentMutable(existing);
 
     this.commentDomainService.validateUpdate(existing, {
       message: command.message,
@@ -113,6 +114,7 @@ export class CommentService {
     context: CommentApplicationContext,
   ): Promise<CommentRecord> {
     const existing = await this.requireComment(scope, commentId);
+    this.assertActivityCommentMutable(existing);
     this.commentDomainService.ensureWorkspaceOwnership(scope, existing);
 
     const now = new Date();
@@ -134,6 +136,12 @@ export class CommentService {
 
       return deleted;
     });
+  }
+
+  private assertActivityCommentMutable(comment: CommentRecord): void {
+    if (comment.entityType === 'activity') {
+      throw new BadRequestException('Activity comments are audit-only and cannot be modified.');
+    }
   }
 
   private async runInTransaction<T>(work: () => Promise<T>): Promise<T> {

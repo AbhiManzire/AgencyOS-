@@ -226,10 +226,33 @@ export function MemberFormDrawer({
                 <option value="MANAGER">Manager</option>
                 <option value="DEVELOPER">Developer</option>
                 <option value="DESIGNER">Designer</option>
+                <option value="SEO">SEO</option>
+                <option value="MARKETING">Marketing</option>
                 <option value="QA">QA</option>
+                <option value="ACCOUNTS">Accounts</option>
+                <option value="CUSTOM">Custom</option>
                 <option value="VIEWER">Viewer</option>
               </NativeSelect>
             </ContactFormField>
+
+            {values.role === 'CUSTOM' ? (
+              <ContactFormField
+                label="Custom role label"
+                htmlFor="customRoleLabel"
+                required
+                error={errors.customRoleLabel}
+              >
+                <Input
+                  id="customRoleLabel"
+                  value={values.customRoleLabel}
+                  onChange={(event) => {
+                    updateField('customRoleLabel', event.target.value);
+                  }}
+                  placeholder="e.g. Content strategist"
+                  disabled={isSaving}
+                />
+              </ContactFormField>
+            ) : null}
 
             <ContactFormField
               label="Allocation %"

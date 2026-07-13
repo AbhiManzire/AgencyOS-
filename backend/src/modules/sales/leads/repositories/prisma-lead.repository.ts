@@ -41,7 +41,10 @@ export class PrismaLeadRepository implements LeadRepository {
         website: data.website ?? null,
         industry: data.industry ?? null,
         country: data.country ?? null,
-        source: data.source ?? 'OTHER',
+        source: data.source ?? 'MANUAL',
+        campaignId: data.campaignId ?? null,
+        intakeProvider: data.intakeProvider ?? null,
+        externalId: data.externalId ?? null,
         assignedToUserId: data.assignedToUserId ?? null,
         status: data.status ?? 'NEW',
         leadScore: data.leadScore ?? null,
@@ -117,6 +120,50 @@ export class PrismaLeadRepository implements LeadRepository {
     return lead ? toLeadRecord(lead) : null;
   }
 
+  async findByIds(scope: LeadScope, ids: readonly string[]): Promise<readonly LeadRecord[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const leads = await this.prisma.lead.findMany({
+      where: {
+        id: { in: [...ids] },
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        deletedAt: null,
+      },
+      include: leadInclude,
+    });
+
+    return leads.map(toLeadRecord);
+  }
+
+  async findByEmails(scope: LeadScope, emails: readonly string[]): Promise<readonly LeadRecord[]> {
+    const normalized = [
+      ...new Set(
+        emails.map((email) => email.trim().toLowerCase()).filter((email) => email.length > 0),
+      ),
+    ];
+
+    if (normalized.length === 0) {
+      return [];
+    }
+
+    const leads = await this.prisma.lead.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        deletedAt: null,
+        OR: normalized.map((email) => ({
+          email: { equals: email, mode: 'insensitive' as const },
+        })),
+      },
+      include: leadInclude,
+    });
+
+    return leads.map(toLeadRecord);
+  }
+
   async list(params: ListLeadsParams): Promise<ListLeadsResult> {
     const {
       scope,
@@ -126,6 +173,7 @@ export class PrismaLeadRepository implements LeadRepository {
       status,
       source,
       assignedToUserId,
+      campaignId,
       priority,
       industry,
       country,
@@ -144,6 +192,7 @@ export class PrismaLeadRepository implements LeadRepository {
       ...(status !== undefined ? { status } : {}),
       ...(source !== undefined ? { source } : {}),
       ...(assignedToUserId !== undefined ? { assignedToUserId } : {}),
+      ...(campaignId !== undefined ? { campaignId } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(industry !== undefined ? { industry: { equals: industry, mode: 'insensitive' } } : {}),
       ...(country !== undefined ? { country: { equals: country, mode: 'insensitive' } } : {}),
@@ -341,6 +390,9 @@ function toLeadRecord(lead: LeadWithRelations): LeadRecord {
     industry: lead.industry,
     country: lead.country,
     source: lead.source,
+    campaignId: lead.campaignId,
+    intakeProvider: lead.intakeProvider,
+    externalId: lead.externalId,
     assignedToUserId: lead.assignedToUserId,
     assignedToDisplayName: lead.assignedToUser ? resolveUserDisplayName(lead.assignedToUser) : null,
     assignedToEmail: lead.assignedToUser?.email ?? null,

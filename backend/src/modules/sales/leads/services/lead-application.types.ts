@@ -21,6 +21,9 @@ export interface CreateLeadCommand {
   readonly industry?: string | null;
   readonly country?: string | null;
   readonly source?: LeadSource;
+  readonly campaignId?: string | null;
+  readonly intakeProvider?: string | null;
+  readonly externalId?: string | null;
   readonly assignedToUserId?: string | null;
   readonly status?: LeadStatus;
   readonly leadScore?: number | null;
@@ -48,6 +51,7 @@ export interface UpdateLeadCommand {
   readonly industry?: string | null;
   readonly country?: string | null;
   readonly source?: LeadSource;
+  readonly campaignId?: string | null;
   readonly assignedToUserId?: string | null;
   readonly status?: LeadStatus;
   readonly leadScore?: number | null;
@@ -79,6 +83,7 @@ export interface ListLeadsQuery {
   readonly status?: LeadStatus;
   readonly source?: LeadSource;
   readonly assignedToUserId?: string;
+  readonly campaignId?: string;
   readonly priority?: LeadPriority;
   readonly industry?: string;
   readonly country?: string;

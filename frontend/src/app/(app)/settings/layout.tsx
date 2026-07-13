@@ -7,6 +7,7 @@ import { PermissionRoute } from '@/lib/rbac';
 const SETTINGS_ACCESS_PERMISSIONS = [
   'settings.read',
   'workflows.read',
+  'integrations.read',
   'audit.read',
   'notifications.read',
   'security.manage',

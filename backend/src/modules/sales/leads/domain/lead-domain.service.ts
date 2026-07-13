@@ -22,13 +22,17 @@ const VALID_STATUSES: readonly LeadStatus[] = [
 const VALID_PRIORITIES: readonly LeadPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 const VALID_SOURCES: readonly LeadSource[] = [
+  'MANUAL',
   'WEBSITE',
+  'META_ADS',
+  'GOOGLE_ADS',
+  'WHATSAPP',
+  'EMAIL',
+  'CALL',
   'REFERRAL',
-  'COLD_OUTREACH',
-  'SOCIAL',
-  'EVENT',
-  'PARTNER',
-  'OTHER',
+  'IMPORT',
+  'API',
+  'WEBHOOK',
 ];
 
 const STATUS_TRANSITIONS: Readonly<Record<LeadStatus, readonly LeadStatus[]>> = {
@@ -47,10 +51,81 @@ const STATUS_TRANSITIONS: Readonly<Record<LeadStatus, readonly LeadStatus[]>> = 
 export class LeadDomainService {
   validateCreate(input: CreateLeadValidationInput): void {
     this.assertCompanyRequired(input.company);
-    this.assertContactPersonRequired(input.contactPerson);
-    this.assertEmailRequired(input.email);
-    this.assertPhoneRequired(input.phone);
-    this.assertSourceRequired(input.source);
+
+    if (this.shouldRequireContactDetails(input.source)) {
+      this.assertContactPersonRequired(input.contactPerson);
+      this.assertEmailRequired(input.email);
+      this.assertPhoneRequired(input.phone);
+    }
+
+    if (hasNonEmptyText(input.email)) {
+      if (!isValidEmail(input.email)) {
+        throw new LeadDomainError(
+          LEAD_DOMAIN_ERROR_CODES.INVALID_EMAIL,
+          'Email must be a valid email address.',
+        );
+      }
+    }
+
+    if (hasNonEmptyText(input.phone)) {
+      if (!isValidPhone(input.phone)) {
+        throw new LeadDomainError(
+          LEAD_DOMAIN_ERROR_CODES.INVALID_PHONE,
+          'Phone must contain 7 to 15 digits only.',
+        );
+      }
+    }
+
+    if (input.source !== undefined && input.source !== null) {
+      this.assertValidSource(input.source);
+    }
+
+    if (input.website !== undefined && input.website !== null && input.website.trim().length > 0) {
+      this.assertValidWebsite(input.website);
+    }
+
+    if (input.status !== undefined) {
+      this.assertValidStatus(input.status);
+      this.assertCreatableStatus(input.status);
+    }
+
+    if (input.priority !== undefined) {
+      this.assertValidPriority(input.priority);
+    }
+
+    if (input.expectedDealSize !== undefined && input.expectedDealSize !== null) {
+      this.assertPositiveExpectedDealSize(input.expectedDealSize);
+    }
+  }
+
+  /**
+   * Import rows require company only. Optional contact/email/phone/website
+   * are format-checked when present.
+   */
+  validateImportRow(input: CreateLeadValidationInput): void {
+    this.assertCompanyRequired(input.company);
+
+    if (hasNonEmptyText(input.email)) {
+      if (!isValidEmail(input.email)) {
+        throw new LeadDomainError(
+          LEAD_DOMAIN_ERROR_CODES.INVALID_EMAIL,
+          'Email must be a valid email address.',
+        );
+      }
+    }
+
+    if (hasNonEmptyText(input.phone)) {
+      if (!isValidPhone(input.phone)) {
+        throw new LeadDomainError(
+          LEAD_DOMAIN_ERROR_CODES.INVALID_PHONE,
+          'Phone must contain 7 to 15 digits only.',
+        );
+      }
+    }
+
+    if (input.source !== undefined && input.source !== null) {
+      this.assertValidSource(input.source);
+    }
 
     if (input.website !== undefined && input.website !== null && input.website.trim().length > 0) {
       this.assertValidWebsite(input.website);
@@ -77,16 +152,37 @@ export class LeadDomainService {
       this.assertCompanyRequired(input.company);
     }
 
-    if (input.contactPerson !== undefined) {
-      this.assertContactPersonRequired(input.contactPerson);
+    if (input.contactPerson !== undefined && input.contactPerson !== null) {
+      if (input.contactPerson.trim().length === 0) {
+        throw new LeadDomainError(
+          LEAD_DOMAIN_ERROR_CODES.CONTACT_PERSON_REQUIRED,
+          'Contact person cannot be empty.',
+        );
+      }
     }
 
-    if (input.email !== undefined) {
-      this.assertEmailRequired(input.email);
+    if (input.email !== undefined && input.email !== null) {
+      if (input.email.trim().length === 0) {
+        throw new LeadDomainError(LEAD_DOMAIN_ERROR_CODES.EMAIL_REQUIRED, 'Email cannot be empty.');
+      }
+      if (!isValidEmail(input.email)) {
+        throw new LeadDomainError(
+          LEAD_DOMAIN_ERROR_CODES.INVALID_EMAIL,
+          'Email must be a valid email address.',
+        );
+      }
     }
 
-    if (input.phone !== undefined) {
-      this.assertPhoneRequired(input.phone);
+    if (input.phone !== undefined && input.phone !== null) {
+      if (input.phone.trim().length === 0) {
+        throw new LeadDomainError(LEAD_DOMAIN_ERROR_CODES.PHONE_REQUIRED, 'Phone cannot be empty.');
+      }
+      if (!isValidPhone(input.phone)) {
+        throw new LeadDomainError(
+          LEAD_DOMAIN_ERROR_CODES.INVALID_PHONE,
+          'Phone must contain 7 to 15 digits only.',
+        );
+      }
     }
 
     if (input.source !== undefined && input.source !== null) {
@@ -217,6 +313,13 @@ export class LeadDomainService {
     }
   }
 
+  private shouldRequireContactDetails(source?: LeadSource | null): boolean {
+    if (source === undefined || source === null) {
+      return true;
+    }
+    return source === 'MANUAL' || source === 'CALL' || source === 'EMAIL' || source === 'REFERRAL';
+  }
+
   private assertContactPersonRequired(contactPerson: string | null | undefined): void {
     if (
       contactPerson === null ||
@@ -234,34 +337,12 @@ export class LeadDomainService {
     if (email === null || email === undefined || email.trim().length === 0) {
       throw new LeadDomainError(LEAD_DOMAIN_ERROR_CODES.EMAIL_REQUIRED, 'Email is required.');
     }
-    if (!isValidEmail(email)) {
-      throw new LeadDomainError(
-        LEAD_DOMAIN_ERROR_CODES.INVALID_EMAIL,
-        'Email must be a valid email address.',
-      );
-    }
   }
 
   private assertPhoneRequired(phone: string | null | undefined): void {
     if (phone === null || phone === undefined || phone.trim().length === 0) {
       throw new LeadDomainError(LEAD_DOMAIN_ERROR_CODES.PHONE_REQUIRED, 'Phone is required.');
     }
-    if (!isValidPhone(phone)) {
-      throw new LeadDomainError(
-        LEAD_DOMAIN_ERROR_CODES.INVALID_PHONE,
-        'Phone must contain 7 to 15 digits only.',
-      );
-    }
-  }
-
-  private assertSourceRequired(source: LeadSource | null | undefined): void {
-    if (source === null || source === undefined) {
-      throw new LeadDomainError(
-        LEAD_DOMAIN_ERROR_CODES.SOURCE_REQUIRED,
-        'Lead source is required.',
-      );
-    }
-    this.assertValidSource(source);
   }
 
   private assertValidWebsite(website: string): void {

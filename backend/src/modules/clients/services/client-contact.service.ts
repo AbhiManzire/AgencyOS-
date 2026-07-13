@@ -84,6 +84,7 @@ export class ClientContactService {
         clientId,
         firstName: this.clientContactDomainService.normalizeFirstName(command.firstName),
         lastName: this.clientContactDomainService.normalizeOptionalString(command.lastName),
+        role: this.clientContactDomainService.normalizeOptionalString(command.role),
         jobTitle: this.clientContactDomainService.normalizeOptionalString(command.jobTitle),
         department: this.clientContactDomainService.normalizeOptionalString(command.department),
         email: this.clientContactDomainService.normalizeOptionalString(command.email),
@@ -91,6 +92,9 @@ export class ClientContactService {
         phone: this.clientContactDomainService.normalizeOptionalString(command.phone),
         isPrimary,
         isDecisionMaker: command.isDecisionMaker ?? false,
+        isFinance: command.isFinance ?? false,
+        isTechnical: command.isTechnical ?? false,
+        isProcurement: command.isProcurement ?? false,
         status: command.status ?? 'ACTIVE',
         createdAt: now,
         updatedAt: now,
@@ -138,6 +142,9 @@ export class ClientContactService {
       ...(command.lastName !== undefined
         ? { lastName: this.clientContactDomainService.normalizeOptionalString(command.lastName) }
         : {}),
+      ...(command.role !== undefined
+        ? { role: this.clientContactDomainService.normalizeOptionalString(command.role) }
+        : {}),
       ...(command.jobTitle !== undefined
         ? { jobTitle: this.clientContactDomainService.normalizeOptionalString(command.jobTitle) }
         : {}),
@@ -159,6 +166,9 @@ export class ClientContactService {
       ...(command.isDecisionMaker !== undefined
         ? { isDecisionMaker: command.isDecisionMaker }
         : {}),
+      ...(command.isFinance !== undefined ? { isFinance: command.isFinance } : {}),
+      ...(command.isTechnical !== undefined ? { isTechnical: command.isTechnical } : {}),
+      ...(command.isProcurement !== undefined ? { isProcurement: command.isProcurement } : {}),
       ...(command.status !== undefined ? { status: command.status } : {}),
     };
 

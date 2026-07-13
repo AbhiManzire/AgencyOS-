@@ -13,6 +13,8 @@ export interface CreateProjectMilestoneCommand {
   readonly startDate?: Date | null;
   readonly dueDate?: Date | null;
   readonly ownerUserId?: string | null;
+  readonly completionPercent?: number | null;
+  readonly dependsOnMilestoneIds?: readonly string[];
 }
 
 export interface UpdateProjectMilestoneCommand {
@@ -22,6 +24,8 @@ export interface UpdateProjectMilestoneCommand {
   readonly startDate?: Date | null;
   readonly dueDate?: Date | null;
   readonly ownerUserId?: string | null;
+  readonly completionPercent?: number | null;
+  readonly dependsOnMilestoneIds?: readonly string[];
 }
 
 export interface ListProjectMilestonesResult {

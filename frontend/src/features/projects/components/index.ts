@@ -15,3 +15,5 @@ export { ProjectComingSoonTab } from './project-coming-soon-tab';
 export { ProjectTasksTab } from './project-tasks-tab';
 export { ProjectDetailTabs } from './project-detail-tabs';
 export { ProjectNotFoundState } from './project-not-found-state';
+export { ProjectInvoicesTab } from './project-invoices-tab';
+export { ProjectPaymentsTab } from './project-payments-tab';

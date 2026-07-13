@@ -10,6 +10,8 @@ export interface ProjectMilestoneListItem {
   readonly startDate: string | null;
   readonly dueDate: string | null;
   readonly progressPercent: number;
+  readonly completionPercent: number;
+  readonly dependsOnMilestoneIds: readonly string[];
   readonly ownerUserId: string | null;
   readonly ownerDisplayName: string;
   readonly ownerEmail: string;
@@ -22,6 +24,8 @@ export interface MilestoneFormValues {
   startDate: string;
   dueDate: string;
   ownerUserId: string;
+  completionPercent: string;
+  dependsOnMilestoneIds: string[];
 }
 
 export interface MilestoneFormErrors {
@@ -29,6 +33,7 @@ export interface MilestoneFormErrors {
   description?: string;
   startDate?: string;
   dueDate?: string;
+  completionPercent?: string;
   form?: string;
 }
 

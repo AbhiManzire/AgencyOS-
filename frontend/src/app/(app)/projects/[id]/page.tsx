@@ -8,7 +8,6 @@ import { ErrorState, LoadingState, PageContainer, useToast } from '@/design-syst
 import { useClient } from '@/features/clients/hooks/use-client';
 import { ArchiveProjectDialog } from '@/features/projects/components/archive-project-dialog';
 import { CreateProjectDrawer } from '@/features/projects/components/create-project-drawer';
-import { ProjectComingSoonTab } from '@/features/projects/components/project-coming-soon-tab';
 import { ProjectInvoicesTab } from '@/features/projects/components/project-invoices-tab';
 import { ProjectPaymentsTab } from '@/features/projects/components/project-payments-tab';
 import { ProjectTasksTab } from '@/features/projects/components/project-tasks-tab';
@@ -22,6 +21,8 @@ import { ProjectHealthCard } from '@/features/projects/components/project-health
 import { ProjectMembersSummaryCard } from '@/features/projects/components/project-members-summary-card';
 import { ProjectNotFoundState } from '@/features/projects/components/project-not-found-state';
 import { ProjectTimelineCard } from '@/features/projects/components/project-timeline-card';
+import { ProjectClientSummaryCard } from '@/features/projects/delivery/components/project-client-summary-card';
+import { ProjectHoursSummaryCard } from '@/features/projects/delivery/components/project-hours-summary-card';
 import { useArchiveProject } from '@/features/projects/hooks/use-archive-project';
 import { useCompleteProject } from '@/features/projects/hooks/use-complete-project';
 import { useMarkProjectInvoiceReady } from '@/features/projects/hooks/use-mark-project-invoice-ready';
@@ -38,12 +39,44 @@ const ActivityTimeline = dynamic(
   { loading: () => <LoadingState label="Loading activity..." /> },
 );
 
+const EntityFollowUpsPanel = dynamic(
+  () =>
+    import('@/features/activity/follow-ups/components/entity-follow-ups-panel').then((mod) => ({
+      default: mod.EntityFollowUpsPanel,
+    })),
+  { loading: () => <LoadingState label="Loading activities..." /> },
+);
+
+const CommentsPanel = dynamic(
+  () =>
+    import('@/features/comments/components/comments-panel').then((mod) => ({
+      default: mod.CommentsPanel,
+    })),
+  { loading: () => <LoadingState label="Loading comments..." /> },
+);
+
+const FilePanel = dynamic(
+  () =>
+    import('@/features/files/components/file-panel').then((mod) => ({
+      default: mod.FilePanel,
+    })),
+  { loading: () => <LoadingState label="Loading files..." /> },
+);
+
 const ProjectMembersTab = dynamic(
   () =>
     import('@/features/projects/members/components/project-members-tab').then((mod) => ({
       default: mod.ProjectMembersTab,
     })),
-  { loading: () => <LoadingState label="Loading members..." /> },
+  { loading: () => <LoadingState label="Loading team..." /> },
+);
+
+const ProjectMilestonesTab = dynamic(
+  () =>
+    import('@/features/projects/milestones/components/project-milestones-tab').then((mod) => ({
+      default: mod.ProjectMilestonesTab,
+    })),
+  { loading: () => <LoadingState label="Loading milestones..." /> },
 );
 
 export default function ProjectDetailPage() {
@@ -189,13 +222,18 @@ export default function ProjectDetailPage() {
           overview={
             <div className="space-y-6">
               <ProjectHealthCard project={project} />
+              <ProjectHoursSummaryCard
+                projectId={projectId}
+                fallbackEstimatedHours={project.estimatedHours}
+                fallbackActualHours={project.actualHours}
+              />
               <div className="grid gap-6 lg:grid-cols-2">
                 <ProjectDetailOverviewCard project={project} clientName={clientName} />
                 <div className="space-y-6">
                   <ProjectMembersSummaryCard
                     projectId={projectId}
                     onViewAll={() => {
-                      setActiveTab('members');
+                      setActiveTab('team');
                     }}
                   />
                   <ProjectTimelineCard projectId={projectId} />
@@ -203,38 +241,32 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           }
-          members={
+          milestones={<ProjectMilestonesTab projectId={projectId} />}
+          tasks={<ProjectTasksTab projectId={projectId} />}
+          team={
             <ProjectMembersTab
               projectId={projectId}
               projectOwnerUserId={project.projectManagerUserId}
             />
           }
-          tasks={<ProjectTasksTab projectId={projectId} />}
-          finance={
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">Invoices</h3>
-                <ProjectInvoicesTab projectId={projectId} />
-              </div>
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">Payments</h3>
-                <ProjectPaymentsTab projectId={projectId} />
-              </div>
-            </div>
-          }
-          notes={
-            <ProjectComingSoonTab
-              title="Notes coming soon"
-              description="Project notes will be available in a later sprint."
+          files={<FilePanel entityType="project" entityId={projectId} />}
+          timeline={<ActivityTimeline entityType="project" entityId={projectId} />}
+          comments={<CommentsPanel entityType="project" entityId={projectId} />}
+          invoices={<ProjectInvoicesTab projectId={projectId} />}
+          payments={<ProjectPaymentsTab projectId={projectId} />}
+          client={
+            <ProjectClientSummaryCard
+              clientId={project.clientId}
+              primaryContactId={project.primaryContactId}
             />
           }
-          documents={
-            <ProjectComingSoonTab
-              title="Documents coming soon"
-              description="Project documents will be available in a later sprint."
+          activities={
+            <EntityFollowUpsPanel
+              entityType="project"
+              entityId={projectId}
+              defaultAssigneeUserId={project.projectManagerUserId}
             />
           }
-          activity={<ActivityTimeline entityType="project" entityId={projectId} />}
         />
       </div>
     </PageContainer>

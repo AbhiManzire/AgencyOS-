@@ -5,7 +5,7 @@ import type { ClientRecord, ClientScope } from '../repositories/client.repositor
 export const CLIENT_SOFT_DELETE_RETENTION_DAYS = 30;
 
 /** Allowed initial statuses when creating a client. */
-export const CLIENT_CREATABLE_STATUSES: readonly ClientStatus[] = ['PROSPECT', 'ACTIVE'];
+export const CLIENT_CREATABLE_STATUSES: readonly ClientStatus[] = ['PROSPECT'];
 
 /** Allowed target statuses when restoring an archived client. */
 export const CLIENT_RESTORABLE_STATUSES: readonly ClientStatus[] = ['ACTIVE', 'INACTIVE'];

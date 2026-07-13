@@ -1,3 +1,4 @@
+import type { ClientDocumentFolder } from '@prisma/client';
 import type { FileRecord, FileScope } from '../repositories/file.repository.interface';
 
 export interface FileApplicationContext {
@@ -7,6 +8,7 @@ export interface FileApplicationContext {
 export interface UploadFileCommand {
   readonly entityType: string;
   readonly entityId: string;
+  readonly folder?: ClientDocumentFolder;
   readonly originalName: string;
   readonly mimeType: string;
   readonly buffer: Buffer;

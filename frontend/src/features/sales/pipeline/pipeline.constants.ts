@@ -6,17 +6,18 @@ export interface PipelineColumnDefinition {
   readonly id: PipelineColumnStage;
   readonly label: string;
   readonly stage: PipelineColumnStage;
+  readonly probability?: number;
+  readonly colorToken?: string | null;
 }
 
 export const PIPELINE_COLUMNS: readonly PipelineColumnDefinition[] = [
-  { id: 'NEW', label: 'New', stage: 'NEW' },
-  { id: 'CONTACTED', label: 'Contacted', stage: 'CONTACTED' },
-  { id: 'QUALIFIED', label: 'Qualified', stage: 'QUALIFIED' },
-  { id: 'DISCOVERY', label: 'Discovery', stage: 'DISCOVERY' },
-  { id: 'PROPOSAL', label: 'Proposal', stage: 'PROPOSAL' },
-  { id: 'NEGOTIATION', label: 'Negotiation', stage: 'NEGOTIATION' },
-  { id: 'WON', label: 'Won', stage: 'WON' },
-  { id: 'LOST', label: 'Lost', stage: 'LOST' },
+  { id: 'QUALIFICATION', label: 'Qualification', stage: 'QUALIFICATION', probability: 10 },
+  { id: 'DISCOVERY', label: 'Discovery', stage: 'DISCOVERY', probability: 25 },
+  { id: 'PROPOSAL', label: 'Proposal', stage: 'PROPOSAL', probability: 50 },
+  { id: 'NEGOTIATION', label: 'Negotiation', stage: 'NEGOTIATION', probability: 75 },
+  { id: 'VERBAL_COMMIT', label: 'Verbal Commit', stage: 'VERBAL_COMMIT', probability: 90 },
+  { id: 'WON', label: 'Won', stage: 'WON', probability: 100 },
+  { id: 'LOST', label: 'Lost', stage: 'LOST', probability: 0 },
 ] as const;
 
 export interface PipelineDealCard {

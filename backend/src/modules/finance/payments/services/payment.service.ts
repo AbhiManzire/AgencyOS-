@@ -1,6 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
+import { WorkflowEventDispatcher } from '../../../automation/services/workflow-event-dispatcher.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { calculateQuotePricingSummary, roundMoney } from '../../../sales/pricing/pricing-engine';
 import {
@@ -33,6 +34,8 @@ import type {
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
+
   constructor(
     @Inject(PAYMENT_REPOSITORY)
     private readonly paymentRepository: PaymentRepository,
@@ -43,6 +46,7 @@ export class PaymentService {
     private readonly paymentDomainService: PaymentDomainService,
     private readonly activityService: ActivityService,
     private readonly ledgerPostingService: LedgerPostingService,
+    private readonly workflowEventDispatcher: WorkflowEventDispatcher,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -128,6 +132,7 @@ export class PaymentService {
 
     return this.prisma.$transaction(async () => {
       const payment = await this.paymentRepository.create(data);
+      const previousStatus = invoice.status;
       await this.syncInvoiceStatusAfterPaymentChange(scope, invoice.id, context);
       await this.activityService.createActivity(
         scope,
@@ -174,6 +179,16 @@ export class PaymentService {
         },
         { actorUserId: context.actorUserId },
       );
+
+      const refreshed = await this.invoiceRepository.findById(scope, invoice.id);
+      this.emitPaymentWorkflowEvents(
+        scope,
+        payment,
+        refreshed ?? invoice,
+        previousStatus,
+        context.actorUserId,
+      );
+
       return payment;
     });
   }
@@ -245,6 +260,64 @@ export class PaymentService {
       updatedAt: new Date(),
       updatedByUserId: context.actorUserId,
     });
+  }
+
+  private emitPaymentWorkflowEvents(
+    scope: PaymentScope,
+    payment: PaymentRecord,
+    invoice: InvoiceRecord,
+    previousStatus: string,
+    actorUserId?: string | null,
+  ): void {
+    void this.workflowEventDispatcher
+      .dispatch({
+        scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+        triggerType: 'PAYMENT_RECEIVED',
+        entityType: 'payment',
+        entityId: payment.id,
+        actorUserId: actorUserId ?? undefined,
+        payload: {
+          entityType: 'payment',
+          entityId: payment.id,
+          id: payment.id,
+          invoiceId: invoice.id,
+          amount: payment.amount,
+          currency: payment.currency,
+          clientId: invoice.clientId,
+        },
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Workflow emit PAYMENT_RECEIVED failed for payment ${payment.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+
+    if (invoice.status === 'PAID' && previousStatus !== 'PAID') {
+      void this.workflowEventDispatcher
+        .dispatch({
+          scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+          triggerType: 'INVOICE_PAID',
+          entityType: 'invoice',
+          entityId: invoice.id,
+          actorUserId: actorUserId ?? undefined,
+          payload: {
+            entityType: 'invoice',
+            entityId: invoice.id,
+            id: invoice.id,
+            paymentId: payment.id,
+            clientId: invoice.clientId,
+            projectId: invoice.projectId,
+            status: invoice.status,
+          },
+        })
+        .catch((error: unknown) => {
+          this.logger.error(
+            `Workflow emit INVOICE_PAID failed for invoice ${invoice.id}`,
+            error instanceof Error ? error.stack : String(error),
+          );
+        });
+    }
   }
 
   private async computeBalances(

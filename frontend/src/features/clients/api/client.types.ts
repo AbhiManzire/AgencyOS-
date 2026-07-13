@@ -6,8 +6,8 @@ import type {
   WorkspaceOwnerOption,
 } from '@/features/clients/types';
 
-/** Creatable statuses for POST /clients. */
-export type CreateClientStatus = Extract<ClientStatus, 'PROSPECT' | 'ACTIVE'>;
+/** Creatable statuses for POST /clients. ACTIVE comes from won deals. */
+export type CreateClientStatus = Extract<ClientStatus, 'PROSPECT'>;
 
 /** Request body for POST /clients — mirrors backend CreateClientDto. */
 export interface CreateClientPayload {

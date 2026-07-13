@@ -1,5 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { ActivityService } from '../../activities/services/activity.service';
+import { WorkflowEventDispatcher } from '../../automation/services/workflow-event-dispatcher.service';
 import { ClientDomainService } from '../domain/client-domain.service';
 import { CLIENT_DOMAIN_ERROR_CODES, ClientDomainError } from '../domain/client-domain.errors';
 import type {
@@ -17,6 +20,10 @@ import {
   type UpdateClientData,
   type WorkspaceOwnerOption,
 } from '../repositories/client.repository.interface';
+import {
+  CLIENT_SUCCESS_ERROR_CODES,
+  ClientSuccessError,
+} from '../success/domain/client-success.errors';
 import type {
   ClientApplicationContext,
   ClientRecord,
@@ -34,10 +41,14 @@ import type {
  */
 @Injectable()
 export class ClientService {
+  private readonly logger = new Logger(ClientService.name);
+
   constructor(
     @Inject(CLIENT_REPOSITORY)
     private readonly clientRepository: ClientRepository,
     private readonly clientDomainService: ClientDomainService,
+    private readonly activityService: ActivityService,
+    private readonly workflowEventDispatcher: WorkflowEventDispatcher,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -48,6 +59,13 @@ export class ClientService {
   ): Promise<ClientRecord> {
     const membership = await this.resolveMembership(scope, context);
     const actorUserId = normalizeActorUserId(context.actorUserId);
+
+    if (command.status === 'ACTIVE' && command.allowActiveClient !== true) {
+      throw new ClientSuccessError(
+        CLIENT_SUCCESS_ERROR_CODES.ACTIVE_REQUIRES_WON_DEAL,
+        'ACTIVE clients can only be created via won-deal activation.',
+      );
+    }
 
     await this.clientDomainService.validateCreate(
       scope,
@@ -121,10 +139,20 @@ export class ClientService {
         updatedByUserId: actorUserId,
       };
 
-      const created = await this.clientRepository.create(data, tx);
-      await this.recordActivity(tx, scope, created.id, 'client.created', 'Client created', {
-        actorUserId: actorUserId ?? '',
-      });
+      const createdClient = await this.clientRepository.create(data, tx);
+      await this.recordActivity(
+        scope,
+        createdClient.id,
+        ActivityType.CUSTOM,
+        'Client created',
+        {
+          actorUserId: actorUserId ?? '',
+        },
+        `client.created:${createdClient.id}`,
+      );
+      return createdClient;
+    }).then((created) => {
+      this.emitWorkflowEvent(scope, created, actorUserId);
       return created;
     });
   }
@@ -221,9 +249,16 @@ export class ClientService {
         );
       }
 
-      await this.recordActivity(tx, scope, updated.id, 'client.updated', 'Client updated', {
-        actorUserId: actorUserId ?? '',
-      });
+      await this.recordActivity(
+        scope,
+        updated.id,
+        ActivityType.CUSTOM,
+        'Client updated',
+        {
+          actorUserId: actorUserId ?? '',
+        },
+        `client.updated:${updated.id}:${now.toISOString()}`,
+      );
       return updated;
     });
   }
@@ -262,9 +297,16 @@ export class ClientService {
         );
       }
 
-      await this.recordActivity(tx, scope, archived.id, 'client.archived', 'Client archived', {
-        actorUserId: actorUserId ?? '',
-      });
+      await this.recordActivity(
+        scope,
+        archived.id,
+        ActivityType.CUSTOM,
+        'Client archived',
+        {
+          actorUserId: actorUserId ?? '',
+        },
+        `client.archived:${archived.id}`,
+      );
       return archived;
     });
   }
@@ -318,9 +360,16 @@ export class ClientService {
         );
       }
 
-      await this.recordActivity(tx, scope, restored.id, 'client.restored', 'Client restored', {
-        actorUserId: actorUserId ?? '',
-      });
+      await this.recordActivity(
+        scope,
+        restored.id,
+        ActivityType.CUSTOM,
+        'Client restored',
+        {
+          actorUserId: actorUserId ?? '',
+        },
+        `client.restored:${restored.id}`,
+      );
       return restored;
     });
   }
@@ -366,31 +415,58 @@ export class ClientService {
   }
 
   /** Opens a Prisma transaction boundary for mutating use cases. */
+  private emitWorkflowEvent(
+    scope: ClientScope,
+    client: ClientRecord,
+    actorUserId?: string | null,
+  ): void {
+    void this.workflowEventDispatcher
+      .dispatch({
+        scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+        triggerType: 'CLIENT_CREATED',
+        entityType: 'client',
+        entityId: client.id,
+        actorUserId: actorUserId ?? undefined,
+        payload: {
+          entityType: 'client',
+          entityId: client.id,
+          id: client.id,
+          displayName: client.displayName,
+          status: client.status,
+          ownerUserId: client.ownerUserId,
+        },
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Workflow emit CLIENT_CREATED failed for client ${client.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+  }
+
   private async runInTransaction<T>(work: (tx: ClientTransactionClient) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async (tx) => work(tx));
   }
 
   private async recordActivity(
-    tx: ClientTransactionClient,
     scope: ClientScope,
     clientId: string,
-    type: string,
+    type: ActivityType,
     title: string,
     context: ClientApplicationContext,
+    dedupeKey?: string,
   ): Promise<void> {
-    await tx.activity.create({
-      data: {
-        id: randomUUID(),
-        tenantId: scope.tenantId,
-        workspaceId: scope.workspaceId,
+    await this.activityService.logSystemEvent(
+      scope,
+      {
         entityType: 'client',
         entityId: clientId,
-        userId: context.actorUserId || null,
         type,
         title,
-        createdAt: new Date(),
+        ...(dedupeKey !== undefined ? { dedupeKey } : {}),
       },
-    });
+      { actorUserId: context.actorUserId },
+    );
   }
 
   private async resolveMembership(

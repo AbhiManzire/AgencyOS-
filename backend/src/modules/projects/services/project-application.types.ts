@@ -1,4 +1,9 @@
-import type { ProjectPriority, ProjectStatus } from '@prisma/client';
+import type {
+  ProjectHealthStatus,
+  ProjectPriority,
+  ProjectServiceType,
+  ProjectStatus,
+} from '@prisma/client';
 import type {
   DepartmentOption,
   ListProjectsResult,
@@ -20,6 +25,11 @@ export interface CreateProjectCommand {
   readonly status?: ProjectStatus;
   readonly projectManagerUserId: string;
   readonly departmentId?: string | null;
+  readonly dealId?: string | null;
+  readonly templateId?: string | null;
+  readonly primaryContactId?: string | null;
+  readonly serviceType?: ProjectServiceType | null;
+  readonly serviceLabel?: string | null;
   readonly priority?: ProjectPriority;
   readonly startDate?: Date | null;
   readonly targetEndDate?: Date | null;
@@ -36,6 +46,14 @@ export interface UpdateProjectCommand {
   readonly status?: ProjectStatus;
   readonly projectManagerUserId?: string;
   readonly departmentId?: string | null;
+  readonly dealId?: string | null;
+  readonly templateId?: string | null;
+  readonly primaryContactId?: string | null;
+  readonly serviceType?: ProjectServiceType | null;
+  readonly serviceLabel?: string | null;
+  readonly healthStatus?: ProjectHealthStatus | null;
+  readonly healthScore?: number | null;
+  readonly healthCalculatedAt?: Date | null;
   readonly priority?: ProjectPriority;
   readonly startDate?: Date | null;
   readonly targetEndDate?: Date | null;

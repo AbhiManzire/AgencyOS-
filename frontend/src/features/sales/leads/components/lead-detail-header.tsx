@@ -1,6 +1,6 @@
 'use client';
 
-import { Archive, Pencil, RotateCcw, UserPlus } from 'lucide-react';
+import { Archive, Briefcase, Pencil, RotateCcw, UserPlus } from 'lucide-react';
 import { Body, Caption } from '@/design-system';
 import { Button } from '@/components/ui/button';
 import type { LeadRecord } from '@/features/sales/leads/api/lead.types';
@@ -17,8 +17,10 @@ interface LeadDetailHeaderProps {
   readonly onArchive: () => void;
   readonly onRestore: () => void;
   readonly onConvert: () => void;
+  readonly onCreateDeal?: () => void;
   readonly isRestorePending?: boolean;
   readonly isConvertPending?: boolean;
+  readonly isCreateDealPending?: boolean;
 }
 
 export function LeadDetailHeader({
@@ -27,11 +29,14 @@ export function LeadDetailHeader({
   onArchive,
   onRestore,
   onConvert,
+  onCreateDeal,
   isRestorePending = false,
   isConvertPending = false,
+  isCreateDealPending = false,
 }: LeadDetailHeaderProps) {
   const archived = isLeadArchived(lead);
   const converted = lead.status === 'CONVERTED' || lead.convertedClientId !== null;
+  const qualified = lead.status === 'QUALIFIED' && !archived;
   const assignee = formatDealOwner(
     lead.assignedToDisplayName,
     lead.assignedToEmail,
@@ -71,6 +76,19 @@ export function LeadDetailHeader({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {qualified && onCreateDeal ? (
+          <Can permission="sales.create" mode="disable">
+            <Button
+              type="button"
+              className="gap-2"
+              disabled={isCreateDealPending}
+              onClick={onCreateDeal}
+            >
+              <Briefcase className="size-4" />
+              Create Deal
+            </Button>
+          </Can>
+        ) : null}
         {!archived && !converted ? (
           <Can permission="sales.update" mode="disable">
             <Button type="button" className="gap-2" disabled={isConvertPending} onClick={onConvert}>

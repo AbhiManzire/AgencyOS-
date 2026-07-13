@@ -1,6 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
+import { WorkflowEventDispatcher } from '../../automation/services/workflow-event-dispatcher.service';
 import { FileDomainService } from '../domain/file-domain.service';
 import { FILE_DOMAIN_ERROR_CODES, FileDomainError } from '../domain/file-domain.errors';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -24,6 +25,8 @@ import type {
 
 @Injectable()
 export class FileService {
+  private readonly logger = new Logger(FileService.name);
+
   constructor(
     @Inject(FILE_REPOSITORY)
     private readonly fileRepository: FileRepository,
@@ -31,6 +34,7 @@ export class FileService {
     private readonly storageService: LocalStorageService,
     private readonly fileDomainService: FileDomainService,
     private readonly configService: ConfigService,
+    private readonly workflowEventDispatcher: WorkflowEventDispatcher,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -86,6 +90,7 @@ export class FileService {
       workspaceId: scope.workspaceId,
       entityType: command.entityType.trim(),
       entityId: command.entityId,
+      folder: command.folder ?? null,
       fileName,
       originalName: command.originalName.trim(),
       mimeType:
@@ -97,7 +102,7 @@ export class FileService {
       createdAt: now,
     };
 
-    return this.runInTransaction(async () => {
+    const created = await this.runInTransaction(async () => {
       await this.storageService.save({
         storageKey,
         buffer: command.buffer,
@@ -110,6 +115,9 @@ export class FileService {
         throw error;
       }
     });
+
+    this.emitWorkflowEvent(scope, created, context.actorUserId);
+    return created;
   }
 
   async downloadFile(scope: FileScope, fileId: string): Promise<FileDownloadResult> {
@@ -131,6 +139,31 @@ export class FileService {
       await this.storageService.delete(record.storageKey);
       return deleted;
     });
+  }
+
+  private emitWorkflowEvent(scope: FileScope, file: FileRecord, actorUserId?: string | null): void {
+    void this.workflowEventDispatcher
+      .dispatch({
+        scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+        triggerType: 'DOCUMENT_UPLOADED',
+        entityType: file.entityType,
+        entityId: file.entityId,
+        actorUserId: actorUserId ?? undefined,
+        payload: {
+          entityType: file.entityType,
+          entityId: file.entityId,
+          id: file.id,
+          fileId: file.id,
+          originalName: file.originalName,
+          mimeType: file.mimeType,
+        },
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Workflow emit DOCUMENT_UPLOADED failed for file ${file.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
   }
 
   private async requireFile(scope: FileScope, fileId: string): Promise<FileRecord> {

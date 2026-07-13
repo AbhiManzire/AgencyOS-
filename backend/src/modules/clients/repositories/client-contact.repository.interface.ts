@@ -15,6 +15,7 @@ export interface ClientContactRecord {
   readonly clientId: string;
   readonly firstName: string;
   readonly lastName: string | null;
+  readonly role: string | null;
   readonly jobTitle: string | null;
   readonly department: string | null;
   readonly email: string | null;
@@ -22,6 +23,9 @@ export interface ClientContactRecord {
   readonly phone: string | null;
   readonly isPrimary: boolean;
   readonly isDecisionMaker: boolean;
+  readonly isFinance: boolean;
+  readonly isTechnical: boolean;
+  readonly isProcurement: boolean;
   readonly status: ClientContactStatus;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -38,6 +42,7 @@ export interface CreateClientContactData {
   readonly clientId: string;
   readonly firstName: string;
   readonly lastName?: string | null;
+  readonly role?: string | null;
   readonly jobTitle?: string | null;
   readonly department?: string | null;
   readonly email?: string | null;
@@ -45,6 +50,9 @@ export interface CreateClientContactData {
   readonly phone?: string | null;
   readonly isPrimary?: boolean;
   readonly isDecisionMaker?: boolean;
+  readonly isFinance?: boolean;
+  readonly isTechnical?: boolean;
+  readonly isProcurement?: boolean;
   readonly status?: ClientContactStatus;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -55,6 +63,7 @@ export interface CreateClientContactData {
 export interface UpdateClientContactData {
   readonly firstName?: string;
   readonly lastName?: string | null;
+  readonly role?: string | null;
   readonly jobTitle?: string | null;
   readonly department?: string | null;
   readonly email?: string | null;
@@ -62,6 +71,9 @@ export interface UpdateClientContactData {
   readonly phone?: string | null;
   readonly isPrimary?: boolean;
   readonly isDecisionMaker?: boolean;
+  readonly isFinance?: boolean;
+  readonly isTechnical?: boolean;
+  readonly isProcurement?: boolean;
   readonly status?: ClientContactStatus;
   readonly updatedAt: Date;
   readonly updatedByUserId?: string | null;

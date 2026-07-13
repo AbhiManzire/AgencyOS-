@@ -1,3 +1,7 @@
+/** Optional document folder for client (and other entity) file uploads. */
+export type FileDocumentFolder =
+  'CONTRACTS' | 'INVOICES' | 'PROPOSALS' | 'NDA' | 'PURCHASE_ORDERS' | 'DESIGN_FILES' | 'OTHER';
+
 /** File row returned by the files API. */
 export interface FileRecord {
   readonly id: string;
@@ -5,6 +9,7 @@ export interface FileRecord {
   readonly workspaceId: string;
   readonly entityType: string;
   readonly entityId: string;
+  readonly folder?: FileDocumentFolder | null;
   readonly fileName: string;
   readonly originalName: string;
   readonly mimeType: string;
@@ -24,4 +29,5 @@ export interface EntityFilesParams {
 
 export interface UploadFileParams extends EntityFilesParams {
   readonly file: File;
+  readonly folder?: FileDocumentFolder;
 }

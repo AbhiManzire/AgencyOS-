@@ -1,12 +1,23 @@
 import { Module } from '@nestjs/common';
+import { ActivitiesModule } from '../activities/activities.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { AutomationExecutionsController } from './controllers/automation-executions.controller';
+import { ActionExecutorService } from './services/action-executor.service';
 import { AutomationEngineService } from './services/automation-engine.service';
-import { ConditionEvaluatorService } from './services/condition-evaluator.service';
-import { RetryPolicyService } from './services/retry-policy.service';
+import { AutomationSchedulerService } from './services/automation-scheduler.service';
+import { WorkflowEventDispatcher } from './services/workflow-event-dispatcher.service';
+import { WorkflowRunnerService } from './services/workflow-runner.service';
+import { WorkflowEventsModule } from './workflow-events.module';
 
 @Module({
-  providers: [ConditionEvaluatorService, RetryPolicyService, AutomationEngineService],
+  imports: [WorkflowEventsModule, ActivitiesModule, NotificationsModule],
+  providers: [ActionExecutorService, WorkflowRunnerService, AutomationSchedulerService],
   controllers: [AutomationExecutionsController],
-  exports: [AutomationEngineService],
+  exports: [
+    WorkflowEventsModule,
+    WorkflowEventDispatcher,
+    AutomationEngineService,
+    WorkflowRunnerService,
+  ],
 })
 export class AutomationModule {}

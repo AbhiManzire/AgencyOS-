@@ -65,6 +65,11 @@ export class CreateLeadDto {
   source!: LeadSource;
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  campaignId?: string | null;
+
+  @IsOptional()
   @IsUUID()
   assignedToUserId?: string;
 

@@ -100,6 +100,7 @@ function toFileRecord(file: FileWithUploader): FileRecord {
     workspaceId: file.workspaceId,
     entityType: file.entityType,
     entityId: file.entityId,
+    folder: file.folder,
     fileName: file.fileName,
     originalName: file.originalName,
     mimeType: file.mimeType,

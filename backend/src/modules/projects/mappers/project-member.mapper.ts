@@ -10,6 +10,7 @@ export const ProjectMemberMapper = {
     return {
       userId: dto.userId,
       role: dto.role,
+      customRoleLabel: dto.customRoleLabel,
       allocationPercent: dto.allocationPercent,
       startDate: dto.startDate,
       status: dto.status,
@@ -19,6 +20,7 @@ export const ProjectMemberMapper = {
   toUpdateProjectMemberCommand(dto: UpdateProjectMemberDto): UpdateProjectMemberCommand {
     return {
       role: dto.role,
+      customRoleLabel: dto.customRoleLabel,
       allocationPercent: dto.allocationPercent,
       startDate: dto.startDate,
       status: dto.status,

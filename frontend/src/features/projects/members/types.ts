@@ -1,4 +1,13 @@
-export type ProjectMemberRole = 'MANAGER' | 'DEVELOPER' | 'DESIGNER' | 'QA' | 'VIEWER';
+export type ProjectMemberRole =
+  | 'MANAGER'
+  | 'DEVELOPER'
+  | 'DESIGNER'
+  | 'SEO'
+  | 'MARKETING'
+  | 'QA'
+  | 'ACCOUNTS'
+  | 'CUSTOM'
+  | 'VIEWER';
 export type ProjectMemberStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface ProjectMemberListItem {
@@ -8,6 +17,7 @@ export interface ProjectMemberListItem {
   readonly userDisplayName: string;
   readonly userEmail: string;
   readonly role: ProjectMemberRole;
+  readonly customRoleLabel: string | null;
   readonly departmentName: string;
   readonly assignedOn: string;
   readonly allocationPercent: number | null;
@@ -17,12 +27,14 @@ export interface ProjectMemberListItem {
 export interface MemberFormValues {
   userId: string;
   role: ProjectMemberRole;
+  customRoleLabel: string;
   allocationPercent: string;
   startDate: string;
 }
 
 export interface MemberFormErrors {
   userId?: string;
+  customRoleLabel?: string;
   allocationPercent?: string;
   startDate?: string;
   form?: string;

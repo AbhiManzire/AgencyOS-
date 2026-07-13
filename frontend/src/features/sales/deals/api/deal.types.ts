@@ -1,9 +1,15 @@
 export type {
   ConvertDealToInvoicePayload,
   ConvertedInvoiceRecord,
+  CreateDealFromLeadPayload,
   CreateDealPayload,
+  DealDashboardResult,
+  DealForecastResult,
   DealRecord,
   ListDealsParams,
   ListDealsResult,
+  LoseDealPayload,
   UpdateDealPayload,
+  UpdateDealStagePayload,
+  WinDealPayload,
 } from '@/features/sales/api/deal.types';

@@ -5,7 +5,10 @@ import { CreateActivityDto } from '../dto/create-activity.dto';
 import { ListActivitiesQueryDto } from '../dto/list-activities-query.dto';
 import { ActivityMapper } from '../mappers/activity.mapper';
 import type { ActivityRecord, ActivityScope } from '../repositories/activity.repository.interface';
-import type { ActivityApplicationContext } from '../services/activity-application.types';
+import type {
+  ActivityApplicationContext,
+  ActivityTypesCatalog,
+} from '../services/activity-application.types';
 import { ActivityService } from '../services/activity.service';
 
 const TENANT_HEADER = 'x-tenant-id';
@@ -32,6 +35,11 @@ export class ActivitiesController {
     });
   }
 
+  @Get('types')
+  getTypes(): ApiSuccessResponse<ActivityTypesCatalog> {
+    return successResponse(this.activityService.getActivityTypes());
+  }
+
   @Get(':entityType/:entityId')
   async listByEntity(
     @Headers() headers: Record<string, string | string[] | undefined>,
@@ -41,12 +49,7 @@ export class ActivitiesController {
   ): Promise<ApiSuccessResponse<readonly ActivityRecord[]>> {
     const scope = this.resolveScope(headers);
     const query = ActivityMapper.toListActivitiesQuery(queryDto);
-    const result = await this.activityService.listActivitiesByEntity(
-      scope,
-      entityType,
-      entityId,
-      query,
-    );
+    const result = await this.activityService.getTimeline(scope, entityType, entityId, query);
 
     return successResponse(result.items, {
       total: result.total,
@@ -63,7 +66,18 @@ export class ActivitiesController {
     const scope = this.resolveScope(headers);
     const context = this.resolveContext(headers);
     const command = ActivityMapper.toCreateActivityCommand(dto);
-    const activity = await this.activityService.createActivity(scope, command, context);
+    const activity = await this.activityService.logManualActivity(
+      scope,
+      {
+        entityType: command.entityType,
+        entityId: command.entityId,
+        type: command.type,
+        title: command.title,
+        description: command.description,
+        metadata: command.metadata,
+      },
+      context,
+    );
 
     return successResponse(activity);
   }

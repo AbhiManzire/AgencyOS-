@@ -2,30 +2,39 @@
 
 import type { LucideIcon } from 'lucide-react';
 import {
-  Archive,
   Banknote,
   Briefcase,
-  CheckSquare,
-  Clock,
-  FileMinus2,
+  CalendarCheck,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CircleDot,
   FileText,
   FolderKanban,
-  Link2,
+  GitBranch,
+  Handshake,
   Mail,
-  MailX,
+  MessageCircle,
+  MessageSquare,
+  Paperclip,
   Pencil,
-  Receipt,
-  RotateCcw,
-  Send,
+  Phone,
+  Share2,
+  Smartphone,
   Tag,
-  Timer,
-  UserMinus,
+  Trophy,
+  UserCheck,
   UserPlus,
-  Wallet,
+  Bell,
   XCircle,
 } from 'lucide-react';
-import { Avatar } from '@/design-system';
+import { useState, type ReactNode } from 'react';
+import { Avatar, StatusBadge } from '@/design-system';
 import { Body, Caption, CardTitle } from '@/design-system/typography';
+import { ActivityAttachments } from '@/features/activity/components/activity-attachments';
+import { ActivityComments } from '@/features/activity/components/activity-comments';
+import { activityTypeLabel } from '@/features/activity/api/activity.mapper';
+import type { ActivityType } from '@/features/activity/api/activity.types';
 import type { ActivityTimelineEntry } from '@/features/activity/types';
 import { formatDateTime } from '@/lib/format/date';
 import { cn } from '@/lib/utils';
@@ -35,62 +44,45 @@ interface ActivityCardProps {
   readonly className?: string;
 }
 
-const ACTIVITY_ICON_BY_TYPE: Record<string, LucideIcon> = {
-  'invoice.created': FileText,
-  'invoice.sent': Send,
-  'invoice.cancelled': XCircle,
-  'invoice.pdf.generated': FileText,
-  'invoice.email.sent': Mail,
-  'invoice.email.failed': MailX,
-  'payment.received': Banknote,
-  'expense.added': Wallet,
-  'bill.paid': Receipt,
-  'credit_note.created': FileMinus2,
-  'project.created': FolderKanban,
-  'project.updated': Pencil,
-  'project.status_changed': Pencil,
-  'project.member_added': UserPlus,
-  'project.member_removed': UserMinus,
-  'project.archived': Archive,
-  'project.restored': RotateCcw,
-  'task.created': CheckSquare,
-  'task.updated': Pencil,
-  'task.archived': Archive,
-  'task.restored': RotateCcw,
-  'task.assigned': UserPlus,
-  'task.reassigned': UserPlus,
-  'task.dependency_added': Link2,
-  'task.dependency_removed': Link2,
-  'task.tag_assigned': Tag,
-  'task.tag_unassigned': Tag,
-  'time.logged': Timer,
-  'time.entry.created': Clock,
-  'time.entry.updated': Clock,
-  'deal.created': Briefcase,
-  'deal.updated': Pencil,
-  'deal.stage_changed': Briefcase,
-  'deal.archived': Archive,
-  'deal.restored': RotateCcw,
-  'deal.converted_to_project': FolderKanban,
-  'deal.converted_to_invoice': FileText,
-  'lead.created': UserPlus,
-  'lead.updated': Pencil,
-  'lead.archived': Archive,
-  'lead.restored': RotateCcw,
-  'lead.converted': UserPlus,
-  'lead.tag_assigned': Tag,
-  'lead.tag_unassigned': Tag,
-  'quote.created': FileText,
-  'quote.updated': Pencil,
-  'quote.status_changed': FileText,
-  'proposal.created': FileText,
-  'proposal.updated': Pencil,
-  'proposal.status_changed': FileText,
+const ACTIVITY_ICON_BY_TYPE: Record<ActivityType, LucideIcon> = {
+  LEAD_CREATED: UserPlus,
+  LEAD_UPDATED: Pencil,
+  OWNER_CHANGED: UserCheck,
+  CALL: Phone,
+  EMAIL: Mail,
+  WHATSAPP: MessageCircle,
+  SMS: Smartphone,
+  MEETING: Handshake,
+  NOTE: FileText,
+  TASK: CheckCircle2,
+  FOLLOW_UP: CalendarCheck,
+  PROPOSAL_SENT: FileText,
+  QUOTE_SENT: FileText,
+  INVOICE_SENT: FileText,
+  PAYMENT_RECEIVED: Banknote,
+  REMINDER: Bell,
+  STATUS_CHANGED: CircleDot,
+  PIPELINE_CHANGED: GitBranch,
+  TAG_ADDED: Tag,
+  ATTACHMENT_UPLOADED: Paperclip,
+  DOCUMENT_SHARED: Share2,
+  DEAL_WON: Trophy,
+  DEAL_LOST: XCircle,
+  CLIENT_CONVERTED: Briefcase,
+  PROJECT_CREATED: FolderKanban,
+  CUSTOM: MessageSquare,
 };
 
 function formatActivityTimestamp(timestamp: string | Date): string {
   const value = timestamp instanceof Date ? timestamp.toISOString() : timestamp;
   return formatDateTime(value);
+}
+
+function resolveIcon(activityType: string | undefined): LucideIcon {
+  if (activityType !== undefined && activityType in ACTIVITY_ICON_BY_TYPE) {
+    return ACTIVITY_ICON_BY_TYPE[activityType as ActivityType];
+  }
+  return FileText;
 }
 
 function ActivityIcon({ icon: Icon }: { readonly icon: LucideIcon }) {
@@ -101,10 +93,41 @@ function ActivityIcon({ icon: Icon }: { readonly icon: LucideIcon }) {
   );
 }
 
+interface CollapsibleSectionProps {
+  readonly title: string;
+  readonly open: boolean;
+  readonly onToggle: () => void;
+  readonly children: ReactNode;
+}
+
+function CollapsibleSection({ title, open, onToggle, children }: CollapsibleSectionProps) {
+  return (
+    <div className="rounded-md border border-border">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-muted/40"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        {open ? (
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        )}
+        {title}
+      </button>
+      {open ? <div className="border-t border-border px-3 py-3">{children}</div> : null}
+    </div>
+  );
+}
+
 /** Single activity entry card for use inside ActivityTimeline. */
 export function ActivityCard({ entry, className }: ActivityCardProps) {
   const initials = entry.actor.initials ?? entry.actor.name.slice(0, 2);
-  const icon = ACTIVITY_ICON_BY_TYPE[entry.activityType ?? ''] ?? FileText;
+  const icon = resolveIcon(entry.activityType);
+  const typeLabel = entry.typeLabel ?? activityTypeLabel(entry.activityType ?? 'CUSTOM');
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
 
   return (
     <article className={cn('min-w-0', className)}>
@@ -113,7 +136,17 @@ export function ActivityCard({ entry, className }: ActivityCardProps) {
 
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <CardTitle className="text-sm font-semibold">{entry.title}</CardTitle>
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-sm font-semibold">{entry.title}</CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge variant="neutral">{typeLabel}</StatusBadge>
+                {entry.origin === 'MANUAL' ? (
+                  <StatusBadge variant="primary">Manual</StatusBadge>
+                ) : entry.origin === 'SYSTEM' ? (
+                  <StatusBadge variant="neutral">System</StatusBadge>
+                ) : null}
+              </div>
+            </div>
             <Caption className="shrink-0">{formatActivityTimestamp(entry.timestamp)}</Caption>
           </div>
 
@@ -125,6 +158,28 @@ export function ActivityCard({ entry, className }: ActivityCardProps) {
           {entry.description ? (
             <Body className="text-muted-foreground">{entry.description}</Body>
           ) : null}
+
+          <div className="space-y-2 pt-1">
+            <CollapsibleSection
+              title="Comments"
+              open={commentsOpen}
+              onToggle={() => {
+                setCommentsOpen((current) => !current);
+              }}
+            >
+              <ActivityComments activityId={entry.id} />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Attachments"
+              open={attachmentsOpen}
+              onToggle={() => {
+                setAttachmentsOpen((current) => !current);
+              }}
+            >
+              <ActivityAttachments activityId={entry.id} />
+            </CollapsibleSection>
+          </div>
         </div>
       </div>
     </article>

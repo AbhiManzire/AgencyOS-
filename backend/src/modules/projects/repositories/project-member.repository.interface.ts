@@ -14,6 +14,7 @@ export interface ProjectMemberRecord {
   readonly projectId: string;
   readonly userId: string;
   readonly role: ProjectMemberRole;
+  readonly customRoleLabel: string | null;
   readonly allocationPercent: number | null;
   readonly startDate: Date | null;
   readonly status: ProjectMemberStatus;
@@ -42,6 +43,7 @@ export interface CreateProjectMemberData {
   readonly projectId: string;
   readonly userId: string;
   readonly role?: ProjectMemberRole;
+  readonly customRoleLabel?: string | null;
   readonly allocationPercent?: number | null;
   readonly startDate?: Date | null;
   readonly status?: ProjectMemberStatus;
@@ -53,6 +55,7 @@ export interface CreateProjectMemberData {
 
 export interface UpdateProjectMemberData {
   readonly role?: ProjectMemberRole;
+  readonly customRoleLabel?: string | null;
   readonly allocationPercent?: number | null;
   readonly startDate?: Date | null;
   readonly status?: ProjectMemberStatus;

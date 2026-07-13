@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ProjectMilestone, ProjectMilestoneStatus, User } from '@prisma/client';
+import type { ProjectMilestone, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ProjectScope } from './project.repository.interface';
 import type {
@@ -14,7 +14,22 @@ import type { WorkspaceUserOption } from './project-member.repository.interface'
 
 type ProjectMilestoneWithOwner = ProjectMilestone & {
   ownerUser: Pick<User, 'displayName' | 'email' | 'firstName' | 'lastName'> | null;
+  blockedByDeps?: readonly { dependsOnMilestoneId: string }[];
 };
+
+const ownerInclude = {
+  ownerUser: {
+    select: {
+      displayName: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+    },
+  },
+  blockedByDeps: {
+    select: { dependsOnMilestoneId: true },
+  },
+} as const;
 
 @Injectable()
 export class PrismaProjectMilestoneRepository implements ProjectMilestoneRepository {
@@ -185,17 +200,6 @@ export class PrismaProjectMilestoneRepository implements ProjectMilestoneReposit
   }
 }
 
-const ownerInclude = {
-  ownerUser: {
-    select: {
-      displayName: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-    },
-  },
-} as const;
-
 function activeMilestoneWhere(scope: ProjectMilestoneScope, id: string) {
   return {
     id,
@@ -217,20 +221,8 @@ function resolveUserDisplayName(
   return name.length > 0 ? name : user.email;
 }
 
-function computeProgressPercent(status: ProjectMilestoneStatus): number {
-  switch (status) {
-    case 'COMPLETED':
-      return 100;
-    case 'IN_PROGRESS':
-      return 50;
-    case 'ON_HOLD':
-      return 25;
-    default:
-      return 0;
-  }
-}
-
 function toProjectMilestoneRecord(milestone: ProjectMilestoneWithOwner): ProjectMilestoneRecord {
+  const completionPercent = milestone.status === 'COMPLETED' ? 100 : milestone.completionPercent;
   return {
     id: milestone.id,
     tenantId: milestone.tenantId,
@@ -242,9 +234,11 @@ function toProjectMilestoneRecord(milestone: ProjectMilestoneWithOwner): Project
     startDate: milestone.startDate,
     dueDate: milestone.dueDate,
     ownerUserId: milestone.ownerUserId,
+    completionPercent,
     sortOrder: milestone.sortOrder,
     completedAt: milestone.completedAt,
-    progressPercent: computeProgressPercent(milestone.status),
+    progressPercent: completionPercent,
+    dependsOnMilestoneIds: (milestone.blockedByDeps ?? []).map((d) => d.dependsOnMilestoneId),
     createdAt: milestone.createdAt,
     updatedAt: milestone.updatedAt,
     createdByUserId: milestone.createdByUserId,

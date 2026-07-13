@@ -348,6 +348,7 @@ function toProjectMemberRecord(
     projectId: member.projectId,
     userId: member.userId,
     role: member.role,
+    customRoleLabel: member.customRoleLabel,
     allocationPercent: member.allocationPercent,
     startDate: member.startDate,
     status: member.status,

@@ -7,6 +7,7 @@ export interface ClientContactApplicationContext {
 export interface CreateClientContactCommand {
   readonly firstName: string;
   readonly lastName?: string;
+  readonly role?: string;
   readonly jobTitle?: string;
   readonly department?: string;
   readonly email?: string;
@@ -14,12 +15,16 @@ export interface CreateClientContactCommand {
   readonly phone?: string;
   readonly isPrimary?: boolean;
   readonly isDecisionMaker?: boolean;
+  readonly isFinance?: boolean;
+  readonly isTechnical?: boolean;
+  readonly isProcurement?: boolean;
   readonly status?: ClientContactStatus;
 }
 
 export interface UpdateClientContactCommand {
   readonly firstName?: string;
   readonly lastName?: string;
+  readonly role?: string;
   readonly jobTitle?: string;
   readonly department?: string;
   readonly email?: string;
@@ -27,5 +32,8 @@ export interface UpdateClientContactCommand {
   readonly phone?: string;
   readonly isPrimary?: boolean;
   readonly isDecisionMaker?: boolean;
+  readonly isFinance?: boolean;
+  readonly isTechnical?: boolean;
+  readonly isProcurement?: boolean;
   readonly status?: ClientContactStatus;
 }

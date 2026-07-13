@@ -1,4 +1,6 @@
 import type { ProjectPriority, ProjectStatus } from '@/features/projects/types';
+import type { ProjectServiceType } from '@/features/projects/templates/api/template.types';
+import type { ProjectHealthStatus } from '@/features/projects/delivery/api/delivery.types';
 
 /** Project row returned by GET /projects — mirrors backend ProjectRecord. */
 export interface ProjectRecord {
@@ -6,11 +8,16 @@ export interface ProjectRecord {
   readonly tenantId: string;
   readonly workspaceId: string;
   readonly clientId: string;
+  readonly dealId?: string | null;
   readonly departmentId: string | null;
+  readonly templateId?: string | null;
+  readonly primaryContactId?: string | null;
   readonly name: string;
   readonly code: string | null;
   readonly description: string | null;
   readonly status: ProjectStatus;
+  readonly serviceType?: ProjectServiceType | null;
+  readonly serviceLabel?: string | null;
   readonly projectManagerUserId: string | null;
   readonly priority: ProjectPriority;
   readonly startDate: string | null;
@@ -21,6 +28,9 @@ export interface ProjectRecord {
   readonly completedAt: string | null;
   readonly invoiceReadyAt: string | null;
   readonly isBillable: boolean;
+  readonly healthStatus?: ProjectHealthStatus | null;
+  readonly healthScore?: number | null;
+  readonly healthCalculatedAt?: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly createdByUserId: string | null;
@@ -67,6 +77,9 @@ export interface CreateProjectPayload {
   readonly estimatedHours?: number;
   readonly actualHours?: number;
   readonly isBillable?: boolean;
+  readonly templateId?: string;
+  readonly primaryContactId?: string;
+  readonly serviceType?: ProjectServiceType;
 }
 
 /** Request body for PATCH /projects/:id — mirrors backend UpdateProjectDto. */
@@ -84,4 +97,7 @@ export interface UpdateProjectPayload {
   readonly estimatedHours?: number | null;
   readonly actualHours?: number | null;
   readonly isBillable?: boolean;
+  readonly templateId?: string | null;
+  readonly primaryContactId?: string | null;
+  readonly serviceType?: ProjectServiceType | null;
 }

@@ -1,10 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type Client, type ClientContact, type Deal, type User } from '@prisma/client';
+import { OPEN_STAGES } from '../domain/deal-domain.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
   ArchiveDealData,
   CreateDealData,
   CreateDealStageHistoryData,
+  DealCloseDateCandidate,
+  DealDashboardAggregate,
+  DealForecastAggregate,
+  DealForecastQuery,
   DealListSortField,
   DealRecord,
   DealRepository,
@@ -37,14 +42,20 @@ export class PrismaDealRepository implements DealRepository {
         clientId: data.clientId,
         contactId: data.contactId ?? null,
         leadId: data.leadId ?? null,
+        pipelineId: data.pipelineId ?? null,
+        pipelineStageId: data.pipelineStageId ?? null,
         title: data.title,
+        description: data.description ?? null,
         value: new Prisma.Decimal(data.value),
         currency: data.currency ?? 'USD',
         expectedCloseDate: data.expectedCloseDate ?? null,
         ownerUserId: data.ownerUserId ?? null,
-        stage: data.stage ?? 'NEW',
+        stage: data.stage ?? 'QUALIFICATION',
+        status: data.status ?? 'OPEN',
+        source: data.source ?? null,
+        forecastCategory: data.forecastCategory ?? 'PIPELINE',
         service: data.service ?? null,
-        probability: data.probability ?? 0,
+        probability: data.probability ?? 10,
         priority: data.priority ?? 'MEDIUM',
         stageEnteredAt: data.stageEnteredAt ?? null,
         createdAt: data.createdAt,
@@ -93,6 +104,7 @@ export class PrismaDealRepository implements DealRepository {
       where: activeDealWhere(scope, id),
       data: {
         stage: 'ARCHIVED',
+        status: 'ARCHIVED',
         deletedAt: data.deletedAt,
         deletedByUserId: data.deletedByUserId,
         updatedAt: data.updatedAt,
@@ -119,10 +131,15 @@ export class PrismaDealRepository implements DealRepository {
         id,
         tenantId: scope.tenantId,
         workspaceId: scope.workspaceId,
-        OR: [{ deletedAt: { not: null } }, { stage: 'ARCHIVED' }],
+        OR: [{ deletedAt: { not: null } }, { stage: 'ARCHIVED' }, { status: 'ARCHIVED' }],
       },
       data: {
         stage: data.stage,
+        status: data.status,
+        forecastCategory: data.forecastCategory,
+        probability: data.probability,
+        pipelineId: data.pipelineId ?? undefined,
+        pipelineStageId: data.pipelineStageId ?? undefined,
         stageEnteredAt: data.stageEnteredAt,
         deletedAt: null,
         deletedByUserId: null,
@@ -153,6 +170,7 @@ export class PrismaDealRepository implements DealRepository {
       take = 25,
       q,
       stage,
+      status,
       priority,
       ownerUserId,
       clientId,
@@ -171,6 +189,7 @@ export class PrismaDealRepository implements DealRepository {
       workspaceId: scope.workspaceId,
       ...(includeArchived ? {} : { deletedAt: null }),
       ...(stage !== undefined ? { stage } : {}),
+      ...(status !== undefined ? { status } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(ownerUserId !== undefined ? { ownerUserId } : {}),
       ...(clientId !== undefined ? { clientId } : {}),
@@ -262,6 +281,257 @@ export class PrismaDealRepository implements DealRepository {
       where: { id: openHistory.id },
       data: { exitedAt, durationSeconds },
     });
+  }
+
+  async getForecastAggregate(
+    scope: DealScope,
+    query: DealForecastQuery,
+  ): Promise<DealForecastAggregate> {
+    const openWhere: Prisma.DealWhereInput = {
+      tenantId: scope.tenantId,
+      workspaceId: scope.workspaceId,
+      deletedAt: null,
+      status: 'OPEN',
+      stage: { in: [...OPEN_STAGES] },
+    };
+
+    const openDeals = await this.prisma.deal.findMany({
+      where: openWhere,
+      select: {
+        value: true,
+        probability: true,
+        expectedCloseDate: true,
+      },
+    });
+
+    let pipelineValue = 0;
+    let weightedForecast = 0;
+    let expectedRevenue = 0;
+
+    for (const deal of openDeals) {
+      const value = deal.value.toNumber();
+      const probability = deal.probability ?? 0;
+      pipelineValue += value;
+      weightedForecast += (value * probability) / 100;
+
+      if (
+        deal.expectedCloseDate !== null &&
+        deal.expectedCloseDate >= query.periodStart &&
+        deal.expectedCloseDate <= query.periodEnd
+      ) {
+        expectedRevenue += value;
+      }
+    }
+
+    const [wonAgg, lostAgg] = await Promise.all([
+      this.prisma.deal.aggregate({
+        where: {
+          tenantId: scope.tenantId,
+          workspaceId: scope.workspaceId,
+          deletedAt: null,
+          stage: 'WON',
+          wonAt: { gte: query.periodStart, lte: query.periodEnd },
+        },
+        _sum: { value: true },
+      }),
+      this.prisma.deal.aggregate({
+        where: {
+          tenantId: scope.tenantId,
+          workspaceId: scope.workspaceId,
+          deletedAt: null,
+          stage: 'LOST',
+          lostAt: { gte: query.periodStart, lte: query.periodEnd },
+        },
+        _sum: { value: true },
+      }),
+    ]);
+
+    return {
+      pipelineValue: roundMoney(pipelineValue),
+      weightedForecast: roundMoney(weightedForecast),
+      expectedRevenue: roundMoney(expectedRevenue),
+      wonRevenue: wonAgg._sum.value?.toNumber() ?? 0,
+      lostRevenue: lostAgg._sum.value?.toNumber() ?? 0,
+    };
+  }
+
+  async getDashboardAggregate(
+    scope: DealScope,
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<DealDashboardAggregate> {
+    const baseScope = {
+      tenantId: scope.tenantId,
+      workspaceId: scope.workspaceId,
+      deletedAt: null,
+    };
+
+    const [
+      openDeals,
+      wonThisMonth,
+      lostThisMonth,
+      openValueRows,
+      wonAgg,
+      decidedWon,
+      decidedLost,
+      recentWins,
+    ] = await Promise.all([
+      this.prisma.deal.count({
+        where: { ...baseScope, status: 'OPEN', stage: { in: [...OPEN_STAGES] } },
+      }),
+      this.prisma.deal.count({
+        where: {
+          ...baseScope,
+          stage: 'WON',
+          wonAt: { gte: monthStart, lte: monthEnd },
+        },
+      }),
+      this.prisma.deal.count({
+        where: {
+          ...baseScope,
+          stage: 'LOST',
+          lostAt: { gte: monthStart, lte: monthEnd },
+        },
+      }),
+      this.prisma.deal.findMany({
+        where: { ...baseScope, status: 'OPEN', stage: { in: [...OPEN_STAGES] } },
+        select: { value: true, probability: true },
+      }),
+      this.prisma.deal.aggregate({
+        where: { ...baseScope, stage: 'WON' },
+        _avg: { value: true },
+        _count: { _all: true },
+      }),
+      this.prisma.deal.count({
+        where: { ...baseScope, stage: 'WON' },
+      }),
+      this.prisma.deal.count({
+        where: { ...baseScope, stage: 'LOST' },
+      }),
+      this.prisma.deal.findMany({
+        where: {
+          ...baseScope,
+          stage: 'WON',
+          wonAt: { not: null },
+        },
+        select: { createdAt: true, wonAt: true },
+        orderBy: { wonAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+
+    let pipelineValue = 0;
+    let weightedForecast = 0;
+    for (const row of openValueRows) {
+      const value = row.value.toNumber();
+      pipelineValue += value;
+      weightedForecast += (value * (row.probability ?? 0)) / 100;
+    }
+
+    const decidedTotal = decidedWon + decidedLost;
+    const winRate = decidedTotal === 0 ? 0 : roundMoney((decidedWon / decidedTotal) * 100);
+
+    let salesVelocityDays: number | null = null;
+    if (recentWins.length > 0) {
+      const totalDays = recentWins.reduce((sum, deal) => {
+        if (deal.wonAt === null) {
+          return sum;
+        }
+        return sum + (deal.wonAt.getTime() - deal.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      }, 0);
+      salesVelocityDays = roundMoney(totalDays / recentWins.length);
+    }
+
+    return {
+      openDeals,
+      wonThisMonth,
+      lostThisMonth,
+      pipelineValue: roundMoney(pipelineValue),
+      weightedForecast: roundMoney(weightedForecast),
+      averageDealSize: wonAgg._avg.value?.toNumber() ?? 0,
+      winRate,
+      salesVelocityDays,
+    };
+  }
+
+  async findOpenDealsWithCloseDateBetween(
+    fromInclusive: Date,
+    toInclusive: Date,
+  ): Promise<readonly DealCloseDateCandidate[]> {
+    const deals = await this.prisma.deal.findMany({
+      where: {
+        deletedAt: null,
+        status: 'OPEN',
+        stage: { in: [...OPEN_STAGES] },
+        expectedCloseDate: {
+          gte: fromInclusive,
+          lte: toInclusive,
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        ownerUserId: true,
+        expectedCloseDate: true,
+        status: true,
+        stage: true,
+        tenantId: true,
+        workspaceId: true,
+      },
+    });
+
+    return deals
+      .filter(
+        (deal): deal is typeof deal & { expectedCloseDate: Date } =>
+          deal.expectedCloseDate !== null,
+      )
+      .map((deal) => ({
+        id: deal.id,
+        tenantId: deal.tenantId,
+        workspaceId: deal.workspaceId,
+        title: deal.title,
+        ownerUserId: deal.ownerUserId,
+        expectedCloseDate: deal.expectedCloseDate,
+        status: deal.status,
+        stage: deal.stage,
+      }));
+  }
+
+  async findOverdueOpenDeals(beforeDate: Date): Promise<readonly DealCloseDateCandidate[]> {
+    const deals = await this.prisma.deal.findMany({
+      where: {
+        deletedAt: null,
+        status: 'OPEN',
+        stage: { in: [...OPEN_STAGES] },
+        expectedCloseDate: { lt: beforeDate },
+      },
+      select: {
+        id: true,
+        title: true,
+        ownerUserId: true,
+        expectedCloseDate: true,
+        status: true,
+        stage: true,
+        tenantId: true,
+        workspaceId: true,
+      },
+    });
+
+    return deals
+      .filter(
+        (deal): deal is typeof deal & { expectedCloseDate: Date } =>
+          deal.expectedCloseDate !== null,
+      )
+      .map((deal) => ({
+        id: deal.id,
+        tenantId: deal.tenantId,
+        workspaceId: deal.workspaceId,
+        title: deal.title,
+        ownerUserId: deal.ownerUserId,
+        expectedCloseDate: deal.expectedCloseDate,
+        status: deal.status,
+        stage: deal.stage,
+      }));
   }
 
   private async findByIdWithClient(
@@ -374,7 +644,10 @@ function toDealRecord(deal: DealWithRelations): DealRecord {
     contactId: deal.contactId,
     contactName: resolveContactName(deal.contact),
     leadId: deal.leadId,
+    pipelineId: deal.pipelineId,
+    pipelineStageId: deal.pipelineStageId,
     title: deal.title,
+    description: deal.description,
     value: deal.value.toNumber(),
     currency: deal.currency,
     expectedCloseDate: deal.expectedCloseDate,
@@ -382,6 +655,9 @@ function toDealRecord(deal: DealWithRelations): DealRecord {
     ownerDisplayName: deal.ownerUser ? resolveUserDisplayName(deal.ownerUser) : null,
     ownerEmail: deal.ownerUser?.email ?? null,
     stage: deal.stage,
+    status: deal.status,
+    source: deal.source,
+    forecastCategory: deal.forecastCategory,
     service: deal.service,
     probability: deal.probability,
     priority: deal.priority,
@@ -389,6 +665,9 @@ function toDealRecord(deal: DealWithRelations): DealRecord {
     convertedProjectId: deal.convertedProjectId,
     wonAt: deal.wonAt,
     lostAt: deal.lostAt,
+    lossReason: deal.lossReason,
+    competitor: deal.competitor,
+    lossNotes: deal.lossNotes,
     createdAt: deal.createdAt,
     updatedAt: deal.updatedAt,
     createdByUserId: deal.createdByUserId,
@@ -396,4 +675,8 @@ function toDealRecord(deal: DealWithRelations): DealRecord {
     deletedAt: deal.deletedAt,
     deletedByUserId: deal.deletedByUserId,
   };
+}
+
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }

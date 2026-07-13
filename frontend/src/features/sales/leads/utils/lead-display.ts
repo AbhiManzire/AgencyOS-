@@ -19,13 +19,17 @@ export const LEAD_PRIORITY_LABELS: Record<LeadPriority, string> = {
 };
 
 export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  MANUAL: 'Manual',
   WEBSITE: 'Website',
+  META_ADS: 'Meta Ads',
+  GOOGLE_ADS: 'Google Ads',
+  WHATSAPP: 'WhatsApp',
+  EMAIL: 'Email',
+  CALL: 'Call',
   REFERRAL: 'Referral',
-  COLD_OUTREACH: 'Cold outreach',
-  SOCIAL: 'Social',
-  EVENT: 'Event',
-  PARTNER: 'Partner',
-  OTHER: 'Other',
+  IMPORT: 'Import',
+  API: 'API',
+  WEBHOOK: 'Webhook',
 };
 
 export function formatLeadSource(source: LeadSource | null | undefined): string {

@@ -1,4 +1,5 @@
-import type { DealPriority, DealStage } from '@prisma/client';
+import type { DealForecastCategory, DealPriority, DealStage, DealStatus } from '@prisma/client';
+import { DEAL_STAGE_DEFAULT_PROBABILITY } from '../../pipelines/domain/default-pipeline.catalog';
 import {
   type ClientContactRepository,
   type ClientContactScope,
@@ -12,33 +13,25 @@ import { DEAL_DOMAIN_ERROR_CODES, DealDomainError } from './deal-domain.errors';
 import type {
   ConvertToInvoiceValidationInput,
   CreateDealValidationInput,
+  LoseDealValidationInput,
   UpdateDealValidationInput,
+  WinDealValidationInput,
 } from './deal-domain.types';
+import { DEAL_OPEN_STAGES } from './deal-domain.types';
 
-const VALID_STAGES: readonly DealStage[] = [
-  'NEW',
-  'CONTACTED',
-  'QUALIFIED',
+export const VALID_STAGES: readonly DealStage[] = [
+  'QUALIFICATION',
   'DISCOVERY',
   'PROPOSAL',
   'NEGOTIATION',
+  'VERBAL_COMMIT',
   'WON',
   'LOST',
   'ARCHIVED',
 ];
 
+export const OPEN_STAGES: readonly DealStage[] = DEAL_OPEN_STAGES;
 const VALID_PRIORITIES: readonly DealPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
-
-/** Forward pipeline order — index determines which open stages are "ahead". */
-const PIPELINE_ORDER: readonly DealStage[] = [
-  'NEW',
-  'CONTACTED',
-  'QUALIFIED',
-  'DISCOVERY',
-  'PROPOSAL',
-  'NEGOTIATION',
-  'WON',
-];
 
 export class DealDomainService {
   constructor(
@@ -93,7 +86,7 @@ export class DealDomainService {
   }
 
   validateRestore(deal: DealRecord): void {
-    if (deal.deletedAt === null && deal.stage !== 'ARCHIVED') {
+    if (deal.deletedAt === null && deal.stage !== 'ARCHIVED' && deal.status !== 'ARCHIVED') {
       throw new DealDomainError(DEAL_DOMAIN_ERROR_CODES.DEAL_NOT_ARCHIVED, 'Deal is not archived.');
     }
   }
@@ -112,7 +105,7 @@ export class DealDomainService {
   validateConvertToInvoice(deal: DealRecord, input: ConvertToInvoiceValidationInput): void {
     this.assertDealIsActive(deal);
 
-    if (deal.stage !== 'WON') {
+    if (deal.stage !== 'WON' && deal.status !== 'WON') {
       throw new DealDomainError(
         DEAL_DOMAIN_ERROR_CODES.DEAL_NOT_WON,
         'Deal must be marked as Won before it can be converted to an invoice.',
@@ -125,6 +118,62 @@ export class DealDomainService {
         DEAL_DOMAIN_ERROR_CODES.PROJECT_REQUIRED,
         'A project is required to convert this deal to an invoice.',
       );
+    }
+  }
+
+  validateWin(deal: DealRecord, _input: WinDealValidationInput = {}): void {
+    this.assertDealIsActive(deal);
+    this.assertStageTransition(deal.stage, 'WON');
+  }
+
+  validateLose(deal: DealRecord, input: LoseDealValidationInput): void {
+    this.assertDealIsActive(deal);
+    this.assertStageTransition(deal.stage, 'LOST');
+
+    if (input.lossReason.trim().length === 0) {
+      throw new DealDomainError(
+        DEAL_DOMAIN_ERROR_CODES.LOSS_REASON_REQUIRED,
+        'A loss reason is required to mark a deal as lost.',
+      );
+    }
+  }
+
+  validateStageChange(deal: DealRecord, stage: DealStage): void {
+    this.assertDealIsActive(deal);
+    this.assertStageValid(stage);
+    this.assertStageTransition(deal.stage, stage);
+  }
+
+  deriveStatus(stage: DealStage): DealStatus {
+    switch (stage) {
+      case 'WON':
+        return 'WON';
+      case 'LOST':
+        return 'LOST';
+      case 'ARCHIVED':
+        return 'ARCHIVED';
+      default:
+        return 'OPEN';
+    }
+  }
+
+  defaultProbability(stage: DealStage): number {
+    return DEAL_STAGE_DEFAULT_PROBABILITY[stage];
+  }
+
+  defaultForecastCategory(stage: DealStage): DealForecastCategory {
+    switch (stage) {
+      case 'WON':
+        return 'CLOSED';
+      case 'LOST':
+        return 'OMITTED';
+      case 'VERBAL_COMMIT':
+        return 'COMMIT';
+      case 'PROPOSAL':
+      case 'NEGOTIATION':
+        return 'BEST_CASE';
+      default:
+        return 'PIPELINE';
     }
   }
 
@@ -229,27 +278,19 @@ export class DealDomainService {
       return false;
     }
 
-    if (from === 'WON') {
+    if (from === 'WON' || from === 'LOST') {
       return to === 'ARCHIVED';
     }
 
-    if (from === 'LOST') {
-      return to === 'ARCHIVED';
+    // Open stages: free movement among open stages, or to WON/LOST/ARCHIVED
+    if (OPEN_STAGES.includes(from)) {
+      if (OPEN_STAGES.includes(to)) {
+        return true;
+      }
+      return to === 'WON' || to === 'LOST' || to === 'ARCHIVED';
     }
 
-    // from is an open pipeline stage (NEW..NEGOTIATION)
-    if (to === 'LOST' || to === 'ARCHIVED') {
-      return true;
-    }
-
-    const fromIndex = PIPELINE_ORDER.indexOf(from);
-    const toIndex = PIPELINE_ORDER.indexOf(to);
-
-    if (fromIndex === -1 || toIndex === -1) {
-      return false;
-    }
-
-    return toIndex > fromIndex;
+    return false;
   }
 
   private assertDealIsActive(deal: DealRecord): void {

@@ -25,6 +25,7 @@ export function fileRecordToListItem(record: FileRecord): FileListItem {
     mimeType: record.mimeType,
     extension: record.extension,
     size: record.size,
+    folder: record.folder ?? null,
     uploadedBy: resolveUploaderName(
       record.uploaderDisplayName,
       record.uploaderEmail,

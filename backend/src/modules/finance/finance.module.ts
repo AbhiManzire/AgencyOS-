@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ActivitiesModule } from '../activities/activities.module';
+import { WorkflowEventsModule } from '../automation/workflow-events.module';
 import { ClientsModule } from '../clients/clients.module';
 import {
   CLIENT_REPOSITORY,
@@ -53,6 +54,7 @@ import { PaymentService } from './payments/services/payment.service';
     ActivitiesModule,
     FilesModule,
     NotificationsModule,
+    WorkflowEventsModule,
   ],
   providers: [
     {

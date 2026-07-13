@@ -92,7 +92,7 @@ export const DEFAULT_CREATE_CLIENT_FORM_VALUES: CreateClientFormValues = {
   shippingCountryCode: '',
 };
 
-const CREATABLE_STATUSES: readonly CreateClientStatus[] = ['PROSPECT', 'ACTIVE'];
+const CREATABLE_STATUSES: readonly CreateClientStatus[] = ['PROSPECT'];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -167,7 +167,7 @@ export function validateCreateClientForm(
   }
 
   if (mode === 'create' && !CREATABLE_STATUSES.includes(values.status as CreateClientStatus)) {
-    errors.status = 'Status must be Prospect or Active when creating a client';
+    errors.status = 'New clients must be created as Prospect. Active status comes from a won deal.';
   }
 
   const ownerUserId = values.ownerUserId.trim();
@@ -305,13 +305,12 @@ function resolveDisplayName(values: CreateClientFormValues): string {
 
 /** Maps validated form values to the POST /clients request body. */
 export function toCreateClientPayload(values: CreateClientFormValues): CreateClientPayload {
-  const status = values.status as CreateClientStatus;
   const displayName = resolveDisplayName(values);
   const legalName = optionalCreateString(values.company);
 
   return {
     displayName,
-    status,
+    status: 'PROSPECT',
     ...(legalName !== undefined ? { legalName } : {}),
     ...(optionalCreateString(values.industry) !== undefined
       ? { industry: optionalCreateString(values.industry) }

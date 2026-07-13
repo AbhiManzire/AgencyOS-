@@ -1,12 +1,11 @@
 import type { DealPriority, DealStage } from '@prisma/client';
 
 export const DEAL_OPEN_STAGES: readonly DealStage[] = [
-  'NEW',
-  'CONTACTED',
-  'QUALIFIED',
+  'QUALIFICATION',
   'DISCOVERY',
   'PROPOSAL',
   'NEGOTIATION',
+  'VERBAL_COMMIT',
 ];
 
 export interface CreateDealValidationInput {
@@ -27,4 +26,14 @@ export interface UpdateDealValidationInput {
 
 export interface ConvertToInvoiceValidationInput {
   readonly projectId?: string | null;
+}
+
+export interface WinDealValidationInput {
+  readonly createProject?: boolean;
+  readonly createInvoice?: boolean;
+  readonly convertClient?: boolean;
+}
+
+export interface LoseDealValidationInput {
+  readonly lossReason: string;
 }

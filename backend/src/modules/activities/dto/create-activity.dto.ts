@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ActivityOrigin } from '@prisma/client';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateActivityDto {
   @IsString()
@@ -27,4 +36,13 @@ export class CreateActivityDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsEnum(ActivityOrigin)
+  origin?: ActivityOrigin;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  dedupeKey?: string;
 }

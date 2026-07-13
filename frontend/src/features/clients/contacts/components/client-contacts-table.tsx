@@ -36,6 +36,7 @@ export function ClientContactsTable({
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead className="hidden md:table-cell">Designation</TableHead>
+              <TableHead className="hidden lg:table-cell">Role</TableHead>
               <TableHead className="hidden lg:table-cell">Department</TableHead>
               <TableHead className="hidden xl:table-cell">Email</TableHead>
               <TableHead className="hidden lg:table-cell">Mobile</TableHead>
@@ -60,6 +61,9 @@ export function ClientContactsTable({
                   </TableCell>
                   <TableCell className="hidden max-w-[180px] truncate md:table-cell">
                     {displayClientField(contact.jobTitle || null)}
+                  </TableCell>
+                  <TableCell className="hidden max-w-[140px] truncate lg:table-cell">
+                    {displayClientField(contact.role || null)}
                   </TableCell>
                   <TableCell className="hidden max-w-[160px] truncate lg:table-cell">
                     {displayClientField(contact.department || null)}

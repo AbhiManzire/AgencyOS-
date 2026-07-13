@@ -1,6 +1,16 @@
 import { ProjectMemberRole, ProjectMemberStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsDate,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class CreateProjectMemberDto {
   @IsUUID()
@@ -9,6 +19,11 @@ export class CreateProjectMemberDto {
   @IsOptional()
   @IsEnum(ProjectMemberRole)
   role?: ProjectMemberRole;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  customRoleLabel?: string;
 
   @IsOptional()
   @Type(() => Number)

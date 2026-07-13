@@ -19,9 +19,11 @@ export interface ProjectMilestoneRecord {
   readonly startDate: Date | null;
   readonly dueDate: Date | null;
   readonly ownerUserId: string | null;
+  readonly completionPercent: number;
   readonly sortOrder: number;
   readonly completedAt: Date | null;
   readonly progressPercent: number;
+  readonly dependsOnMilestoneIds: readonly string[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId: string | null;
@@ -43,6 +45,7 @@ export interface CreateProjectMilestoneData {
   readonly startDate?: Date | null;
   readonly dueDate?: Date | null;
   readonly ownerUserId?: string | null;
+  readonly completionPercent?: number;
   readonly sortOrder: number;
   readonly completedAt?: Date | null;
   readonly createdAt: Date;
@@ -58,6 +61,7 @@ export interface UpdateProjectMilestoneData {
   readonly startDate?: Date | null;
   readonly dueDate?: Date | null;
   readonly ownerUserId?: string | null;
+  readonly completionPercent?: number;
   readonly completedAt?: Date | null;
   readonly updatedAt: Date;
   readonly updatedByUserId?: string | null;

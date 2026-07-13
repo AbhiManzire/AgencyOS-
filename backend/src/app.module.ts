@@ -26,6 +26,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { AutomationModule } from './modules/automation/automation.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { AiModule } from './modules/ai/ai.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AiModule } from './modules/ai/ai.module';
     WorkflowsModule,
     AutomationModule,
     AiModule,
+    IntegrationsModule,
   ],
   providers: [
     {

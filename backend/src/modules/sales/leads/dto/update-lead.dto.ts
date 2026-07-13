@@ -75,6 +75,11 @@ export class UpdateLeadDto {
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
+  campaignId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
   assignedToUserId?: string | null;
 
   @IsOptional()

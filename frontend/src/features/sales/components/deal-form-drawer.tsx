@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -9,6 +9,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ErrorState, LoadingState, SectionTitle, useToast } from '@/design-system';
 import { UnsavedChangesDialog } from '@/features/clients/components/unsaved-changes-dialog';
 import { useClientContacts } from '@/features/clients/contacts/hooks/use-client-contacts';
+import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owners';
 import { useClients } from '@/features/clients/hooks/use-clients';
 import {
   areDealFormValuesEqual,
@@ -24,17 +25,35 @@ import { useCreateDeal } from '@/features/sales/hooks/use-create-deal';
 import { useDeal } from '@/features/sales/hooks/use-deal';
 import { useUpdateDeal } from '@/features/sales/hooks/use-update-deal';
 import { useLeads } from '@/features/sales/leads/hooks/use-leads';
-import type { DealPriority } from '@/features/sales/types';
-import { DEAL_PRIORITY_LABELS } from '@/features/sales/utils/deal-display';
+import { LEAD_SOURCE_LABELS } from '@/features/sales/leads/utils/lead-display';
+import type { LeadSource } from '@/features/sales/leads/types';
+import { PIPELINE_COLUMNS } from '@/features/sales/pipeline/pipeline.constants';
+import type { DealForecastCategory, DealPriority, DealStage } from '@/features/sales/types';
+import {
+  DEAL_FORECAST_CATEGORY_LABELS,
+  DEAL_PRIORITY_LABELS,
+  getDealStageDefaultProbability,
+} from '@/features/sales/utils/deal-display';
 import { extractApiErrorMessage } from '@/lib/api/extract-api-error';
 
 export type DealDrawerMode = 'create' | 'edit';
+
+export interface DealFormDrawerDefaults {
+  readonly clientId?: string;
+  readonly contactId?: string;
+  readonly leadId?: string;
+  readonly title?: string;
+  readonly value?: string;
+  readonly ownerUserId?: string;
+  readonly source?: LeadSource | '';
+}
 
 interface DealFormDrawerProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly mode?: DealDrawerMode;
   readonly dealId?: string;
+  readonly defaults?: DealFormDrawerDefaults;
 }
 
 interface FormFieldProps {
@@ -58,11 +77,29 @@ function FormField({ label, htmlFor, required = false, error, children }: FormFi
   );
 }
 
+function buildInitialValues(defaults?: DealFormDrawerDefaults): DealFormValues {
+  return {
+    ...DEFAULT_DEAL_FORM_VALUES,
+    clientId: defaults?.clientId ?? '',
+    contactId: defaults?.contactId ?? '',
+    leadId: defaults?.leadId ?? '',
+    title: defaults?.title ?? '',
+    value: defaults?.value ?? '',
+    ownerUserId: defaults?.ownerUserId ?? '',
+    source: defaults?.source ?? '',
+  };
+}
+
+const OPEN_STAGES = PIPELINE_COLUMNS.filter(
+  (column) => column.stage !== 'WON' && column.stage !== 'LOST',
+);
+
 export function DealFormDrawer({
   open,
   onOpenChange,
   mode = 'create',
   dealId,
+  defaults,
 }: DealFormDrawerProps) {
   const isEditMode = mode === 'edit' && dealId !== undefined && dealId.length > 0;
   const { showToast } = useToast();
@@ -75,8 +112,10 @@ export function DealFormDrawer({
     refetch: refetchDeal,
   } = useDeal(dealId ?? '', { enabled: open && isEditMode });
 
-  const [values, setValues] = useState<DealFormValues>(DEFAULT_DEAL_FORM_VALUES);
-  const [initialValues, setInitialValues] = useState<DealFormValues>(DEFAULT_DEAL_FORM_VALUES);
+  const initialCreateValues = useMemo(() => buildInitialValues(defaults), [defaults]);
+
+  const [values, setValues] = useState<DealFormValues>(initialCreateValues);
+  const [initialValues, setInitialValues] = useState<DealFormValues>(initialCreateValues);
   const [errors, setErrors] = useState<DealFormErrors>({});
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
@@ -95,6 +134,7 @@ export function DealFormDrawer({
   } = useClientContacts(values.clientId);
 
   const { data: leadsData } = useLeads({ take: 100 }, { enabled: open });
+  const { data: owners = [] } = useWorkspaceOwners({ enabled: open });
 
   useEffect(() => {
     if (!open) {
@@ -106,10 +146,11 @@ export function DealFormDrawer({
       return;
     }
 
-    setValues(DEFAULT_DEAL_FORM_VALUES);
-    setInitialValues(DEFAULT_DEAL_FORM_VALUES);
+    const next = buildInitialValues(defaults);
+    setValues(next);
+    setInitialValues(next);
     setErrors({});
-  }, [isEditMode, open]);
+  }, [defaults, isEditMode, open]);
 
   useEffect(() => {
     if (!open || !isEditMode || deal === undefined) {
@@ -124,7 +165,9 @@ export function DealFormDrawer({
 
   useEffect(() => {
     if (values.clientId.length === 0) {
-      setValues((current) => ({ ...current, contactId: '' }));
+      setValues((current) =>
+        current.contactId.length === 0 ? current : { ...current, contactId: '' },
+      );
     }
   }, [values.clientId]);
 
@@ -137,7 +180,19 @@ export function DealFormDrawer({
     field: K,
     value: DealFormValues[K],
   ): void => {
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues((current) => {
+      const next = { ...current, [field]: value };
+      if (field === 'stage' && typeof value === 'string') {
+        const stage = value as DealStage;
+        if (
+          current.probability.trim().length === 0 ||
+          current.probability === String(getDealStageDefaultProbability(current.stage))
+        ) {
+          next.probability = String(getDealStageDefaultProbability(stage));
+        }
+      }
+      return next;
+    });
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
   };
 
@@ -180,6 +235,7 @@ export function DealFormDrawer({
     : 'Add a new opportunity to the pipeline.';
   const submitLabel = isEditMode ? 'Save Changes' : 'Create Deal';
   const isFormDisabled = isSaving || (isEditMode && isLoadingDeal);
+  const stageOptions = isEditMode ? PIPELINE_COLUMNS : OPEN_STAGES;
 
   return (
     <>
@@ -231,7 +287,24 @@ export function DealFormDrawer({
                 <section className="space-y-4">
                   <SectionTitle className="text-base">Deal Details</SectionTitle>
 
-                  <FormField label="Client" htmlFor="clientId" required error={errors.clientId}>
+                  <FormField label="Title" htmlFor="title" required error={errors.title}>
+                    <Input
+                      id="title"
+                      value={values.title}
+                      onChange={(event) => {
+                        updateField('title', event.target.value);
+                      }}
+                      placeholder="Website redesign"
+                      disabled={isFormDisabled}
+                    />
+                  </FormField>
+
+                  <FormField
+                    label="Client (Account)"
+                    htmlFor="clientId"
+                    required
+                    error={errors.clientId}
+                  >
                     <NativeSelect
                       id="clientId"
                       label="Client"
@@ -289,32 +362,54 @@ export function DealFormDrawer({
                     )}
                   </FormField>
 
-                  <FormField label="Deal Title" htmlFor="title" required error={errors.title}>
-                    <Input
-                      id="title"
-                      value={values.title}
-                      onChange={(event) => {
-                        updateField('title', event.target.value);
-                      }}
-                      placeholder="Website redesign"
+                  <FormField label="Owner" htmlFor="ownerUserId">
+                    <NativeSelect
+                      id="ownerUserId"
+                      label="Owner"
+                      value={values.ownerUserId}
                       disabled={isFormDisabled}
-                    />
+                      onChange={(event) => {
+                        updateField('ownerUserId', event.target.value);
+                      }}
+                    >
+                      <option value="">Unassigned</option>
+                      {owners.map((owner) => (
+                        <option key={owner.id} value={owner.id}>
+                          {owner.displayName || owner.email}
+                        </option>
+                      ))}
+                    </NativeSelect>
                   </FormField>
 
-                  <FormField label="Value" htmlFor="value" required error={errors.value}>
-                    <Input
-                      id="value"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={values.value}
-                      onChange={(event) => {
-                        updateField('value', event.target.value);
-                      }}
-                      placeholder="10000"
-                      disabled={isFormDisabled}
-                    />
-                  </FormField>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Value" htmlFor="value" required error={errors.value}>
+                      <Input
+                        id="value"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={values.value}
+                        onChange={(event) => {
+                          updateField('value', event.target.value);
+                        }}
+                        placeholder="10000"
+                        disabled={isFormDisabled}
+                      />
+                    </FormField>
+
+                    <FormField label="Currency" htmlFor="currency" error={errors.currency}>
+                      <Input
+                        id="currency"
+                        value={values.currency}
+                        maxLength={3}
+                        onChange={(event) => {
+                          updateField('currency', event.target.value.toUpperCase());
+                        }}
+                        placeholder="USD"
+                        disabled={isFormDisabled}
+                      />
+                    </FormField>
+                  </div>
 
                   <FormField label="Expected Close" htmlFor="expectedCloseDate">
                     <Input
@@ -325,6 +420,119 @@ export function DealFormDrawer({
                         updateField('expectedCloseDate', event.target.value);
                       }}
                       disabled={isFormDisabled}
+                    />
+                  </FormField>
+
+                  <FormField label="Stage" htmlFor="stage">
+                    <NativeSelect
+                      id="stage"
+                      label="Stage"
+                      value={values.stage}
+                      disabled={isFormDisabled}
+                      onChange={(event) => {
+                        updateField('stage', event.target.value as DealStage);
+                      }}
+                    >
+                      {stageOptions.map((column) => (
+                        <option key={column.id} value={column.stage}>
+                          {column.label}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormField>
+
+                  <FormField label="Source" htmlFor="source">
+                    <NativeSelect
+                      id="source"
+                      label="Source"
+                      value={values.source}
+                      disabled={isFormDisabled}
+                      onChange={(event) => {
+                        updateField('source', event.target.value as LeadSource | '');
+                      }}
+                    >
+                      <option value="">No source</option>
+                      {(Object.keys(LEAD_SOURCE_LABELS) as LeadSource[]).map((key) => (
+                        <option key={key} value={key}>
+                          {LEAD_SOURCE_LABELS[key]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormField>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      label="Probability (%)"
+                      htmlFor="probability"
+                      error={errors.probability}
+                    >
+                      <Input
+                        id="probability"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={values.probability}
+                        onChange={(event) => {
+                          updateField('probability', event.target.value);
+                        }}
+                        placeholder="50"
+                        disabled={isFormDisabled}
+                      />
+                    </FormField>
+
+                    <FormField label="Forecast Category" htmlFor="forecastCategory">
+                      <NativeSelect
+                        id="forecastCategory"
+                        label="Forecast Category"
+                        value={values.forecastCategory}
+                        disabled={isFormDisabled}
+                        onChange={(event) => {
+                          updateField(
+                            'forecastCategory',
+                            event.target.value as DealForecastCategory,
+                          );
+                        }}
+                      >
+                        {(Object.keys(DEAL_FORECAST_CATEGORY_LABELS) as DealForecastCategory[]).map(
+                          (key) => (
+                            <option key={key} value={key}>
+                              {DEAL_FORECAST_CATEGORY_LABELS[key]}
+                            </option>
+                          ),
+                        )}
+                      </NativeSelect>
+                    </FormField>
+                  </div>
+
+                  <FormField label="Priority" htmlFor="priority">
+                    <NativeSelect
+                      id="priority"
+                      label="Priority"
+                      value={values.priority}
+                      disabled={isFormDisabled}
+                      onChange={(event) => {
+                        updateField('priority', event.target.value as DealPriority);
+                      }}
+                    >
+                      {(Object.keys(DEAL_PRIORITY_LABELS) as DealPriority[]).map((key) => (
+                        <option key={key} value={key}>
+                          {DEAL_PRIORITY_LABELS[key]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormField>
+
+                  <FormField label="Description" htmlFor="description">
+                    <textarea
+                      id="description"
+                      value={values.description}
+                      onChange={(event) => {
+                        updateField('description', event.target.value);
+                      }}
+                      rows={3}
+                      placeholder="Opportunity notes"
+                      disabled={isFormDisabled}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                     />
                   </FormField>
 
@@ -357,43 +565,6 @@ export function DealFormDrawer({
                       placeholder="Website redesign"
                       disabled={isFormDisabled}
                     />
-                  </FormField>
-
-                  <FormField
-                    label="Probability (%)"
-                    htmlFor="probability"
-                    error={errors.probability}
-                  >
-                    <Input
-                      id="probability"
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={values.probability}
-                      onChange={(event) => {
-                        updateField('probability', event.target.value);
-                      }}
-                      placeholder="50"
-                      disabled={isFormDisabled}
-                    />
-                  </FormField>
-
-                  <FormField label="Priority" htmlFor="priority">
-                    <NativeSelect
-                      id="priority"
-                      label="Priority"
-                      value={values.priority}
-                      disabled={isFormDisabled}
-                      onChange={(event) => {
-                        updateField('priority', event.target.value as DealPriority);
-                      }}
-                    >
-                      {(Object.keys(DEAL_PRIORITY_LABELS) as DealPriority[]).map((key) => (
-                        <option key={key} value={key}>
-                          {DEAL_PRIORITY_LABELS[key]}
-                        </option>
-                      ))}
-                    </NativeSelect>
                   </FormField>
                 </section>
               </div>

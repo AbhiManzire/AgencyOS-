@@ -26,6 +26,9 @@ export interface LeadRecord {
   readonly industry: string | null;
   readonly country: string | null;
   readonly source: LeadSource;
+  readonly campaignId: string | null;
+  readonly intakeProvider: string | null;
+  readonly externalId: string | null;
   readonly assignedToUserId: string | null;
   readonly assignedToDisplayName: string | null;
   readonly assignedToEmail: string | null;
@@ -66,6 +69,9 @@ export interface CreateLeadData {
   readonly industry?: string | null;
   readonly country?: string | null;
   readonly source?: LeadSource;
+  readonly campaignId?: string | null;
+  readonly intakeProvider?: string | null;
+  readonly externalId?: string | null;
   readonly assignedToUserId?: string | null;
   readonly status?: LeadStatus;
   readonly leadScore?: number | null;
@@ -97,6 +103,7 @@ export interface UpdateLeadData {
   readonly industry?: string | null;
   readonly country?: string | null;
   readonly source?: LeadSource;
+  readonly campaignId?: string | null;
   readonly assignedToUserId?: string | null;
   readonly status?: LeadStatus;
   readonly leadScore?: number | null;
@@ -149,6 +156,7 @@ export interface ListLeadsParams {
   readonly status?: LeadStatus;
   readonly source?: LeadSource;
   readonly assignedToUserId?: string;
+  readonly campaignId?: string;
   readonly priority?: LeadPriority;
   readonly industry?: string;
   readonly country?: string;
@@ -190,5 +198,7 @@ export interface LeadRepository {
     tx?: LeadTransactionClient,
   ): Promise<LeadRecord | null>;
   findById(scope: LeadScope, id: string, options?: FindLeadByIdOptions): Promise<LeadRecord | null>;
+  findByIds(scope: LeadScope, ids: readonly string[]): Promise<readonly LeadRecord[]>;
+  findByEmails(scope: LeadScope, emails: readonly string[]): Promise<readonly LeadRecord[]>;
   list(params: ListLeadsParams): Promise<ListLeadsResult>;
 }

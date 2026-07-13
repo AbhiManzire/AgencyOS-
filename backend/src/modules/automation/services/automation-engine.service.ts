@@ -51,8 +51,12 @@ export class AutomationEngineService {
             input.triggerPayload === undefined
               ? undefined
               : (input.triggerPayload as Prisma.InputJsonValue),
+          recordEntityType: input.recordEntityType ?? null,
+          recordEntityId: input.recordEntityId ?? null,
           attempt: 0,
           maxAttempts,
+          retryCount: 0,
+          scheduledFor: input.scheduledFor ?? null,
           triggeredByUserId: input.triggeredByUserId ?? null,
           createdAt: now,
           updatedAt: now,
@@ -70,6 +74,7 @@ export class AutomationEngineService {
           details: {
             triggerType: input.triggerType ?? null,
             workflowId: input.workflowId,
+            scheduledFor: input.scheduledFor?.toISOString() ?? null,
           },
           occurredAt: now,
           createdAt: now,
@@ -93,12 +98,14 @@ export class AutomationEngineService {
     }
 
     const now = new Date();
+    const nextAttempt = execution.attempt + 1;
 
     const updated = await this.prisma.workflowExecution.update({
       where: { id: executionId },
       data: {
         status: 'RUNNING',
-        startedAt: now,
+        attempt: nextAttempt,
+        startedAt: execution.startedAt ?? now,
         nextRetryAt: null,
         updatedAt: now,
       },
@@ -111,7 +118,11 @@ export class AutomationEngineService {
     scope: AutomationScope,
     executionId: string,
     status: TerminalExecutionStatus,
-    errorMessage?: string,
+    options?: {
+      readonly errorMessage?: string;
+      readonly durationMs?: number;
+      readonly result?: Record<string, unknown>;
+    },
   ): Promise<WorkflowExecutionRecord> {
     await this.requireExecution(scope, executionId);
 
@@ -122,8 +133,12 @@ export class AutomationEngineService {
       data: {
         status,
         finishedAt: now,
-        errorMessage: errorMessage ?? null,
+        errorMessage: options?.errorMessage ?? null,
+        durationMs: options?.durationMs ?? null,
+        result:
+          options?.result === undefined ? undefined : (options.result as Prisma.InputJsonValue),
         nextRetryAt: null,
+        scheduledFor: null,
         updatedAt: now,
       },
     });
@@ -131,33 +146,21 @@ export class AutomationEngineService {
     return this.toExecutionRecord(updated);
   }
 
-  async scheduleRetry(
+  async deferExecution(
     scope: AutomationScope,
     executionId: string,
+    scheduledFor: Date,
+    message: string,
   ): Promise<WorkflowExecutionRecord> {
-    const execution = await this.requireExecution(scope, executionId);
-
-    if (!this.retryPolicy.shouldRetry(execution.attempt, execution.maxAttempts)) {
-      return this.completeExecution(
-        scope,
-        executionId,
-        'FAILED',
-        'Maximum retry attempts exceeded.',
-      );
-    }
-
-    const retryDelayMs = await this.resolveRetryDelayMs(scope, execution.workflowId);
-    const nextRetryAt = this.retryPolicy.computeNextRetryAt(execution.attempt, retryDelayMs);
+    await this.requireExecution(scope, executionId);
     const now = new Date();
-    const nextAttempt = execution.attempt + 1;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const record = await tx.workflowExecution.update({
         where: { id: executionId },
         data: {
-          status: 'RETRYING',
-          attempt: nextAttempt,
-          nextRetryAt,
+          status: 'PENDING',
+          scheduledFor,
           updatedAt: now,
         },
       });
@@ -168,10 +171,61 @@ export class AutomationEngineService {
           tenantId: scope.tenantId,
           workspaceId: scope.workspaceId,
           executionId,
-          level: 'WARN',
-          message: 'Execution scheduled for retry.',
+          level: 'INFO',
+          message,
+          details: { scheduledFor: scheduledFor.toISOString() },
+          occurredAt: now,
+          createdAt: now,
+        },
+      });
+
+      return record;
+    });
+
+    return this.toExecutionRecord(updated);
+  }
+
+  async scheduleRetry(
+    scope: AutomationScope,
+    executionId: string,
+    errorMessage?: string,
+  ): Promise<WorkflowExecutionRecord> {
+    const execution = await this.requireExecution(scope, executionId);
+
+    if (!this.retryPolicy.shouldRetry(execution.attempt, execution.maxAttempts)) {
+      return this.completeExecution(scope, executionId, 'FAILED', {
+        errorMessage: errorMessage ?? 'Maximum retry attempts exceeded.',
+      });
+    }
+
+    const retryDelayMs = await this.resolveRetryDelayMs(scope, execution.workflowId);
+    const nextRetryAt = this.retryPolicy.computeNextRetryAt(execution.attempt, retryDelayMs);
+    const now = new Date();
+    const nextRetryCount = execution.retryCount + 1;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const record = await tx.workflowExecution.update({
+        where: { id: executionId },
+        data: {
+          status: 'RETRYING',
+          retryCount: nextRetryCount,
+          nextRetryAt,
+          errorMessage: errorMessage ?? execution.errorMessage,
+          updatedAt: now,
+        },
+      });
+
+      await tx.workflowExecutionLog.create({
+        data: {
+          id: randomUUID(),
+          tenantId: scope.tenantId,
+          workspaceId: scope.workspaceId,
+          executionId,
+          level: 'ERROR',
+          message: errorMessage ?? 'Execution scheduled for retry.',
           details: {
-            attempt: nextAttempt,
+            attempt: execution.attempt,
+            retryCount: nextRetryCount,
             nextRetryAt: nextRetryAt.toISOString(),
             retryDelayMs,
           },
@@ -270,6 +324,24 @@ export class AutomationEngineService {
     };
   }
 
+  async listExecutionLogs(
+    scope: AutomationScope,
+    executionId: string,
+  ): Promise<readonly WorkflowExecutionLogRecord[]> {
+    await this.requireExecution(scope, executionId);
+
+    const logs = await this.prisma.workflowExecutionLog.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        workspaceId: scope.workspaceId,
+        executionId,
+      },
+      orderBy: { occurredAt: 'asc' },
+    });
+
+    return logs.map((log) => this.toLogRecord(log));
+  }
+
   async evaluateWorkflowConditions(
     scope: AutomationScope,
     workflowId: string,
@@ -286,24 +358,24 @@ export class AutomationEngineService {
       orderBy: { sortOrder: 'asc' },
     });
 
-    return this.conditionEvaluator.evaluateAll(
+    return this.conditionEvaluator.evaluateTree(
       conditions.map((condition) => ({
+        id: condition.id,
+        parentId: condition.parentId,
+        nodeType: condition.nodeType,
+        logic: condition.logic,
         field: condition.field,
         operator: condition.operator,
         value: condition.value,
+        sortOrder: condition.sortOrder,
       })),
       payload,
     );
   }
 
-  async listDueSchedules(
-    scope: AutomationScope,
-    now: Date,
-  ): Promise<readonly WorkflowScheduleRecord[]> {
+  async listDueSchedules(now: Date): Promise<readonly WorkflowScheduleRecord[]> {
     const schedules = await this.prisma.workflowSchedule.findMany({
       where: {
-        tenantId: scope.tenantId,
-        workspaceId: scope.workspaceId,
         isActive: true,
         deletedAt: null,
         nextRunAt: {
@@ -311,9 +383,46 @@ export class AutomationEngineService {
         },
       },
       orderBy: { nextRunAt: 'asc' },
+      take: 100,
     });
 
     return schedules.map((schedule) => this.toScheduleRecord(schedule));
+  }
+
+  async listDueExecutions(now: Date, take = 50): Promise<readonly WorkflowExecutionRecord[]> {
+    const executions = await this.prisma.workflowExecution.findMany({
+      where: {
+        OR: [
+          {
+            status: 'PENDING',
+            OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }],
+          },
+          {
+            status: 'RETRYING',
+            nextRetryAt: { lte: now },
+          },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+      take,
+    });
+
+    return executions.map((execution) => this.toExecutionRecord(execution));
+  }
+
+  async markScheduleRun(
+    scheduleId: string,
+    lastRunAt: Date,
+    nextRunAt: Date | null,
+  ): Promise<void> {
+    await this.prisma.workflowSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        lastRunAt,
+        nextRunAt,
+        updatedAt: new Date(),
+      },
+    });
   }
 
   private async requireWorkflow(scope: AutomationScope, workflowId: string): Promise<void> {
@@ -376,12 +485,18 @@ export class AutomationEngineService {
       status: execution.status,
       triggerType: execution.triggerType,
       triggerPayload: execution.triggerPayload,
+      recordEntityType: execution.recordEntityType,
+      recordEntityId: execution.recordEntityId,
       attempt: execution.attempt,
       maxAttempts: execution.maxAttempts,
+      retryCount: execution.retryCount,
       nextRetryAt: execution.nextRetryAt,
+      scheduledFor: execution.scheduledFor,
       startedAt: execution.startedAt,
       finishedAt: execution.finishedAt,
+      durationMs: execution.durationMs,
       errorMessage: execution.errorMessage,
+      result: execution.result,
       triggeredByUserId: execution.triggeredByUserId,
       createdAt: execution.createdAt,
       updatedAt: execution.updatedAt,

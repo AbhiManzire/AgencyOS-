@@ -13,6 +13,8 @@ export interface ProjectMilestoneRecord {
   readonly ownerDisplayName: string | null;
   readonly ownerEmail: string | null;
   readonly progressPercent: number;
+  readonly completionPercent?: number;
+  readonly dependsOnMilestoneIds?: readonly string[];
   readonly sortOrder: number;
   readonly completedAt: string | null;
   readonly createdAt: string;
@@ -33,6 +35,8 @@ export interface CreateProjectMilestonePayload {
   readonly startDate?: string;
   readonly dueDate?: string;
   readonly ownerUserId?: string;
+  readonly completionPercent?: number;
+  readonly dependsOnMilestoneIds?: readonly string[];
 }
 
 export interface UpdateProjectMilestonePayload {
@@ -42,6 +46,8 @@ export interface UpdateProjectMilestonePayload {
   readonly startDate?: string | null;
   readonly dueDate?: string | null;
   readonly ownerUserId?: string | null;
+  readonly completionPercent?: number;
+  readonly dependsOnMilestoneIds?: readonly string[];
 }
 
 export interface ListProjectMilestonesResult {

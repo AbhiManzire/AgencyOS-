@@ -208,6 +208,17 @@ export function ContactFormDrawer({
                   }}
                 />
               </ContactFormField>
+
+              <ContactFormField label="Role" htmlFor="role">
+                <Input
+                  id="role"
+                  value={values.role}
+                  disabled={isSaving}
+                  onChange={(event) => {
+                    updateField('role', event.target.value);
+                  }}
+                />
+              </ContactFormField>
             </section>
 
             <section className="space-y-4">
@@ -278,6 +289,48 @@ export function ContactFormDrawer({
                 />
                 <label htmlFor="isDecisionMaker" className="text-sm text-foreground">
                   Decision Maker
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="isFinance"
+                  checked={values.isFinance}
+                  disabled={isSaving}
+                  onCheckedChange={(checked) => {
+                    updateField('isFinance', checked === true);
+                  }}
+                />
+                <label htmlFor="isFinance" className="text-sm text-foreground">
+                  Finance
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="isTechnical"
+                  checked={values.isTechnical}
+                  disabled={isSaving}
+                  onCheckedChange={(checked) => {
+                    updateField('isTechnical', checked === true);
+                  }}
+                />
+                <label htmlFor="isTechnical" className="text-sm text-foreground">
+                  Technical
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="isProcurement"
+                  checked={values.isProcurement}
+                  disabled={isSaving}
+                  onCheckedChange={(checked) => {
+                    updateField('isProcurement', checked === true);
+                  }}
+                />
+                <label htmlFor="isProcurement" className="text-sm text-foreground">
+                  Procurement
                 </label>
               </div>
 

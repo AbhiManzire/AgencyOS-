@@ -23,6 +23,9 @@ export interface LeadRecord {
   readonly industry: string | null;
   readonly country: string | null;
   readonly source: LeadSource | null;
+  readonly campaignId: string | null;
+  readonly intakeProvider: string | null;
+  readonly externalId: string | null;
   readonly assignedToUserId: string | null;
   readonly assignedToDisplayName: string | null;
   readonly assignedToEmail: string | null;
@@ -83,6 +86,7 @@ export interface CreateLeadPayload {
   readonly industry?: string;
   readonly country?: string;
   readonly source?: LeadSource;
+  readonly campaignId?: string | null;
   readonly assignedToUserId?: string;
   readonly status?: CreateLeadStatus;
   readonly priority?: LeadPriority;
@@ -109,6 +113,7 @@ export interface UpdateLeadPayload {
   readonly industry?: string | null;
   readonly country?: string | null;
   readonly source?: LeadSource;
+  readonly campaignId?: string | null;
   readonly assignedToUserId?: string | null;
   readonly status?: Exclude<LeadStatus, 'ARCHIVED' | 'CONVERTED'>;
   readonly priority?: LeadPriority;

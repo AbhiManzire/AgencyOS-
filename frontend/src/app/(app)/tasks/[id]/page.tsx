@@ -73,6 +73,14 @@ const TaskTimeEntriesTab = dynamic(
   { loading: () => <LoadingState label="Loading time entries..." /> },
 );
 
+const TaskChecklistPanel = dynamic(
+  () =>
+    import('@/features/tasks/checklist/components/task-checklist-panel').then((mod) => ({
+      default: mod.TaskChecklistPanel,
+    })),
+  { loading: () => <LoadingState label="Loading checklist..." /> },
+);
+
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
   const taskId = params.id;
@@ -228,6 +236,7 @@ export default function TaskDetailPage() {
 
         <TaskDetailTabs
           subtasks={<TaskSubtasksTab taskId={taskId} projectId={task.projectId} />}
+          checklist={<TaskChecklistPanel taskId={taskId} readOnly={isTaskArchived(task)} />}
           dependencies={
             <TaskDependenciesPanel
               taskId={taskId}

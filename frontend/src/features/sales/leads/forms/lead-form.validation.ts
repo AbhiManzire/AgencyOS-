@@ -57,7 +57,7 @@ export const DEFAULT_LEAD_FORM_VALUES: LeadFormValues = {
   website: '',
   industry: '',
   country: '',
-  source: '',
+  source: 'MANUAL',
   assignedToUserId: '',
   status: 'NEW',
   priority: 'MEDIUM',

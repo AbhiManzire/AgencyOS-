@@ -48,6 +48,8 @@ export interface CreateClientCommand {
   readonly source?: ClientSource | null;
   readonly externalReferenceId?: string | null;
   readonly becameClientAt?: Date | null;
+  /** Internal-only: allows creating ACTIVE clients (won-deal activation path). */
+  readonly allowActiveClient?: boolean;
 }
 
 export interface UpdateClientCommand {

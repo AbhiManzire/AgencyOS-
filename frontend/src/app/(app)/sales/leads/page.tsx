@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus } from 'lucide-react';
+import { Download, Plus, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,8 @@ import {
 } from '@/design-system';
 import { useWorkspaceOwners } from '@/features/clients/hooks/use-workspace-owners';
 import { mapLeadRecordToListItem } from '@/features/sales/leads/api/lead.mapper';
+import { exportLeads } from '@/features/sales/leads/api/leads.api';
+import { LeadBulkActionsBar } from '@/features/sales/leads/bulk/lead-bulk-actions-bar';
 import { ArchiveLeadDialog } from '@/features/sales/leads/components/archive-lead-dialog';
 import { CreateLeadDrawer } from '@/features/sales/leads/components/create-lead-drawer';
 import { LeadListPagination } from '@/features/sales/leads/components/lead-list-pagination';
@@ -21,6 +23,7 @@ import {
   LeadListTable,
 } from '@/features/sales/leads/components/lead-list-table';
 import { LeadListToolbar } from '@/features/sales/leads/components/lead-list-toolbar';
+import { LeadImportDrawer } from '@/features/sales/leads/import-export/lead-import-drawer';
 import { useArchiveLead } from '@/features/sales/leads/hooks/use-archive-lead';
 import { useLeads } from '@/features/sales/leads/hooks/use-leads';
 import { useRestoreLead } from '@/features/sales/leads/hooks/use-restore-lead';
@@ -47,7 +50,9 @@ export default function LeadsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [importDrawerOpen, setImportDrawerOpen] = useState(false);
   const [editLeadId, setEditLeadId] = useState<string | null>(null);
   const [archiveLeadId, setArchiveLeadId] = useState<string | null>(null);
 
@@ -96,6 +101,10 @@ export default function LeadsPage() {
     return data.items.map(mapLeadRecordToListItem);
   }, [data]);
 
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, pageSize, debouncedSearch, statusFilter, sourceFilter, priorityFilter, assignedFilter]);
+
   const totalItems = data?.total ?? 0;
   const hasActiveFilters =
     search.trim().length > 0 ||
@@ -127,6 +136,26 @@ export default function LeadsPage() {
     setPage(1);
   };
 
+  const handleToggleRow = (id: string, checked: boolean): void => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleAll = (checked: boolean): void => {
+    if (!checked) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(leads.map((lead) => lead.id)));
+  };
+
   const handleConfirmArchive = async (): Promise<void> => {
     if (archiveLeadId === null) {
       return;
@@ -156,22 +185,61 @@ export default function LeadsPage() {
         title="Leads"
         description="Capture and qualify inbound sales leads"
         actions={
-          <Can permission="sales.create">
-            <Button
-              type="button"
-              className="gap-2"
-              onClick={() => {
-                setCreateDrawerOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              New Lead
-            </Button>
-          </Can>
+          <div className="flex flex-wrap gap-2">
+            <Can permission="sales.read">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  void exportLeads({ format: 'csv', mode: 'all' })
+                    .then(() => {
+                      showToast('All leads exported');
+                    })
+                    .catch((exportError: unknown) => {
+                      showToast(extractApiErrorMessage(exportError), 'error');
+                    });
+                }}
+              >
+                <Download className="size-4" />
+                Export
+              </Button>
+            </Can>
+            <Can permission="sales.create">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setImportDrawerOpen(true);
+                }}
+              >
+                <Upload className="size-4" />
+                Import
+              </Button>
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={() => {
+                  setCreateDrawerOpen(true);
+                }}
+              >
+                <Plus className="size-4" />
+                New Lead
+              </Button>
+            </Can>
+          </div>
         }
       />
 
       <CreateLeadDrawer open={createDrawerOpen} onOpenChange={setCreateDrawerOpen} />
+      <LeadImportDrawer
+        open={importDrawerOpen}
+        onOpenChange={setImportDrawerOpen}
+        onImported={() => {
+          void refetch();
+        }}
+      />
 
       <CreateLeadDrawer
         open={editLeadId !== null}
@@ -236,6 +304,18 @@ export default function LeadsPage() {
           }}
         />
 
+        <LeadBulkActionsBar
+          selectedIds={selectedIds}
+          owners={ownerOptions}
+          listFilters={listParams}
+          onCleared={() => {
+            setSelectedIds(new Set());
+          }}
+          onCompleted={() => {
+            void refetch();
+          }}
+        />
+
         {errorMessage ? (
           <ErrorState
             message={errorMessage}
@@ -289,9 +369,12 @@ export default function LeadsPage() {
             <div className="hidden md:block">
               <LeadListTable
                 leads={leads}
+                selectedIds={selectedIds}
                 sortField={sortField}
                 sortDirection={sortDirection}
                 onSortFieldChange={handleSortFieldChange}
+                onToggleRow={handleToggleRow}
+                onToggleAll={handleToggleAll}
                 onEditLead={setEditLeadId}
                 onArchiveLead={setArchiveLeadId}
                 onRestoreLead={(leadId) => {

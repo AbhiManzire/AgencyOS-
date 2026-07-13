@@ -3,6 +3,7 @@ import type {
   ProjectRecord,
   UpdateProjectPayload,
 } from '@/features/projects/api/project.types';
+import type { ProjectServiceType } from '@/features/projects/templates/api/template.types';
 import type { ProjectPriority, ProjectStatus } from '@/features/projects/types';
 
 export interface CreateProjectFormValues {
@@ -21,6 +22,9 @@ export interface CreateProjectFormValues {
   isBillable: 'yes' | 'no';
   description: string;
   tags: string;
+  templateId: string;
+  serviceType: '' | ProjectServiceType;
+  primaryContactId: string;
 }
 
 export type CreateProjectFormField = keyof Omit<
@@ -41,6 +45,9 @@ export interface CreateProjectFormErrors {
   actualHours?: string;
   description?: string;
   tags?: string;
+  templateId?: string;
+  serviceType?: string;
+  primaryContactId?: string;
   form?: string;
 }
 
@@ -60,6 +67,9 @@ export const DEFAULT_CREATE_PROJECT_FORM_VALUES: CreateProjectFormValues = {
   isBillable: 'yes',
   description: '',
   tags: '',
+  templateId: '',
+  serviceType: '',
+  primaryContactId: '',
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -183,7 +193,10 @@ export function areProjectFormValuesEqual(
     left.actualHours === right.actualHours &&
     left.isBillable === right.isBillable &&
     left.description === right.description &&
-    left.tags === right.tags
+    left.tags === right.tags &&
+    left.templateId === right.templateId &&
+    left.serviceType === right.serviceType &&
+    left.primaryContactId === right.primaryContactId
   );
 }
 
@@ -222,6 +235,9 @@ export function projectRecordToFormValues(record: ProjectRecord): CreateProjectF
     isBillable: record.isBillable ? 'yes' : 'no',
     description: record.description ?? '',
     tags: '',
+    templateId: record.templateId ?? '',
+    serviceType: record.serviceType ?? '',
+    primaryContactId: record.primaryContactId ?? '',
   };
 }
 
@@ -246,6 +262,9 @@ export function toUpdateProjectPayload(values: CreateProjectFormValues): UpdateP
   const estimatedHours = parseOptionalNumber(values.estimatedHours);
   const actualHours = parseOptionalNumber(values.actualHours);
 
+  const templateId = values.templateId.trim();
+  const primaryContactId = values.primaryContactId.trim();
+
   return {
     name: values.name.trim(),
     status: values.status,
@@ -260,6 +279,9 @@ export function toUpdateProjectPayload(values: CreateProjectFormValues): UpdateP
     budgetAmount: budgetAmount ?? null,
     estimatedHours: estimatedHours ?? null,
     actualHours: actualHours ?? null,
+    templateId: templateId.length > 0 ? templateId : null,
+    primaryContactId: primaryContactId.length > 0 ? primaryContactId : null,
+    serviceType: values.serviceType === '' ? null : values.serviceType,
   };
 }
 
@@ -273,6 +295,9 @@ export function toCreateProjectPayload(values: CreateProjectFormValues): CreateP
   const budgetAmount = parseOptionalNumber(values.budgetAmount);
   const estimatedHours = parseOptionalNumber(values.estimatedHours);
   const actualHours = parseOptionalNumber(values.actualHours);
+
+  const templateId = values.templateId.trim();
+  const primaryContactId = values.primaryContactId.trim();
 
   return {
     clientId: values.clientId.trim(),
@@ -289,6 +314,9 @@ export function toCreateProjectPayload(values: CreateProjectFormValues): CreateP
     ...(budgetAmount !== undefined ? { budgetAmount } : {}),
     ...(estimatedHours !== undefined ? { estimatedHours } : {}),
     ...(actualHours !== undefined ? { actualHours } : {}),
+    ...(templateId.length > 0 ? { templateId } : {}),
+    ...(primaryContactId.length > 0 ? { primaryContactId } : {}),
+    ...(values.serviceType === '' ? {} : { serviceType: values.serviceType }),
   };
 }
 

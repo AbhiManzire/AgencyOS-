@@ -40,12 +40,11 @@ const OUTSTANDING_STATUSES: readonly InvoiceStatus[] = [
   InvoiceStatus.OVERDUE,
 ];
 const OPEN_DEAL_STAGES: readonly DealStage[] = [
-  DealStage.NEW,
-  DealStage.CONTACTED,
-  DealStage.QUALIFIED,
+  DealStage.QUALIFICATION,
   DealStage.DISCOVERY,
   DealStage.PROPOSAL,
   DealStage.NEGOTIATION,
+  DealStage.VERBAL_COMMIT,
 ];
 const NON_REJECTED_APPROVAL: readonly ApprovalStatus[] = [
   ApprovalStatus.APPROVED,

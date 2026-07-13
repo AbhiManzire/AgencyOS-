@@ -152,6 +152,7 @@ export function ProjectMilestonesTab({ projectId, readOnly = false }: ProjectMil
         mode={drawerMode}
         milestone={activeMilestone}
         availableOwners={availableOwners}
+        availableMilestones={milestones}
         isPending={isCreating || isUpdating}
         onOpenChange={setDrawerOpen}
         onSave={handleSave}

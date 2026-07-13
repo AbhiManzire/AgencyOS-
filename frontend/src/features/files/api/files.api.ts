@@ -20,6 +20,9 @@ export async function uploadFile(params: UploadFileParams): Promise<FileRecord> 
   formData.append('file', params.file);
   formData.append('entityType', params.entityType);
   formData.append('entityId', params.entityId);
+  if (params.folder !== undefined) {
+    formData.append('folder', params.folder);
+  }
 
   const response = await apiClient.post<ApiSuccessResponse<FileRecord>>('/files/upload', formData, {
     headers: {

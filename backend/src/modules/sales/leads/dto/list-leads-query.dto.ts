@@ -48,6 +48,10 @@ export class ListLeadsQueryDto {
   assignedToUserId?: string;
 
   @IsOptional()
+  @IsUUID()
+  campaignId?: string;
+
+  @IsOptional()
   @IsEnum(LeadPriority)
   priority?: LeadPriority;
 

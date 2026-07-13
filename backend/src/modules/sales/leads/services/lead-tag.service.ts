@@ -1,5 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { ActivityService } from '../../../activities/services/activity.service';
 import { LEAD_DOMAIN_ERROR_CODES, LeadDomainError } from '../domain/lead-domain.errors';
 import {
   LEAD_TAG_REPOSITORY,
@@ -25,6 +27,7 @@ export class LeadTagService {
     private readonly leadRepository: LeadRepository,
     @Inject(LEAD_TAG_REPOSITORY)
     private readonly leadTagRepository: LeadTagRepository,
+    private readonly activityService: ActivityService,
   ) {}
 
   async listTags(scope: LeadScope, leadId: string): Promise<readonly LeadTagResponse[]> {
@@ -71,6 +74,21 @@ export class LeadTagService {
     }
 
     const assigned = await this.leadTagRepository.assign(tagScope, tag.id, now);
+
+    await this.activityService.logSystemEvent(
+      scope,
+      {
+        entityType: 'lead',
+        entityId: leadId,
+        type: ActivityType.TAG_ADDED,
+        title: 'Tag added',
+        description: `Tag "${tag.name}" was assigned.`,
+        dedupeKey: `lead.tag:${leadId}:${tag.id}`,
+        metadata: { tagId: tag.id, tagName: tag.name },
+      },
+      { actorUserId: context.actorUserId },
+    );
+
     return toLeadTagResponse(assigned);
   }
 

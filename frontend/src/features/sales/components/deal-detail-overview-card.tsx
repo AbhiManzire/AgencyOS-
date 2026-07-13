@@ -5,7 +5,10 @@ import type { DealRecord } from '@/features/sales/api/deal.types';
 import {
   DEAL_PRIORITY_LABELS,
   formatDealDate,
+  formatDealForecastCategory,
   formatDealProbability,
+  formatDealSource,
+  formatDealStatus,
 } from '@/features/sales/utils/deal-display';
 
 interface DealDetailOverviewCardProps {
@@ -44,6 +47,12 @@ export function DealDetailOverviewCard({ deal }: DealDetailOverviewCardProps) {
         <CardTitle>Overview</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {deal.description ? (
+          <div className="space-y-1">
+            <Caption className="block uppercase tracking-wide">Description</Caption>
+            <Body className="whitespace-pre-wrap text-muted-foreground">{deal.description}</Body>
+          </div>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <OverviewField
             label="Client"
@@ -56,6 +65,12 @@ export function DealDetailOverviewCard({ deal }: DealDetailOverviewCardProps) {
           ) : (
             <OverviewField label="Lead" value="—" />
           )}
+          <OverviewField label="Status" value={formatDealStatus(deal.status)} />
+          <OverviewField label="Source" value={formatDealSource(deal.source)} />
+          <OverviewField
+            label="Forecast"
+            value={formatDealForecastCategory(deal.forecastCategory)}
+          />
           <OverviewField label="Service" value={deal.service ?? '—'} />
           <OverviewField
             label="Probability"
@@ -75,6 +90,9 @@ export function DealDetailOverviewCard({ deal }: DealDetailOverviewCardProps) {
           {deal.lostAt ? (
             <OverviewField label="Lost at" value={formatDealDate(deal.lostAt)} />
           ) : null}
+          {deal.lossReason ? <OverviewField label="Loss reason" value={deal.lossReason} /> : null}
+          {deal.competitor ? <OverviewField label="Competitor" value={deal.competitor} /> : null}
+          {deal.lossNotes ? <OverviewField label="Loss notes" value={deal.lossNotes} /> : null}
         </div>
       </CardContent>
     </Card>

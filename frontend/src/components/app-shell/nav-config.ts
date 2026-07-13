@@ -5,10 +5,15 @@ import {
   Briefcase,
   Building2,
   CheckSquare,
+  ClipboardList,
   DollarSign,
   FileMinus2,
   FileText,
+  FolderKanban,
+  HeartPulse,
   LayoutDashboard,
+  LayoutTemplate,
+  Megaphone,
   Package,
   Receipt,
   RefreshCw,
@@ -31,11 +36,30 @@ export interface AppNavItem {
 
 export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   { title: 'Dashboard', href: '/', icon: LayoutDashboard, permission: 'dashboard.read' },
+  {
+    title: 'My Work',
+    href: '/sales/my-work',
+    icon: ClipboardList,
+    permission: 'sales.read',
+  },
   { title: 'Clients', href: '/clients', icon: Users, permission: 'clients.read' },
+  {
+    title: 'Client Success',
+    href: '/clients/success',
+    icon: HeartPulse,
+    permission: 'clients.read',
+  },
   {
     title: 'Leads',
     href: '/sales/leads',
     icon: Target,
+    permission: 'sales.read',
+    activePathPrefixes: ['/sales/leads'],
+  },
+  {
+    title: 'Campaigns',
+    href: '/sales/campaigns',
+    icon: Megaphone,
     permission: 'sales.read',
   },
   {
@@ -46,7 +70,25 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
     activePathPrefixes: ['/sales/pipeline', '/sales/deals'],
   },
   { title: 'Quotes', href: '/sales/quotes', icon: FileText, permission: 'quotes.read' },
-  { title: 'Projects', href: '/projects', icon: Briefcase, permission: 'projects.read' },
+  {
+    title: 'Projects',
+    href: '/projects',
+    icon: Briefcase,
+    permission: 'projects.read',
+    activePathPrefixes: ['/projects'],
+  },
+  {
+    title: 'Delivery',
+    href: '/projects/delivery',
+    icon: FolderKanban,
+    permission: 'projects.read',
+  },
+  {
+    title: 'Templates',
+    href: '/projects/templates',
+    icon: LayoutTemplate,
+    permission: 'projects.read',
+  },
   { title: 'Tasks', href: '/tasks', icon: CheckSquare, permission: 'tasks.read' },
   {
     title: 'Invoices',

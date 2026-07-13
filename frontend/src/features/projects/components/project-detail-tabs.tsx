@@ -4,16 +4,30 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export type ProjectDetailTab =
-  'overview' | 'members' | 'tasks' | 'finance' | 'notes' | 'documents' | 'activity';
+  | 'overview'
+  | 'milestones'
+  | 'tasks'
+  | 'team'
+  | 'files'
+  | 'timeline'
+  | 'comments'
+  | 'invoices'
+  | 'payments'
+  | 'client'
+  | 'activities';
 
 interface ProjectDetailTabsProps {
   readonly overview: ReactNode;
-  readonly members: ReactNode;
+  readonly milestones: ReactNode;
   readonly tasks: ReactNode;
-  readonly finance: ReactNode;
-  readonly notes: ReactNode;
-  readonly documents: ReactNode;
-  readonly activity: ReactNode;
+  readonly team: ReactNode;
+  readonly files: ReactNode;
+  readonly timeline: ReactNode;
+  readonly comments: ReactNode;
+  readonly invoices: ReactNode;
+  readonly payments: ReactNode;
+  readonly client: ReactNode;
+  readonly activities: ReactNode;
   readonly defaultTab?: ProjectDetailTab;
   readonly activeTab?: ProjectDetailTab;
   readonly onTabChange?: (tab: ProjectDetailTab) => void;
@@ -21,22 +35,30 @@ interface ProjectDetailTabsProps {
 
 const TAB_LABELS: Record<ProjectDetailTab, string> = {
   overview: 'Overview',
-  members: 'Members',
+  milestones: 'Milestones',
   tasks: 'Tasks',
-  finance: 'Finance',
-  notes: 'Notes',
-  documents: 'Documents',
-  activity: 'Activity',
+  team: 'Team',
+  files: 'Files',
+  timeline: 'Timeline',
+  comments: 'Comments',
+  invoices: 'Invoices',
+  payments: 'Payments',
+  client: 'Client',
+  activities: 'Activities',
 };
 
 export function ProjectDetailTabs({
   overview,
-  members,
+  milestones,
   tasks,
-  finance,
-  notes,
-  documents,
-  activity,
+  team,
+  files,
+  timeline,
+  comments,
+  invoices,
+  payments,
+  client,
+  activities,
   defaultTab = 'overview',
   activeTab: controlledTab,
   onTabChange,
@@ -53,12 +75,16 @@ export function ProjectDetailTabs({
 
   const tabContent: Record<ProjectDetailTab, ReactNode> = {
     overview,
-    members,
+    milestones,
     tasks,
-    finance,
-    notes,
-    documents,
-    activity,
+    team,
+    files,
+    timeline,
+    comments,
+    invoices,
+    payments,
+    client,
+    activities,
   };
 
   return (

@@ -13,14 +13,21 @@ import { successResponse } from '../../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../../common/http/api-response.types';
 import { RequirePermissions } from '../../../rbac/decorators/require-permissions.decorator';
 import { ConvertDealToInvoiceDto } from '../dto/convert-deal-to-invoice.dto';
+import { CreateDealFromLeadDto } from '../dto/create-deal-from-lead.dto';
 import { CreateDealDto } from '../dto/create-deal.dto';
+import { GetDealForecastQueryDto } from '../dto/get-deal-forecast-query.dto';
 import { ListDealsQueryDto } from '../dto/list-deals-query.dto';
+import { LoseDealDto } from '../dto/lose-deal.dto';
+import { UpdateDealStageDto } from '../dto/update-deal-stage.dto';
 import { UpdateDealDto } from '../dto/update-deal.dto';
+import { WinDealDto } from '../dto/win-deal.dto';
 import { DealMapper } from '../mappers/deal.mapper';
 import type { DealRecord } from '../repositories/deal.repository.interface';
 import type {
   ConvertedInvoiceRecord,
   DealApplicationContext,
+  DealDashboardResult,
+  DealForecastResult,
   DealScope,
 } from '../services/deal-application.types';
 import { DealService } from '../services/deal.service';
@@ -64,6 +71,42 @@ export class DealsController {
     });
   }
 
+  @Get('forecast')
+  @RequirePermissions('sales.read')
+  async forecast(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Query() queryDto: GetDealForecastQueryDto,
+  ): Promise<ApiSuccessResponse<DealForecastResult>> {
+    const scope = this.resolveScope(headers);
+    const query = DealMapper.toGetDealForecastQuery(queryDto);
+    const forecast = await this.dealService.getForecast(scope, query);
+    return successResponse(forecast);
+  }
+
+  @Get('dashboard')
+  @RequirePermissions('sales.read')
+  async dashboard(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ): Promise<ApiSuccessResponse<DealDashboardResult>> {
+    const scope = this.resolveScope(headers);
+    const dashboard = await this.dealService.getDashboard(scope);
+    return successResponse(dashboard);
+  }
+
+  @Post('from-lead/:leadId')
+  @RequirePermissions('sales.create')
+  async createFromLead(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('leadId', ParseUUIDPipe) leadId: string,
+    @Body() dto: CreateDealFromLeadDto,
+  ): Promise<ApiSuccessResponse<DealRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const command = DealMapper.toCreateDealFromLeadCommand(dto);
+    const deal = await this.dealService.createDealFromLead(scope, leadId, command, context);
+    return successResponse(deal);
+  }
+
   @Get(':id')
   @RequirePermissions('sales.read')
   async getById(
@@ -88,6 +131,48 @@ export class DealsController {
     const command = DealMapper.toUpdateDealCommand(dto);
     const deal = await this.dealService.updateDeal(scope, id, command, context);
 
+    return successResponse(deal);
+  }
+
+  @Post(':id/stage')
+  @RequirePermissions('sales.update')
+  async updateStage(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDealStageDto,
+  ): Promise<ApiSuccessResponse<DealRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const command = DealMapper.toUpdateDealStageCommand(dto);
+    const deal = await this.dealService.updateStage(scope, id, command, context);
+    return successResponse(deal);
+  }
+
+  @Post(':id/win')
+  @RequirePermissions('sales.update')
+  async win(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: WinDealDto,
+  ): Promise<ApiSuccessResponse<DealRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const command = DealMapper.toWinDealCommand(dto);
+    const deal = await this.dealService.winDeal(scope, id, command, context);
+    return successResponse(deal);
+  }
+
+  @Post(':id/lose')
+  @RequirePermissions('sales.update')
+  async lose(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: LoseDealDto,
+  ): Promise<ApiSuccessResponse<DealRecord>> {
+    const scope = this.resolveScope(headers);
+    const context = this.resolveContext(headers);
+    const command = DealMapper.toLoseDealCommand(dto);
+    const deal = await this.dealService.loseDeal(scope, id, command, context);
     return successResponse(deal);
   }
 

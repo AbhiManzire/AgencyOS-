@@ -13,11 +13,15 @@ export const DEFAULT_CONTACT_FORM_VALUES: ContactFormValues = {
   lastName: '',
   jobTitle: '',
   department: '',
+  role: '',
   email: '',
   mobile: '',
   phone: '',
   isPrimary: false,
   isDecisionMaker: false,
+  isFinance: false,
+  isTechnical: false,
+  isProcurement: false,
   status: 'ACTIVE',
 };
 
@@ -57,11 +61,15 @@ export function contactToFormValues(contact: ContactListItem): ContactFormValues
     lastName: contact.lastName,
     jobTitle: contact.jobTitle,
     department: contact.department,
+    role: contact.role,
     email: contact.email,
     mobile: contact.mobile,
     phone: contact.phone,
     isPrimary: contact.isPrimary,
     isDecisionMaker: contact.isDecisionMaker,
+    isFinance: contact.isFinance,
+    isTechnical: contact.isTechnical,
+    isProcurement: contact.isProcurement,
     status: contact.status,
   };
 }
@@ -76,11 +84,15 @@ export function areContactFormValuesEqual(
     left.lastName === right.lastName &&
     left.jobTitle === right.jobTitle &&
     left.department === right.department &&
+    left.role === right.role &&
     left.email === right.email &&
     left.mobile === right.mobile &&
     left.phone === right.phone &&
     left.isPrimary === right.isPrimary &&
     left.isDecisionMaker === right.isDecisionMaker &&
+    left.isFinance === right.isFinance &&
+    left.isTechnical === right.isTechnical &&
+    left.isProcurement === right.isProcurement &&
     left.status === right.status
   );
 }
@@ -101,6 +113,9 @@ export function toCreateContactPayload(values: ContactFormValues): CreateContact
     firstName: values.firstName.trim(),
     isPrimary: values.isPrimary,
     isDecisionMaker: values.isDecisionMaker,
+    isFinance: values.isFinance,
+    isTechnical: values.isTechnical,
+    isProcurement: values.isProcurement,
     status: values.status,
     ...(optionalCreateString(values.lastName) !== undefined
       ? { lastName: optionalCreateString(values.lastName) }
@@ -110,6 +125,9 @@ export function toCreateContactPayload(values: ContactFormValues): CreateContact
       : {}),
     ...(optionalCreateString(values.department) !== undefined
       ? { department: optionalCreateString(values.department) }
+      : {}),
+    ...(optionalCreateString(values.role) !== undefined
+      ? { role: optionalCreateString(values.role) }
       : {}),
     ...(optionalCreateString(values.email) !== undefined
       ? { email: optionalCreateString(values.email) }
@@ -130,11 +148,15 @@ export function toUpdateContactPayload(values: ContactFormValues): UpdateContact
     lastName: optionalUpdateString(values.lastName),
     jobTitle: optionalUpdateString(values.jobTitle),
     department: optionalUpdateString(values.department),
+    role: optionalUpdateString(values.role),
     email: optionalUpdateString(values.email),
     mobile: optionalUpdateString(values.mobile),
     phone: optionalUpdateString(values.phone),
     isPrimary: values.isPrimary,
     isDecisionMaker: values.isDecisionMaker,
+    isFinance: values.isFinance,
+    isTechnical: values.isTechnical,
+    isProcurement: values.isProcurement,
     status: values.status,
   };
 }

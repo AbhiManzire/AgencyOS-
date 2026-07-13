@@ -14,7 +14,7 @@ import {
   MaxLength,
 } from 'class-validator';
 
-const CREATABLE_STATUSES = ['PROSPECT', 'ACTIVE'] as const;
+const CREATABLE_STATUSES = ['PROSPECT'] as const;
 
 export class CreateClientDto {
   @IsString()
@@ -158,4 +158,4 @@ export class CreateClientDto {
 }
 
 // Re-export for callers that expect ClientStatus on create payloads.
-export type CreateClientStatus = Extract<ClientStatus, 'PROSPECT' | 'ACTIVE'>;
+export type CreateClientStatus = Extract<ClientStatus, 'PROSPECT'>;

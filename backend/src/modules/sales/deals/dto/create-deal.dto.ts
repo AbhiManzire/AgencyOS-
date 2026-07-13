@@ -1,8 +1,9 @@
-import { DealPriority, DealStage } from '@prisma/client';
+import { DealForecastCategory, DealPriority, LeadSource } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -14,6 +15,23 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+
+/** Accepts current DealStage values plus legacy aliases mapped in DealMapper. */
+export const CREATE_DEAL_STAGE_INPUT = [
+  'QUALIFICATION',
+  'DISCOVERY',
+  'PROPOSAL',
+  'NEGOTIATION',
+  'VERBAL_COMMIT',
+  'WON',
+  'LOST',
+  'ARCHIVED',
+  'NEW',
+  'CONTACTED',
+  'QUALIFIED',
+] as const;
+
+export type CreateDealStageInput = (typeof CREATE_DEAL_STAGE_INPUT)[number];
 
 export class CreateDealDto {
   @IsUUID()
@@ -33,6 +51,12 @@ export class CreateDealDto {
   @IsNotEmpty()
   @MaxLength(255)
   title!: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(5000)
+  description?: string | null;
 
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -56,8 +80,17 @@ export class CreateDealDto {
   ownerUserId?: string | null;
 
   @IsOptional()
-  @IsEnum(DealStage)
-  stage?: DealStage;
+  @IsIn(CREATE_DEAL_STAGE_INPUT)
+  stage?: CreateDealStageInput;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(LeadSource)
+  source?: LeadSource | null;
+
+  @IsOptional()
+  @IsEnum(DealForecastCategory)
+  forecastCategory?: DealForecastCategory;
 
   @IsOptional()
   @IsString()

@@ -14,6 +14,7 @@ export function mapLeadRecordToListItem(record: LeadRecord): LeadListItem {
     status: record.status,
     priority: record.priority,
     source: record.source,
+    campaignId: record.campaignId,
     assignedTo: formatDealOwner(
       record.assignedToDisplayName,
       record.assignedToEmail,

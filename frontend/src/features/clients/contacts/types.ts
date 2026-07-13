@@ -7,11 +7,15 @@ export interface ContactListItem {
   readonly lastName: string;
   readonly jobTitle: string;
   readonly department: string;
+  readonly role: string;
   readonly email: string;
   readonly mobile: string;
   readonly phone: string;
   readonly isPrimary: boolean;
   readonly isDecisionMaker: boolean;
+  readonly isFinance: boolean;
+  readonly isTechnical: boolean;
+  readonly isProcurement: boolean;
   readonly status: ContactStatus;
 }
 
@@ -20,11 +24,15 @@ export interface ContactFormValues {
   lastName: string;
   jobTitle: string;
   department: string;
+  role: string;
   email: string;
   mobile: string;
   phone: string;
   isPrimary: boolean;
   isDecisionMaker: boolean;
+  isFinance: boolean;
+  isTechnical: boolean;
+  isProcurement: boolean;
   status: ContactStatus;
 }
 

@@ -1,9 +1,12 @@
 import type { Prisma } from '@prisma/client';
 import type {
+  WorkflowConditionLogic,
+  WorkflowConditionNodeType,
   WorkflowConditionOperator,
   WorkflowExecutionLogLevel,
   WorkflowExecutionStatus,
   WorkflowScheduleFrequency,
+  WorkflowTriggerType,
 } from '@prisma/client';
 
 export interface AutomationScope {
@@ -21,6 +24,9 @@ export interface EnqueueExecutionInput {
   readonly triggerPayload?: Record<string, unknown>;
   readonly triggeredByUserId?: string | null;
   readonly maxAttempts?: number;
+  readonly recordEntityType?: string | null;
+  readonly recordEntityId?: string | null;
+  readonly scheduledFor?: Date | null;
 }
 
 export interface AppendLogInput {
@@ -63,12 +69,18 @@ export interface WorkflowExecutionRecord {
   readonly status: WorkflowExecutionStatus;
   readonly triggerType: string | null;
   readonly triggerPayload: Prisma.JsonValue | null;
+  readonly recordEntityType: string | null;
+  readonly recordEntityId: string | null;
   readonly attempt: number;
   readonly maxAttempts: number;
+  readonly retryCount: number;
   readonly nextRetryAt: Date | null;
+  readonly scheduledFor: Date | null;
   readonly startedAt: Date | null;
   readonly finishedAt: Date | null;
+  readonly durationMs: number | null;
   readonly errorMessage: string | null;
+  readonly result: Prisma.JsonValue | null;
   readonly triggeredByUserId: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -99,6 +111,27 @@ export interface ConditionSpec {
   readonly field: string;
   readonly operator: WorkflowConditionOperator;
   readonly value?: unknown;
+}
+
+export interface ConditionTreeNode {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly nodeType: WorkflowConditionNodeType;
+  readonly logic: WorkflowConditionLogic;
+  readonly field?: string | null;
+  readonly operator?: WorkflowConditionOperator | null;
+  readonly value?: unknown;
+  readonly sortOrder?: number;
+}
+
+export interface WorkflowDispatchInput {
+  readonly scope: AutomationScope;
+  readonly triggerType: WorkflowTriggerType;
+  readonly payload: Record<string, unknown>;
+  readonly entityType?: string;
+  readonly entityId?: string;
+  readonly actorUserId?: string;
+  readonly customEventKey?: string;
 }
 
 export type TerminalExecutionStatus = Extract<

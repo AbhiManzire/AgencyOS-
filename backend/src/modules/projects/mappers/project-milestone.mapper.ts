@@ -14,6 +14,8 @@ export const ProjectMilestoneMapper = {
       startDate: dto.startDate,
       dueDate: dto.dueDate,
       ownerUserId: dto.ownerUserId,
+      completionPercent: dto.completionPercent,
+      dependsOnMilestoneIds: dto.dependsOnMilestoneIds,
     };
   },
 
@@ -25,6 +27,8 @@ export const ProjectMilestoneMapper = {
       startDate: dto.startDate,
       dueDate: dto.dueDate,
       ownerUserId: dto.ownerUserId,
+      completionPercent: dto.completionPercent,
+      dependsOnMilestoneIds: dto.dependsOnMilestoneIds,
     };
   },
 };

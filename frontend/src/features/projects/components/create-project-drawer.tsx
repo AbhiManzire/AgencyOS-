@@ -9,6 +9,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ErrorState, LoadingState, SectionTitle, useToast } from '@/design-system';
 import { UnsavedChangesDialog } from '@/features/clients/components/unsaved-changes-dialog';
 import { useClients } from '@/features/clients/hooks/use-clients';
+import { useClientContacts } from '@/features/clients/contacts/hooks/use-client-contacts';
 import {
   areProjectFormValuesEqual,
   DEFAULT_CREATE_PROJECT_FORM_VALUES,
@@ -31,6 +32,12 @@ import {
 } from '@/features/projects/hooks/use-project-meta';
 import { useUpdateProject } from '@/features/projects/hooks/use-update-project';
 import { assignProjectTag } from '@/features/projects/tags/api/project-tags.api';
+import {
+  PROJECT_SERVICE_TYPE_LABELS,
+  PROJECT_SERVICE_TYPES,
+  type ProjectServiceType,
+} from '@/features/projects/templates/api/template.types';
+import { useProjectTemplates } from '@/features/projects/templates/hooks/use-project-templates';
 import type { ProjectPriority, ProjectStatus } from '@/features/projects/types';
 import { extractApiErrorMessage, extractApiValidationErrors } from '@/lib/api/extract-api-error';
 import { cn } from '@/lib/utils';
@@ -40,6 +47,8 @@ interface CreateProjectDrawerProps {
   readonly onOpenChange: (open: boolean) => void;
   readonly mode?: 'create' | 'edit';
   readonly projectId?: string;
+  /** Prefills and locks client when creating from a client context. */
+  readonly defaultClientId?: string;
 }
 
 interface FormFieldProps {
@@ -73,6 +82,9 @@ function ProjectFormFields({
   clientOptions,
   ownerOptions,
   departmentOptions,
+  templateOptions,
+  contactOptions,
+  clientLocked,
   onRetryClients,
   updateField,
 }: {
@@ -85,6 +97,9 @@ function ProjectFormFields({
   readonly clientOptions: readonly { id: string; label: string }[];
   readonly ownerOptions: readonly { id: string; label: string }[];
   readonly departmentOptions: readonly { id: string; label: string }[];
+  readonly templateOptions: readonly { id: string; label: string }[];
+  readonly contactOptions: readonly { id: string; label: string }[];
+  readonly clientLocked: boolean;
   readonly onRetryClients: () => void;
   readonly updateField: <K extends keyof CreateProjectFormValues>(
     field: K,
@@ -142,9 +157,10 @@ function ProjectFormFields({
             id="clientId"
             label="Client"
             value={values.clientId}
-            disabled={isPending || isEditMode || clientOptions.length === 0}
+            disabled={isPending || isEditMode || clientLocked || clientOptions.length === 0}
             onChange={(event) => {
               updateField('clientId', event.target.value);
+              updateField('primaryContactId', '');
             }}
           >
             <option value="">
@@ -153,6 +169,69 @@ function ProjectFormFields({
             {clientOptions.map((client) => (
               <option key={client.id} value={client.id}>
                 {client.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+
+        <FormField label="Template" htmlFor="templateId" error={errors.templateId}>
+          <NativeSelect
+            id="templateId"
+            label="Template"
+            value={values.templateId}
+            disabled={isPending}
+            onChange={(event) => {
+              updateField('templateId', event.target.value);
+            }}
+          >
+            <option value="">No template</option>
+            {templateOptions.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+
+        <FormField label="Service type" htmlFor="serviceType" error={errors.serviceType}>
+          <NativeSelect
+            id="serviceType"
+            label="Service type"
+            value={values.serviceType}
+            disabled={isPending}
+            onChange={(event) => {
+              updateField('serviceType', event.target.value as '' | ProjectServiceType);
+            }}
+          >
+            <option value="">Not set</option>
+            {PROJECT_SERVICE_TYPES.map((serviceType) => (
+              <option key={serviceType} value={serviceType}>
+                {PROJECT_SERVICE_TYPE_LABELS[serviceType]}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+
+        <FormField
+          label="Primary contact"
+          htmlFor="primaryContactId"
+          error={errors.primaryContactId}
+        >
+          <NativeSelect
+            id="primaryContactId"
+            label="Primary contact"
+            value={values.primaryContactId}
+            disabled={isPending || values.clientId.length === 0}
+            onChange={(event) => {
+              updateField('primaryContactId', event.target.value);
+            }}
+          >
+            <option value="">
+              {values.clientId.length === 0 ? 'Select a client first' : 'No primary contact'}
+            </option>
+            {contactOptions.map((contact) => (
+              <option key={contact.id} value={contact.id}>
+                {contact.label}
               </option>
             ))}
           </NativeSelect>
@@ -371,6 +450,7 @@ export function CreateProjectDrawer({
   onOpenChange,
   mode = 'create',
   projectId,
+  defaultClientId,
 }: CreateProjectDrawerProps) {
   const isEditMode = mode === 'edit' && projectId !== undefined && projectId.length > 0;
   const { showToast } = useToast();
@@ -390,6 +470,10 @@ export function CreateProjectDrawer({
   } = useClients({ take: 100 }, { enabled: open });
   const { data: owners = [] } = useProjectWorkspaceOwners({ enabled: open });
   const { data: departments = [] } = useProjectDepartments({ enabled: open });
+  const { data: templatesData } = useProjectTemplates(
+    { take: 100, isActive: true },
+    { enabled: open },
+  );
 
   const [values, setValues] = useState<CreateProjectFormValues>(DEFAULT_CREATE_PROJECT_FORM_VALUES);
   const [initialValues, setInitialValues] = useState<CreateProjectFormValues>(
@@ -397,6 +481,9 @@ export function CreateProjectDrawer({
   );
   const [errors, setErrors] = useState<CreateProjectFormErrors>({});
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  const selectedClientId = values.clientId;
+  const { data: contacts = [] } = useClientContacts(selectedClientId);
 
   const clientOptions = useMemo(() => {
     if (!clientsData) {
@@ -430,6 +517,29 @@ export function CreateProjectDrawer({
     [departments],
   );
 
+  const templateOptions = useMemo(
+    () =>
+      (templatesData?.items ?? []).map((template) => ({
+        id: template.id,
+        label: template.name,
+      })),
+    [templatesData],
+  );
+
+  const contactOptions = useMemo(
+    () =>
+      contacts.map((contact) => ({
+        id: contact.id,
+        label:
+          [contact.firstName, contact.lastName].filter(Boolean).join(' ') ||
+          contact.email ||
+          contact.id,
+      })),
+    [contacts],
+  );
+
+  const clientLocked = Boolean(defaultClientId) && !isEditMode;
+
   const isDirty = useMemo(
     () => !areProjectFormValuesEqual(values, initialValues),
     [initialValues, values],
@@ -445,10 +555,14 @@ export function CreateProjectDrawer({
       return;
     }
 
-    setValues(DEFAULT_CREATE_PROJECT_FORM_VALUES);
-    setInitialValues(DEFAULT_CREATE_PROJECT_FORM_VALUES);
+    const defaults: CreateProjectFormValues = {
+      ...DEFAULT_CREATE_PROJECT_FORM_VALUES,
+      ...(defaultClientId ? { clientId: defaultClientId } : {}),
+    };
+    setValues(defaults);
+    setInitialValues(defaults);
     setErrors({});
-  }, [isEditMode, open]);
+  }, [defaultClientId, isEditMode, open]);
 
   useEffect(() => {
     if (!open || !isEditMode || project === undefined) {
@@ -583,6 +697,9 @@ export function CreateProjectDrawer({
                   clientOptions={clientOptions}
                   ownerOptions={ownerOptions}
                   departmentOptions={departmentOptions}
+                  templateOptions={templateOptions}
+                  contactOptions={contactOptions}
+                  clientLocked={clientLocked}
                   onRetryClients={() => {
                     void refetchClients();
                   }}

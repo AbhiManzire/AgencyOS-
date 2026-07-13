@@ -1,4 +1,11 @@
-import type { DealPriority, DealStage, Prisma } from '@prisma/client';
+import type {
+  DealForecastCategory,
+  DealPriority,
+  DealStage,
+  DealStatus,
+  LeadSource,
+  Prisma,
+} from '@prisma/client';
 
 export const DEAL_REPOSITORY = Symbol('DEAL_REPOSITORY');
 
@@ -21,7 +28,10 @@ export interface DealRecord {
   readonly contactId: string | null;
   readonly contactName: string | null;
   readonly leadId: string | null;
+  readonly pipelineId: string | null;
+  readonly pipelineStageId: string | null;
   readonly title: string;
+  readonly description: string | null;
   readonly value: number;
   readonly currency: string;
   readonly expectedCloseDate: Date | null;
@@ -29,6 +39,9 @@ export interface DealRecord {
   readonly ownerDisplayName: string | null;
   readonly ownerEmail: string | null;
   readonly stage: DealStage;
+  readonly status: DealStatus;
+  readonly source: LeadSource | null;
+  readonly forecastCategory: DealForecastCategory;
   readonly service: string | null;
   readonly probability: number | null;
   readonly priority: DealPriority;
@@ -36,6 +49,9 @@ export interface DealRecord {
   readonly convertedProjectId: string | null;
   readonly wonAt: Date | null;
   readonly lostAt: Date | null;
+  readonly lossReason: string | null;
+  readonly competitor: string | null;
+  readonly lossNotes: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId: string | null;
@@ -51,12 +67,18 @@ export interface CreateDealData {
   readonly clientId: string;
   readonly contactId?: string | null;
   readonly leadId?: string | null;
+  readonly pipelineId?: string | null;
+  readonly pipelineStageId?: string | null;
   readonly title: string;
+  readonly description?: string | null;
   readonly value: number;
   readonly currency?: string;
   readonly expectedCloseDate?: Date | null;
   readonly ownerUserId?: string | null;
   readonly stage?: DealStage;
+  readonly status?: DealStatus;
+  readonly source?: LeadSource | null;
+  readonly forecastCategory?: DealForecastCategory;
   readonly service?: string | null;
   readonly probability?: number | null;
   readonly priority?: DealPriority;
@@ -71,12 +93,18 @@ export interface UpdateDealData {
   readonly clientId?: string;
   readonly contactId?: string | null;
   readonly leadId?: string | null;
+  readonly pipelineId?: string | null;
+  readonly pipelineStageId?: string | null;
   readonly title?: string;
+  readonly description?: string | null;
   readonly value?: number;
   readonly currency?: string;
   readonly expectedCloseDate?: Date | null;
   readonly ownerUserId?: string | null;
   readonly stage?: DealStage;
+  readonly status?: DealStatus;
+  readonly source?: LeadSource | null;
+  readonly forecastCategory?: DealForecastCategory;
   readonly service?: string | null;
   readonly probability?: number | null;
   readonly priority?: DealPriority;
@@ -84,6 +112,9 @@ export interface UpdateDealData {
   readonly convertedProjectId?: string | null;
   readonly wonAt?: Date | null;
   readonly lostAt?: Date | null;
+  readonly lossReason?: string | null;
+  readonly competitor?: string | null;
+  readonly lossNotes?: string | null;
   readonly updatedAt: Date;
   readonly updatedByUserId?: string | null;
 }
@@ -97,6 +128,11 @@ export interface ArchiveDealData {
 
 export interface RestoreDealData {
   readonly stage: DealStage;
+  readonly status: DealStatus;
+  readonly forecastCategory: DealForecastCategory;
+  readonly probability: number;
+  readonly pipelineId?: string | null;
+  readonly pipelineStageId?: string | null;
   readonly stageEnteredAt: Date;
   readonly updatedAt: Date;
   readonly updatedByUserId?: string | null;
@@ -112,6 +148,7 @@ export interface ListDealsParams {
   readonly take?: number;
   readonly q?: string;
   readonly stage?: DealStage;
+  readonly status?: DealStatus;
   readonly priority?: DealPriority;
   readonly ownerUserId?: string;
   readonly clientId?: string;
@@ -137,6 +174,41 @@ export interface CreateDealStageHistoryData {
   readonly toStage: DealStage;
   readonly enteredAt: Date;
   readonly changedByUserId?: string | null;
+}
+
+export interface DealForecastQuery {
+  readonly periodStart: Date;
+  readonly periodEnd: Date;
+}
+
+export interface DealForecastAggregate {
+  readonly pipelineValue: number;
+  readonly weightedForecast: number;
+  readonly expectedRevenue: number;
+  readonly wonRevenue: number;
+  readonly lostRevenue: number;
+}
+
+export interface DealDashboardAggregate {
+  readonly openDeals: number;
+  readonly wonThisMonth: number;
+  readonly lostThisMonth: number;
+  readonly pipelineValue: number;
+  readonly weightedForecast: number;
+  readonly averageDealSize: number;
+  readonly winRate: number;
+  readonly salesVelocityDays: number | null;
+}
+
+export interface DealCloseDateCandidate {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly workspaceId: string;
+  readonly title: string;
+  readonly ownerUserId: string | null;
+  readonly expectedCloseDate: Date;
+  readonly status: DealStatus;
+  readonly stage: DealStage;
 }
 
 export interface DealRepository {
@@ -168,4 +240,15 @@ export interface DealRepository {
     exitedAt: Date,
     tx?: DealTransactionClient,
   ): Promise<void>;
+  getForecastAggregate(scope: DealScope, query: DealForecastQuery): Promise<DealForecastAggregate>;
+  getDashboardAggregate(
+    scope: DealScope,
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<DealDashboardAggregate>;
+  findOpenDealsWithCloseDateBetween(
+    fromInclusive: Date,
+    toInclusive: Date,
+  ): Promise<readonly DealCloseDateCandidate[]>;
+  findOverdueOpenDeals(beforeDate: Date): Promise<readonly DealCloseDateCandidate[]>;
 }

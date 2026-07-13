@@ -1,3 +1,5 @@
+import type { ClientDocumentFolder } from '@prisma/client';
+
 export const FILE_REPOSITORY = Symbol('FILE_REPOSITORY');
 
 export interface FileScope {
@@ -16,6 +18,7 @@ export interface FileRecord {
   readonly workspaceId: string;
   readonly entityType: string;
   readonly entityId: string;
+  readonly folder: ClientDocumentFolder | null;
   readonly fileName: string;
   readonly originalName: string;
   readonly mimeType: string;
@@ -34,6 +37,7 @@ export interface CreateFileData {
   readonly workspaceId: string;
   readonly entityType: string;
   readonly entityId: string;
+  readonly folder?: ClientDocumentFolder | null;
   readonly fileName: string;
   readonly originalName: string;
   readonly mimeType: string;

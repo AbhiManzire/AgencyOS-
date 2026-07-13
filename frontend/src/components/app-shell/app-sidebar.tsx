@@ -46,14 +46,25 @@ export function AppSidebar({ collapsed, onNavigate }: AppSidebarProps) {
       <ScrollArea className="flex-1 px-2 py-3">
         <nav aria-label="Main navigation" className="flex flex-col gap-1">
           {APP_NAV_ITEMS.map((item) => {
-            const isActive =
-              item.href === '/'
-                ? pathname === '/'
-                : item.activePathPrefixes !== undefined
-                  ? item.activePathPrefixes.some(
-                      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-                    )
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const matchesItem = (candidate: (typeof APP_NAV_ITEMS)[number]): boolean => {
+              if (candidate.href === '/') {
+                return pathname === '/';
+              }
+              if (candidate.activePathPrefixes !== undefined) {
+                return candidate.activePathPrefixes.some(
+                  (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+                );
+              }
+              return pathname === candidate.href || pathname.startsWith(`${candidate.href}/`);
+            };
+
+            const matchingItems = APP_NAV_ITEMS.filter(matchesItem);
+            const bestMatch = matchingItems.reduce<(typeof APP_NAV_ITEMS)[number] | null>(
+              (best, candidate) =>
+                best === null || candidate.href.length > best.href.length ? candidate : best,
+              null,
+            );
+            const isActive = bestMatch?.href === item.href;
             const Icon = item.icon;
 
             return (

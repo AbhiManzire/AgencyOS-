@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { PageContainer, PageHeader } from '@/design-system';
+import { ClipboardList } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { DataCard, LoadingState, PageContainer, PageHeader } from '@/design-system';
 import {
   DashboardClientHealth,
+  DashboardFollowUpCards,
   DashboardKpiCards,
   DashboardQuickActions,
   DashboardRecentActivity,
@@ -14,11 +19,44 @@ import {
 } from '@/features/dashboard/components';
 import { useDashboardSummary } from '@/features/dashboard/hooks/use-dashboard-summary';
 import { CreateClientDrawer } from '@/features/clients/components/create-client-drawer';
-import { PermissionRoute } from '@/lib/rbac';
+import { PermissionRoute, usePermission } from '@/lib/rbac';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [createClientOpen, setCreateClientOpen] = useState(false);
-  const { summary, isLoading, isError, error, refetch } = useDashboardSummary();
+  const { allowed: canSales, isLoading: salesLoading } = usePermission('sales.read');
+  const { allowed: canDashboard, isLoading: dashboardLoading } = usePermission('dashboard.read');
+  const permissionsReady = !salesLoading && !dashboardLoading;
+  const showFounderDashboard = permissionsReady && canDashboard;
+  const { summary, isLoading, isError, error, refetch } = useDashboardSummary({
+    enabled: showFounderDashboard,
+  });
+
+  useEffect(() => {
+    if (!permissionsReady) {
+      return;
+    }
+
+    if (canSales && !canDashboard) {
+      router.replace('/sales/my-work');
+    }
+  }, [canDashboard, canSales, permissionsReady, router]);
+
+  if (!permissionsReady) {
+    return (
+      <PageContainer size="2xl">
+        <LoadingState label="Loading workspace..." />
+      </PageContainer>
+    );
+  }
+
+  if (canSales && !canDashboard) {
+    return (
+      <PageContainer size="2xl">
+        <LoadingState label="Redirecting to My Work..." />
+      </PageContainer>
+    );
+  }
 
   return (
     <PermissionRoute permission="dashboard.read">
@@ -29,6 +67,22 @@ export default function DashboardPage() {
         />
 
         <div className="space-y-6">
+          {canSales ? (
+            <DataCard
+              label="Sales Workspace"
+              value={
+                <Link
+                  href="/sales/my-work"
+                  className="inline-flex items-center gap-2 text-primary hover:underline"
+                >
+                  <ClipboardList className="size-5" />
+                  Open My Work
+                </Link>
+              }
+              hint="Your sales queue, calendar, and daily priorities."
+            />
+          ) : null}
+
           <DashboardKpiCards
             summary={summary}
             isLoading={isLoading}
@@ -36,6 +90,13 @@ export default function DashboardPage() {
             error={error}
             onRetry={refetch}
           />
+
+          <DashboardSection
+            title="Follow-ups"
+            description="Today's pipeline of reminders, overdue items, and recent timeline activity."
+          >
+            <DashboardFollowUpCards />
+          </DashboardSection>
 
           <div className="grid gap-6 xl:grid-cols-3">
             <div className="space-y-6 xl:col-span-2">
@@ -60,6 +121,16 @@ export default function DashboardPage() {
                     setCreateClientOpen(true);
                   }}
                 />
+                {canSales ? (
+                  <div className="mt-3">
+                    <Button asChild variant="outline" className="w-full gap-2">
+                      <Link href="/sales/my-work">
+                        <ClipboardList className="size-4" />
+                        Go to My Work
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
               </DashboardSection>
 
               <DashboardSection

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { SyntheticEvent } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -26,9 +27,12 @@ import { cn } from '@/lib/utils';
 
 interface LeadListTableProps {
   leads: readonly LeadListItem[];
+  selectedIds: ReadonlySet<string>;
   sortField: LeadSortField;
   sortDirection: SortDirection;
   onSortFieldChange: (field: LeadSortField) => void;
+  onToggleRow: (id: string, checked: boolean) => void;
+  onToggleAll: (checked: boolean) => void;
   onEditLead: (leadId: string) => void;
   onArchiveLead: (leadId: string) => void;
   onRestoreLead: (leadId: string) => void;
@@ -75,14 +79,19 @@ function stopRowNavigation(event: SyntheticEvent): void {
 
 export function LeadListTable({
   leads,
+  selectedIds,
   sortField,
   sortDirection,
   onSortFieldChange,
+  onToggleRow,
+  onToggleAll,
   onEditLead,
   onArchiveLead,
   onRestoreLead,
 }: LeadListTableProps) {
   const router = useRouter();
+  const allSelected = leads.length > 0 && leads.every((lead) => selectedIds.has(lead.id));
+  const someSelected = leads.some((lead) => selectedIds.has(lead.id));
 
   return (
     <div className="rounded-lg border border-border bg-card">
@@ -90,6 +99,15 @@ export function LeadListTable({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-card shadow-sm">
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                  onCheckedChange={(checked) => {
+                    onToggleAll(checked === true);
+                  }}
+                  aria-label="Select all leads on this page"
+                />
+              </TableHead>
               <SortableHeader
                 label="Company"
                 field="company"
@@ -130,75 +148,89 @@ export function LeadListTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leads.map((lead) => (
-              <TableRow
-                key={lead.id}
-                className={cn(
-                  'cursor-pointer',
-                  lead.isArchived ? 'text-muted-foreground' : undefined,
-                )}
-                onClick={() => {
-                  router.push(`/sales/leads/${lead.id}`);
-                }}
-              >
-                <TableCell>
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{lead.company}</p>
-                    {lead.code ? (
-                      <p className="truncate text-xs text-muted-foreground">{lead.code}</p>
-                    ) : null}
-                    {lead.isArchived ? (
-                      <span className="mt-1 inline-block">
-                        <LeadArchivedBadge />
-                      </span>
-                    ) : null}
-                  </div>
-                </TableCell>
-                <TableCell className="hidden max-w-[180px] truncate md:table-cell">
-                  {lead.contactPerson ?? '—'}
-                </TableCell>
-                <TableCell>
-                  <LeadStatusBadge status={lead.isArchived ? 'ARCHIVED' : lead.status} />
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <LeadPriorityBadge priority={lead.priority} />
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  {formatLeadSource(lead.source)}
-                </TableCell>
-                <TableCell className="hidden max-w-[160px] truncate lg:table-cell">
-                  {lead.assignedTo}
-                </TableCell>
-                <TableCell className="hidden xl:table-cell">
-                  {formatLeadScore(lead.leadScore)}
-                </TableCell>
-                <TableCell className="hidden xl:table-cell">
-                  {formatLeadDealSize(lead.expectedDealSize)}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  {formatLeadDate(lead.createdAt)}
-                </TableCell>
-                <TableCell
-                  className="text-right"
-                  onClick={stopRowNavigation}
-                  onKeyDown={stopRowNavigation}
+            {leads.map((lead) => {
+              const isSelected = selectedIds.has(lead.id);
+
+              return (
+                <TableRow
+                  key={lead.id}
+                  data-state={isSelected ? 'selected' : undefined}
+                  className={cn(
+                    'cursor-pointer',
+                    lead.isArchived ? 'text-muted-foreground' : undefined,
+                  )}
+                  onClick={() => {
+                    router.push(`/sales/leads/${lead.id}`);
+                  }}
                 >
-                  <LeadRowActions
-                    isArchived={lead.isArchived}
-                    isConverted={lead.isConverted}
-                    onEdit={() => {
-                      onEditLead(lead.id);
-                    }}
-                    onArchive={() => {
-                      onArchiveLead(lead.id);
-                    }}
-                    onRestore={() => {
-                      onRestoreLead(lead.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
+                  <TableCell onClick={stopRowNavigation} onKeyDown={stopRowNavigation}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={(checked) => {
+                        onToggleRow(lead.id, checked === true);
+                      }}
+                      aria-label={`Select ${lead.company}`}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{lead.company}</p>
+                      {lead.code ? (
+                        <p className="truncate text-xs text-muted-foreground">{lead.code}</p>
+                      ) : null}
+                      {lead.isArchived ? (
+                        <span className="mt-1 inline-block">
+                          <LeadArchivedBadge />
+                        </span>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden max-w-[180px] truncate md:table-cell">
+                    {lead.contactPerson ?? '—'}
+                  </TableCell>
+                  <TableCell>
+                    <LeadStatusBadge status={lead.isArchived ? 'ARCHIVED' : lead.status} />
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <LeadPriorityBadge priority={lead.priority} />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {formatLeadSource(lead.source)}
+                  </TableCell>
+                  <TableCell className="hidden max-w-[160px] truncate lg:table-cell">
+                    {lead.assignedTo}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell">
+                    {formatLeadScore(lead.leadScore)}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell">
+                    {formatLeadDealSize(lead.expectedDealSize)}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {formatLeadDate(lead.createdAt)}
+                  </TableCell>
+                  <TableCell
+                    className="text-right"
+                    onClick={stopRowNavigation}
+                    onKeyDown={stopRowNavigation}
+                  >
+                    <LeadRowActions
+                      isArchived={lead.isArchived}
+                      isConverted={lead.isConverted}
+                      onEdit={() => {
+                        onEditLead(lead.id);
+                      }}
+                      onArchive={() => {
+                        onArchiveLead(lead.id);
+                      }}
+                      onRestore={() => {
+                        onRestoreLead(lead.id);
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

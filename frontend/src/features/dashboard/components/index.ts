@@ -1,4 +1,5 @@
 export { DashboardClientHealth } from './dashboard-client-health';
+export { DashboardFollowUpCards } from './dashboard-follow-up-cards';
 export { DashboardKpiCards } from './dashboard-kpi-cards';
 export { DashboardQuickActions } from './dashboard-quick-actions';
 export { DashboardRecentActivity } from './dashboard-recent-activity';

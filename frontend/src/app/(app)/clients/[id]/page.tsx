@@ -23,6 +23,15 @@ import { ClientNotFoundState } from '@/features/clients/components/client-not-fo
 import { ClientTagsPanel } from '@/features/clients/components/client-tags-panel';
 import { CreateClientDrawer } from '@/features/clients/components/create-client-drawer';
 import { ClientDetailTabs } from '@/features/clients/contacts/components/client-detail-tabs';
+import { ClientDocumentsTab } from '@/features/clients/success/components/client-documents-tab';
+import { ClientMetricsGrid } from '@/features/clients/success/components/client-metrics-grid';
+import { ClientRenewalsTab } from '@/features/clients/success/components/client-renewals-tab';
+import { ClientWorkspaceDealsTab } from '@/features/clients/success/components/client-workspace-deals-tab';
+import { ClientWorkspaceInvoicesTab } from '@/features/clients/success/components/client-workspace-invoices-tab';
+import { ClientWorkspacePaymentsTab } from '@/features/clients/success/components/client-workspace-payments-tab';
+import { ClientWorkspaceProjectsTab } from '@/features/clients/success/components/client-workspace-projects-tab';
+import { useRefreshClientHealth } from '@/features/clients/success/hooks/use-client-success-mutations';
+import { useClientWorkspace } from '@/features/clients/success/hooks/use-client-workspace';
 import { useArchiveClient } from '@/features/clients/hooks/use-archive-client';
 import { useClient } from '@/features/clients/hooks/use-client';
 import { useRestoreClient } from '@/features/clients/hooks/use-restore-client';
@@ -51,15 +60,15 @@ const ActivityTimeline = dynamic(
     import('@/features/activity/components/activity-timeline').then((mod) => ({
       default: mod.ActivityTimeline,
     })),
-  { loading: () => <LoadingState label="Loading activity..." /> },
+  { loading: () => <LoadingState label="Loading timeline..." /> },
 );
 
-const FilePanel = dynamic(
+const EntityFollowUpsPanel = dynamic(
   () =>
-    import('@/features/files/components/file-panel').then((mod) => ({
-      default: mod.FilePanel,
+    import('@/features/activity/follow-ups/components/entity-follow-ups-panel').then((mod) => ({
+      default: mod.EntityFollowUpsPanel,
     })),
-  { loading: () => <LoadingState label="Loading documents..." /> },
+  { loading: () => <LoadingState label="Loading follow-ups..." /> },
 );
 
 export default function ClientDetailPage() {
@@ -78,8 +87,16 @@ export default function ClientDetailPage() {
   } = useClient(clientId, {
     includeArchived: true,
   });
+  const {
+    data: workspace,
+    isLoading: isWorkspaceLoading,
+    error: workspaceError,
+    refetch: refetchWorkspace,
+  } = useClientWorkspace(clientId);
   const { mutateAsync: archiveClient, isPending: isArchiving } = useArchiveClient();
   const { mutateAsync: restoreClient, isPending: isRestoring } = useRestoreClient();
+  const { mutateAsync: refreshHealth, isPending: isRefreshingHealth } =
+    useRefreshClientHealth(clientId);
   const { allowed: canManageContacts } = usePermission('clients.contacts.manage');
   const { allowed: canUpdateClient } = usePermission('clients.update');
 
@@ -115,6 +132,7 @@ export default function ClientDetailPage() {
   }
 
   const archived = isClientArchived(client);
+  const currency = client.currency ?? 'USD';
 
   const handleConfirmArchive = async (): Promise<void> => {
     try {
@@ -134,6 +152,16 @@ export default function ClientDetailPage() {
       await refetch();
     } catch (restoreError) {
       showToast(extractApiErrorMessage(restoreError), 'error');
+    }
+  };
+
+  const handleRefreshHealth = async (): Promise<void> => {
+    try {
+      await refreshHealth();
+      showToast('Client health refreshed');
+      await refetchWorkspace();
+    } catch (refreshError) {
+      showToast(extractApiErrorMessage(refreshError), 'error');
     }
   };
 
@@ -175,6 +203,29 @@ export default function ClientDetailPage() {
         <ClientDetailTabs
           overview={
             <div className="space-y-6">
+              {isWorkspaceLoading ? (
+                <LoadingState label="Loading metrics..." />
+              ) : workspaceError ? (
+                <ErrorState
+                  message={extractApiErrorMessage(workspaceError)}
+                  action={
+                    <Button variant="outline" onClick={() => void refetchWorkspace()}>
+                      Try again
+                    </Button>
+                  }
+                />
+              ) : workspace ? (
+                <ClientMetricsGrid
+                  metrics={workspace.metrics}
+                  health={workspace.health}
+                  currency={currency}
+                  onRefreshHealth={() => {
+                    void handleRefreshHealth();
+                  }}
+                  isRefreshingHealth={isRefreshingHealth}
+                />
+              ) : null}
+
               <div className="grid gap-6 lg:grid-cols-2">
                 <ClientDetailSummaryCard client={client} />
                 <ClientDetailAddressCard client={client} />
@@ -193,32 +244,44 @@ export default function ClientDetailPage() {
           contacts={
             <ClientContactsTab clientId={clientId} readOnly={archived || !canManageContacts} />
           }
-          notes={
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="size-4" aria-hidden="true" />
-                  Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CommentsPanel entityType="client" entityId={clientId} />
-              </CardContent>
-            </Card>
+          deals={
+            isWorkspaceLoading ? (
+              <LoadingState label="Loading deals..." />
+            ) : (
+              <ClientWorkspaceDealsTab deals={workspace?.deals ?? []} />
+            )
           }
-          activity={
+          projects={
+            isWorkspaceLoading ? (
+              <LoadingState label="Loading projects..." />
+            ) : (
+              <ClientWorkspaceProjectsTab
+                projects={workspace?.projects ?? []}
+                currency={currency}
+              />
+            )
+          }
+          invoices={
+            isWorkspaceLoading ? (
+              <LoadingState label="Loading invoices..." />
+            ) : (
+              <ClientWorkspaceInvoicesTab invoices={workspace?.invoices ?? []} />
+            )
+          }
+          payments={
+            isWorkspaceLoading ? (
+              <LoadingState label="Loading payments..." />
+            ) : (
+              <ClientWorkspacePaymentsTab payments={workspace?.payments ?? []} />
+            )
+          }
+          activities={
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="size-4" aria-hidden="true" />
-                  Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ActivityTimeline
+              <CardContent className="pt-6">
+                <EntityFollowUpsPanel
                   entityType="client"
                   entityId={clientId}
-                  emptyDescription="Client activity will appear here as records change."
+                  defaultAssigneeUserId={client.ownerUserId}
                 />
               </CardContent>
             </Card>
@@ -232,7 +295,44 @@ export default function ClientDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <FilePanel entityType="client" entityId={clientId} />
+                <ClientDocumentsTab clientId={clientId} />
+              </CardContent>
+            </Card>
+          }
+          notes={
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="size-4" aria-hidden="true" />
+                  Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CommentsPanel entityType="client" entityId={clientId} />
+              </CardContent>
+            </Card>
+          }
+          renewals={
+            <ClientRenewalsTab
+              clientId={clientId}
+              readOnly={archived || !canUpdateClient}
+              currency={currency}
+            />
+          }
+          timeline={
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="size-4" aria-hidden="true" />
+                  Timeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ActivityTimeline
+                  entityType="client"
+                  entityId={clientId}
+                  emptyDescription="Client activity will appear here as records change."
+                />
               </CardContent>
             </Card>
           }

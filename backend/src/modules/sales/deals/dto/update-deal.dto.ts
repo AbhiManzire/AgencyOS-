@@ -1,8 +1,9 @@
-import { DealPriority, DealStage } from '@prisma/client';
+import { DealForecastCategory, DealPriority, LeadSource } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -14,6 +15,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { CREATE_DEAL_STAGE_INPUT, type CreateDealStageInput } from './create-deal.dto';
 
 export class UpdateDealDto {
   @IsOptional()
@@ -35,6 +37,12 @@ export class UpdateDealDto {
   @IsNotEmpty()
   @MaxLength(255)
   title?: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(5000)
+  description?: string | null;
 
   @IsOptional()
   @Type(() => Number)
@@ -59,8 +67,17 @@ export class UpdateDealDto {
   ownerUserId?: string | null;
 
   @IsOptional()
-  @IsEnum(DealStage)
-  stage?: DealStage;
+  @IsIn(CREATE_DEAL_STAGE_INPUT)
+  stage?: CreateDealStageInput;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(LeadSource)
+  source?: LeadSource | null;
+
+  @IsOptional()
+  @IsEnum(DealForecastCategory)
+  forecastCategory?: DealForecastCategory;
 
   @IsOptional()
   @IsString()
@@ -78,4 +95,22 @@ export class UpdateDealDto {
   @IsOptional()
   @IsEnum(DealPriority)
   priority?: DealPriority;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(500)
+  lossReason?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(255)
+  competitor?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(5000)
+  lossNotes?: string | null;
 }

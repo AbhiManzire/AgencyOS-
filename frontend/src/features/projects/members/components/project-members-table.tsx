@@ -68,7 +68,7 @@ export function ProjectMembersTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <MemberRoleBadge role={member.role} />
+                    <MemberRoleBadge role={member.role} customRoleLabel={member.customRoleLabel} />
                   </TableCell>
                   <TableCell className="hidden max-w-[180px] truncate md:table-cell">
                     {member.departmentName}

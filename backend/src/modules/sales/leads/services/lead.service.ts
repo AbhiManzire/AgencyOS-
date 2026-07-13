@@ -1,9 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { LeadSource, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
+import { WorkflowEventDispatcher } from '../../../automation/services/workflow-event-dispatcher.service';
 import type { ClientScope } from '../../../clients/repositories/client.repository.interface';
 import { ClientService } from '../../../clients/services/client.service';
+import { SalesNotificationEmitter } from '../../../notifications/events/sales-notification.emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { LeadDomainService } from '../domain/lead-domain.service';
 import { LEAD_DOMAIN_ERROR_CODES, LeadDomainError } from '../domain/lead-domain.errors';
@@ -28,18 +30,36 @@ import type {
   UpdateLeadCommand,
 } from './lead-application.types';
 
+const VALID_LEAD_SOURCES: ReadonlySet<string> = new Set([
+  'MANUAL',
+  'WEBSITE',
+  'META_ADS',
+  'GOOGLE_ADS',
+  'WHATSAPP',
+  'EMAIL',
+  'CALL',
+  'REFERRAL',
+  'IMPORT',
+  'API',
+  'WEBHOOK',
+]);
+
 /**
  * Application service — orchestrates lead use cases, domain validation,
  * and persistence. Transaction boundaries are opened here for mutating flows.
  */
 @Injectable()
 export class LeadService {
+  private readonly logger = new Logger(LeadService.name);
+
   constructor(
     @Inject(LEAD_REPOSITORY)
     private readonly leadRepository: LeadRepository,
     private readonly leadDomainService: LeadDomainService,
     private readonly activityService: ActivityService,
     private readonly clientService: ClientService,
+    private readonly salesNotificationEmitter: SalesNotificationEmitter,
+    private readonly workflowEventDispatcher: WorkflowEventDispatcher,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -89,7 +109,11 @@ export class LeadService {
       website: this.leadDomainService.normalizeOptionalString(command.website),
       industry: this.leadDomainService.normalizeOptionalString(command.industry),
       country: this.leadDomainService.normalizeOptionalString(command.country),
-      source: command.source ?? 'OTHER',
+      source: command.source ?? 'MANUAL',
+      campaignId: command.campaignId ?? null,
+      intakeProvider:
+        this.leadDomainService.normalizeOptionalString(command.intakeProvider) ?? null,
+      externalId: this.leadDomainService.normalizeOptionalString(command.externalId) ?? null,
       assignedToUserId: command.assignedToUserId ?? null,
       status: command.status ?? 'NEW',
       leadScore,
@@ -112,19 +136,157 @@ export class LeadService {
       updatedByUserId: actorUserId,
     };
 
-    return this.runInTransaction(async (tx) => {
-      const created = await this.leadRepository.create(data, tx);
+    const created = await this.runInTransaction(async (tx) => {
+      const lead = await this.leadRepository.create(data, tx);
+      const activityContext = { actorUserId: actorUserId ?? '' };
+
       await this.emitActivity(
         scope,
-        created.id,
-        'lead.created',
+        lead.id,
+        'LEAD_CREATED',
         'Lead Created',
-        { actorUserId: actorUserId ?? '' },
+        activityContext,
         undefined,
         'Lead was created.',
+        `lead.created:${lead.id}`,
       );
-      return created;
+
+      if (lead.assignedToUserId !== null) {
+        await this.emitActivity(
+          scope,
+          lead.id,
+          'OWNER_CHANGED',
+          'Owner Changed',
+          activityContext,
+          { assignedToUserId: lead.assignedToUserId },
+          'Lead owner was assigned.',
+          `lead.assigned:${lead.id}:${lead.assignedToUserId}`,
+        );
+      }
+
+      return lead;
     });
+
+    if (created.assignedToUserId !== null) {
+      await this.emitAssignmentNotification(scope, created);
+      this.emitWorkflowEvent(scope, 'LEAD_ASSIGNED', created, actorUserId);
+    }
+
+    this.emitWorkflowEvent(scope, 'LEAD_CREATED', created, actorUserId);
+
+    return created;
+  }
+
+  async createImportedLead(
+    scope: LeadScope,
+    command: CreateLeadCommand,
+    context: LeadApplicationContext,
+  ): Promise<LeadRecord> {
+    const actorUserId = normalizeActorUserId(context.actorUserId);
+    const source = resolveImportSource(command.source);
+
+    this.leadDomainService.validateImportRow({
+      company: command.company,
+      contactPerson: command.contactPerson,
+      email: command.email,
+      phone: command.phone,
+      website: command.website,
+      source,
+      status: command.status,
+      priority: command.priority,
+      expectedDealSize: command.expectedDealSize,
+      decisionMaker: command.decisionMaker,
+      budgetNotes: command.budgetNotes,
+      timeline: command.timeline,
+    });
+
+    const now = new Date();
+    const leadScore = this.leadDomainService.calculateLeadScore({
+      company: command.company,
+      email: command.email,
+      phone: command.phone,
+      website: command.website,
+      decisionMaker: command.decisionMaker,
+      budgetNotes: command.budgetNotes,
+      timeline: command.timeline,
+    });
+
+    const data: CreateLeadData = {
+      id: randomUUID(),
+      tenantId: scope.tenantId,
+      workspaceId: scope.workspaceId,
+      code: this.leadDomainService.normalizeOptionalString(command.code),
+      company: this.leadDomainService.normalizeRequiredString(command.company),
+      contactPerson: this.leadDomainService.normalizeOptionalString(command.contactPerson),
+      email: this.leadDomainService.normalizeOptionalEmail(command.email),
+      phone: this.leadDomainService.normalizeOptionalString(command.phone),
+      whatsapp: this.leadDomainService.normalizeOptionalString(command.whatsapp),
+      website: this.leadDomainService.normalizeOptionalString(command.website),
+      industry: this.leadDomainService.normalizeOptionalString(command.industry),
+      country: this.leadDomainService.normalizeOptionalString(command.country),
+      source,
+      campaignId: command.campaignId ?? null,
+      intakeProvider:
+        this.leadDomainService.normalizeOptionalString(command.intakeProvider) ?? null,
+      externalId: this.leadDomainService.normalizeOptionalString(command.externalId) ?? null,
+      assignedToUserId: command.assignedToUserId ?? null,
+      status: command.status ?? 'NEW',
+      leadScore,
+      priority: command.priority ?? 'MEDIUM',
+      expectedDealSize: command.expectedDealSize ?? null,
+      notes: this.leadDomainService.normalizeOptionalString(command.notes),
+      need: this.leadDomainService.normalizeOptionalString(command.need),
+      authority: this.leadDomainService.normalizeOptionalString(command.authority),
+      budgetNotes: this.leadDomainService.normalizeOptionalString(command.budgetNotes),
+      timeline: this.leadDomainService.normalizeOptionalString(command.timeline),
+      painPoints: this.leadDomainService.normalizeOptionalString(command.painPoints),
+      decisionMaker: this.leadDomainService.normalizeOptionalString(command.decisionMaker),
+      competitor: this.leadDomainService.normalizeOptionalString(command.competitor),
+      qualificationNotes: this.leadDomainService.normalizeOptionalString(
+        command.qualificationNotes,
+      ),
+      createdAt: now,
+      updatedAt: now,
+      createdByUserId: actorUserId,
+      updatedByUserId: actorUserId,
+    };
+
+    const created = await this.runInTransaction(async (tx) => {
+      const lead = await this.leadRepository.create(data, tx);
+      const activityContext = { actorUserId: actorUserId ?? '' };
+
+      await this.emitActivity(
+        scope,
+        lead.id,
+        'LEAD_CREATED',
+        'Lead Imported',
+        activityContext,
+        undefined,
+        'Lead was imported.',
+        `lead.created:${lead.id}`,
+      );
+
+      if (lead.assignedToUserId !== null) {
+        await this.emitActivity(
+          scope,
+          lead.id,
+          'OWNER_CHANGED',
+          'Owner Changed',
+          activityContext,
+          { assignedToUserId: lead.assignedToUserId },
+          'Lead owner was assigned.',
+          `lead.assigned:${lead.id}:${lead.assignedToUserId}`,
+        );
+      }
+
+      return lead;
+    });
+
+    if (created.assignedToUserId !== null) {
+      await this.emitAssignmentNotification(scope, created);
+    }
+
+    return created;
   }
 
   async updateLead(
@@ -212,6 +374,7 @@ export class LeadService {
         ? { country: this.leadDomainService.normalizeOptionalString(command.country) }
         : {}),
       ...(command.source !== undefined ? { source: command.source } : {}),
+      ...(command.campaignId !== undefined ? { campaignId: command.campaignId } : {}),
       ...(command.assignedToUserId !== undefined
         ? { assignedToUserId: command.assignedToUserId }
         : {}),
@@ -250,38 +413,79 @@ export class LeadService {
       updatedByUserId: actorUserId,
     };
 
-    return this.runInTransaction(async (tx) => {
-      const updated = await this.leadRepository.update(scope, leadId, data, tx);
-      if (updated === null) {
+    const updated = await this.runInTransaction(async (tx) => {
+      const lead = await this.leadRepository.update(scope, leadId, data, tx);
+      if (lead === null) {
         throw new LeadDomainError(LEAD_DOMAIN_ERROR_CODES.LEAD_NOT_FOUND, 'Lead was not found.');
       }
 
       const activityContext = { actorUserId: actorUserId ?? '' };
+      const assigneeChanged =
+        command.assignedToUserId !== undefined &&
+        command.assignedToUserId !== existing.assignedToUserId;
+      const statusChanged = command.status !== undefined && command.status !== existing.status;
 
-      if (command.status !== undefined && command.status !== existing.status) {
+      if (assigneeChanged) {
         await this.emitActivity(
           scope,
-          updated.id,
-          'lead.status_changed',
+          lead.id,
+          'OWNER_CHANGED',
+          'Owner Changed',
+          activityContext,
+          {
+            from: existing.assignedToUserId,
+            to: lead.assignedToUserId,
+          },
+          'Lead owner was updated.',
+          `lead.assigned:${lead.id}:${lead.assignedToUserId ?? 'none'}`,
+        );
+      } else if (statusChanged) {
+        await this.emitActivity(
+          scope,
+          lead.id,
+          'STATUS_CHANGED',
           'Status Changed',
           activityContext,
-          { from: existing.status, to: updated.status },
-          `Status changed from ${existing.status} to ${updated.status}.`,
+          { from: existing.status, to: lead.status },
+          `Status changed from ${existing.status} to ${lead.status}.`,
+          `lead.status_changed:${lead.id}:${existing.status}:${lead.status}`,
         );
       } else {
         await this.emitActivity(
           scope,
-          updated.id,
-          'lead.updated',
+          lead.id,
+          'LEAD_UPDATED',
           'Lead Updated',
           activityContext,
           undefined,
           'Lead details were updated.',
+          `lead.updated:${lead.id}:${now.toISOString()}`,
         );
       }
 
-      return updated;
+      return lead;
     });
+
+    if (
+      command.assignedToUserId !== undefined &&
+      command.assignedToUserId !== null &&
+      command.assignedToUserId !== existing.assignedToUserId
+    ) {
+      await this.emitAssignmentNotification(scope, updated);
+      this.emitWorkflowEvent(scope, 'LEAD_ASSIGNED', updated, actorUserId);
+    }
+
+    if (
+      command.status !== undefined &&
+      command.status !== existing.status &&
+      command.status === 'QUALIFIED'
+    ) {
+      this.emitWorkflowEvent(scope, 'LEAD_QUALIFIED', updated, actorUserId);
+    }
+
+    this.emitWorkflowEvent(scope, 'LEAD_UPDATED', updated, actorUserId);
+
+    return updated;
   }
 
   async archiveLead(
@@ -316,11 +520,12 @@ export class LeadService {
       await this.emitActivity(
         scope,
         archived.id,
-        'lead.archived',
+        'CUSTOM',
         'Archived',
         { actorUserId: actorUserId ?? '' },
         undefined,
         'Lead was archived.',
+        `lead.archived:${archived.id}`,
       );
       return archived;
     });
@@ -363,11 +568,12 @@ export class LeadService {
       await this.emitActivity(
         scope,
         restored.id,
-        'lead.restored',
+        'CUSTOM',
         'Restored',
         { actorUserId: actorUserId ?? '' },
         undefined,
         'Lead was restored.',
+        `lead.restored:${restored.id}`,
       );
       return restored;
     });
@@ -393,9 +599,8 @@ export class LeadService {
         website: existing.website,
         industry: existing.industry,
         source: 'SALES_CONVERSION',
-        status: 'ACTIVE',
+        status: 'PROSPECT',
         ownerUserId: existing.assignedToUserId,
-        becameClientAt: now,
       },
       { actorUserId: context.actorUserId },
     );
@@ -418,12 +623,17 @@ export class LeadService {
       await this.emitActivity(
         scope,
         converted.id,
-        'lead.converted',
+        'CLIENT_CONVERTED',
         'Converted',
         context,
         { convertedClientId: client.id },
         'Lead was converted to a client.',
+        `lead.converted:${converted.id}`,
       );
+
+      this.emitWorkflowEvent(scope, 'LEAD_CONVERTED', converted, context.actorUserId, {
+        convertedClientId: client.id,
+      });
 
       return converted;
     });
@@ -455,6 +665,7 @@ export class LeadService {
       status: query.status,
       source: query.source,
       assignedToUserId: query.assignedToUserId,
+      campaignId: query.campaignId,
       priority: query.priority,
       industry: query.industry,
       country: query.country,
@@ -462,6 +673,52 @@ export class LeadService {
       archivedOnly: query.archivedOnly,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
+    });
+  }
+
+  private emitWorkflowEvent(
+    scope: LeadScope,
+    triggerType: string,
+    lead: LeadRecord,
+    actorUserId?: string | null,
+    extra?: Record<string, unknown>,
+  ): void {
+    void this.workflowEventDispatcher
+      .dispatch({
+        scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+        triggerType,
+        entityType: 'lead',
+        entityId: lead.id,
+        actorUserId: actorUserId ?? undefined,
+        payload: {
+          entityType: 'lead',
+          entityId: lead.id,
+          id: lead.id,
+          status: lead.status,
+          assignedToUserId: lead.assignedToUserId,
+          company: lead.company,
+          ...(extra ?? {}),
+        },
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Workflow emit ${triggerType} failed for lead ${lead.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+  }
+
+  private async emitAssignmentNotification(scope: LeadScope, lead: LeadRecord): Promise<void> {
+    if (lead.assignedToUserId === null) {
+      return;
+    }
+
+    await this.salesNotificationEmitter.emitNewLeadAssigned({
+      scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+      recipientUserId: lead.assignedToUserId,
+      company: lead.company,
+      contactPerson: lead.contactPerson,
+      leadId: lead.id,
     });
   }
 
@@ -477,8 +734,9 @@ export class LeadService {
     context: LeadApplicationContext,
     metadata?: Prisma.InputJsonValue,
     description?: string,
+    dedupeKey?: string,
   ): Promise<void> {
-    await this.activityService.createActivity(
+    await this.activityService.logSystemEvent(
       scope,
       {
         entityType: 'lead',
@@ -487,6 +745,7 @@ export class LeadService {
         title,
         ...(description !== undefined ? { description } : {}),
         ...(metadata !== undefined ? { metadata } : {}),
+        ...(dedupeKey !== undefined ? { dedupeKey } : {}),
       },
       { actorUserId: context.actorUserId },
     );
@@ -512,4 +771,11 @@ function normalizeActorUserId(value: string | undefined): string | null {
     return null;
   }
   return value;
+}
+
+function resolveImportSource(source: LeadSource | undefined): LeadSource {
+  if (source !== undefined && VALID_LEAD_SOURCES.has(source)) {
+    return source;
+  }
+  return 'IMPORT';
 }

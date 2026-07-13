@@ -1,7 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../activities/services/activity.service';
+import { WorkflowEventDispatcher } from '../../automation/services/workflow-event-dispatcher.service';
 import {
   CLIENT_REPOSITORY,
   type ClientRepository,
@@ -25,6 +26,7 @@ import {
   type ProjectTransactionClient,
   type UpdateProjectData,
 } from '../repositories/project.repository.interface';
+import { ProjectTemplateApplyService } from '../templates/services/project-template-apply.service';
 import type {
   CreateProjectCommand,
   GetProjectOptions,
@@ -42,6 +44,8 @@ import type {
  */
 @Injectable()
 export class ProjectService {
+  private readonly logger = new Logger(ProjectService.name);
+
   constructor(
     @Inject(PROJECT_REPOSITORY)
     private readonly projectRepository: ProjectRepository,
@@ -51,7 +55,10 @@ export class ProjectService {
     private readonly clientRepository: ClientRepository,
     private readonly projectDomainService: ProjectDomainService,
     private readonly activityService: ActivityService,
+    private readonly workflowEventDispatcher: WorkflowEventDispatcher,
     private readonly prisma: PrismaService,
+    @Optional()
+    private readonly projectTemplateApplyService?: ProjectTemplateApplyService,
   ) {}
 
   async createProject(
@@ -93,6 +100,11 @@ export class ProjectService {
       status: command.status ?? 'PLANNING',
       projectManagerUserId: command.projectManagerUserId,
       departmentId: command.departmentId ?? null,
+      dealId: command.dealId ?? null,
+      templateId: command.templateId ?? null,
+      primaryContactId: command.primaryContactId ?? null,
+      serviceType: command.serviceType ?? null,
+      serviceLabel: command.serviceLabel ?? null,
       priority: command.priority ?? 'NORMAL',
       startDate: command.startDate,
       targetEndDate: command.targetEndDate,
@@ -106,19 +118,29 @@ export class ProjectService {
       updatedByUserId: context.actorUserId,
     };
 
-    return this.runInTransaction(async (tx) => {
-      const created = await this.projectRepository.create(data, tx);
+    const created = await this.runInTransaction(async (tx) => {
+      const project = await this.projectRepository.create(data, tx);
       await this.emitActivity(
         scope,
-        created.id,
-        'project.created',
+        project.id,
+        'PROJECT_CREATED',
         'Project Created',
         context,
         undefined,
         'Project was created.',
       );
-      return created;
+      return project;
     });
+
+    this.emitWorkflowEvent(scope, created, context.actorUserId);
+
+    if (command.templateId && this.projectTemplateApplyService !== undefined) {
+      return this.projectTemplateApplyService.applyTemplate(scope, created.id, command.templateId, {
+        actorUserId: context.actorUserId,
+      });
+    }
+
+    return created;
   }
 
   async updateProject(
@@ -160,6 +182,18 @@ export class ProjectService {
         ? { projectManagerUserId: command.projectManagerUserId }
         : {}),
       ...(command.departmentId !== undefined ? { departmentId: command.departmentId } : {}),
+      ...(command.dealId !== undefined ? { dealId: command.dealId } : {}),
+      ...(command.templateId !== undefined ? { templateId: command.templateId } : {}),
+      ...(command.primaryContactId !== undefined
+        ? { primaryContactId: command.primaryContactId }
+        : {}),
+      ...(command.serviceType !== undefined ? { serviceType: command.serviceType } : {}),
+      ...(command.serviceLabel !== undefined ? { serviceLabel: command.serviceLabel } : {}),
+      ...(command.healthStatus !== undefined ? { healthStatus: command.healthStatus } : {}),
+      ...(command.healthScore !== undefined ? { healthScore: command.healthScore } : {}),
+      ...(command.healthCalculatedAt !== undefined
+        ? { healthCalculatedAt: command.healthCalculatedAt }
+        : {}),
       ...(command.priority !== undefined ? { priority: command.priority } : {}),
       ...(command.startDate !== undefined ? { startDate: command.startDate } : {}),
       ...(command.targetEndDate !== undefined ? { targetEndDate: command.targetEndDate } : {}),
@@ -448,6 +482,36 @@ export class ProjectService {
 
   async listDepartments(scope: ProjectScope): Promise<readonly DepartmentOption[]> {
     return this.projectRepository.listDepartments(scope);
+  }
+
+  private emitWorkflowEvent(
+    scope: ProjectScope,
+    project: ProjectRecord,
+    actorUserId?: string | null,
+  ): void {
+    void this.workflowEventDispatcher
+      .dispatch({
+        scope: { tenantId: scope.tenantId, workspaceId: scope.workspaceId },
+        triggerType: 'PROJECT_CREATED',
+        entityType: 'project',
+        entityId: project.id,
+        actorUserId: actorUserId ?? undefined,
+        payload: {
+          entityType: 'project',
+          entityId: project.id,
+          id: project.id,
+          name: project.name,
+          clientId: project.clientId,
+          status: project.status,
+          projectManagerUserId: project.projectManagerUserId,
+        },
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          `Workflow emit PROJECT_CREATED failed for project ${project.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
   }
 
   private async runInTransaction<T>(

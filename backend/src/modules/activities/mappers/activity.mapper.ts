@@ -1,3 +1,4 @@
+import type { ActivityType } from '@prisma/client';
 import type {
   CreateActivityCommand,
   ListActivitiesQuery,
@@ -11,9 +12,11 @@ export const ActivityMapper = {
     return {
       entityType: dto.entityType,
       entityId: dto.entityId,
-      type: dto.type,
+      type: dto.type as ActivityType,
       title: dto.title,
       description: dto.description,
+      origin: dto.origin,
+      dedupeKey: dto.dedupeKey,
       ...(dto.metadata !== undefined
         ? { metadata: dto.metadata as CreateActivityCommand['metadata'] }
         : {}),
@@ -24,6 +27,12 @@ export const ActivityMapper = {
     return {
       entityType: dto.entityType,
       entityId: dto.entityId,
+      type: dto.type,
+      types: dto.types,
+      userId: dto.userId,
+      origin: dto.origin,
+      createdFrom: dto.createdFrom !== undefined ? new Date(dto.createdFrom) : undefined,
+      createdTo: dto.createdTo !== undefined ? new Date(dto.createdTo) : undefined,
       skip: dto.skip,
       take: dto.take,
     };

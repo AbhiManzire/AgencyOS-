@@ -11,6 +11,7 @@ export const ClientContactMapper = {
     return {
       firstName: dto.firstName,
       lastName: dto.lastName,
+      role: dto.role,
       jobTitle: dto.jobTitle,
       department: dto.department,
       email: dto.email,
@@ -18,6 +19,9 @@ export const ClientContactMapper = {
       phone: dto.phone,
       isPrimary: dto.isPrimary,
       isDecisionMaker: dto.isDecisionMaker,
+      isFinance: dto.isFinance,
+      isTechnical: dto.isTechnical,
+      isProcurement: dto.isProcurement,
       status: dto.status,
     };
   },
@@ -26,6 +30,7 @@ export const ClientContactMapper = {
     return {
       firstName: dto.firstName,
       lastName: dto.lastName,
+      role: dto.role,
       jobTitle: dto.jobTitle,
       department: dto.department,
       email: dto.email,
@@ -33,6 +38,9 @@ export const ClientContactMapper = {
       phone: dto.phone,
       isPrimary: dto.isPrimary,
       isDecisionMaker: dto.isDecisionMaker,
+      isFinance: dto.isFinance,
+      isTechnical: dto.isTechnical,
+      isProcurement: dto.isProcurement,
       status: dto.status,
     };
   },

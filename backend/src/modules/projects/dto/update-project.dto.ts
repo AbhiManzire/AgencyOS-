@@ -1,14 +1,21 @@
-import { ProjectPriority, ProjectStatus } from '@prisma/client';
+import {
+  ProjectHealthStatus,
+  ProjectPriority,
+  ProjectServiceType,
+  ProjectStatus,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   ValidateIf,
@@ -45,6 +52,51 @@ export class UpdateProjectDto {
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
   departmentId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  dealId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  templateId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  primaryContactId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(ProjectServiceType)
+  serviceType?: ProjectServiceType | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(255)
+  serviceLabel?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(ProjectHealthStatus)
+  healthStatus?: ProjectHealthStatus | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  healthScore?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Date)
+  @IsDate()
+  healthCalculatedAt?: Date | null;
 
   @IsOptional()
   @IsEnum(ProjectPriority)

@@ -1,6 +1,15 @@
 'use client';
 
-import { Archive, Briefcase, FileText, Pencil, RotateCcw } from 'lucide-react';
+import {
+  Archive,
+  Briefcase,
+  FileText,
+  GitBranch,
+  Pencil,
+  RotateCcw,
+  Trophy,
+  XCircle,
+} from 'lucide-react';
 import { Body, Caption } from '@/design-system';
 import { Button } from '@/components/ui/button';
 import type { DealRecord } from '@/features/sales/api/deal.types';
@@ -14,10 +23,16 @@ interface DealDetailHeaderProps {
   readonly onEdit: () => void;
   readonly onArchive: () => void;
   readonly onRestore: () => void;
+  readonly onWin: () => void;
+  readonly onLose: () => void;
+  readonly onMoveStage: () => void;
   readonly onConvertToProject: () => void;
   readonly onConvertToInvoice: () => void;
   readonly isArchivePending?: boolean;
   readonly isRestorePending?: boolean;
+  readonly isWinPending?: boolean;
+  readonly isLosePending?: boolean;
+  readonly isMovePending?: boolean;
   readonly isConvertProjectPending?: boolean;
   readonly isConvertInvoicePending?: boolean;
 }
@@ -27,16 +42,24 @@ export function DealDetailHeader({
   onEdit,
   onArchive,
   onRestore,
+  onWin,
+  onLose,
+  onMoveStage,
   onConvertToProject,
   onConvertToInvoice,
   isArchivePending = false,
   isRestorePending = false,
+  isWinPending = false,
+  isLosePending = false,
+  isMovePending = false,
   isConvertProjectPending = false,
   isConvertInvoicePending = false,
 }: DealDetailHeaderProps) {
   const ownerLabel = formatDealOwner(deal.ownerDisplayName, deal.ownerEmail, deal.ownerUserId);
-  const archived = deal.stage === 'ARCHIVED' || deal.deletedAt !== null;
-  const isWon = deal.stage === 'WON';
+  const archived =
+    deal.stage === 'ARCHIVED' || deal.status === 'ARCHIVED' || deal.deletedAt !== null;
+  const isOpen = deal.status === 'OPEN' && !archived;
+  const isWon = deal.stage === 'WON' || deal.status === 'WON';
   const hasProject = deal.convertedProjectId !== null;
 
   return (
@@ -63,7 +86,41 @@ export function DealDetailHeader({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        {!archived && !hasProject ? (
+        {isOpen ? (
+          <>
+            <Can permission="sales.update" mode="disable">
+              <Button type="button" className="gap-2" disabled={isWinPending} onClick={onWin}>
+                <Trophy className="size-4" />
+                Win
+              </Button>
+            </Can>
+            <Can permission="sales.update" mode="disable">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 text-danger"
+                disabled={isLosePending}
+                onClick={onLose}
+              >
+                <XCircle className="size-4" />
+                Lose
+              </Button>
+            </Can>
+            <Can permission="sales.update" mode="disable">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled={isMovePending}
+                onClick={onMoveStage}
+              >
+                <GitBranch className="size-4" />
+                Move stage
+              </Button>
+            </Can>
+          </>
+        ) : null}
+        {!archived && !hasProject && isWon ? (
           <Can permission="sales.update" mode="disable">
             <Button
               type="button"

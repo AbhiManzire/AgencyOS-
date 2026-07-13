@@ -44,12 +44,11 @@ const OPEN_TASK_STATUSES: readonly TaskStatus[] = [
   TaskStatus.BLOCKED,
 ];
 const OPEN_DEAL_STAGES: readonly DealStage[] = [
-  DealStage.NEW,
-  DealStage.CONTACTED,
-  DealStage.QUALIFIED,
+  DealStage.QUALIFICATION,
   DealStage.DISCOVERY,
   DealStage.PROPOSAL,
   DealStage.NEGOTIATION,
+  DealStage.VERBAL_COMMIT,
 ];
 const NON_REJECTED_APPROVAL: readonly ApprovalStatus[] = [
   ApprovalStatus.APPROVED,

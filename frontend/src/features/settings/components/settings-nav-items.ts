@@ -61,4 +61,10 @@ export const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     description: 'Automation workflows.',
     permission: 'workflows.read',
   },
+  {
+    title: 'Integrations',
+    href: '/settings/integrations',
+    description: 'Marketplace, connections, health, and sync activity.',
+    permission: 'integrations.read',
+  },
 ] as const;

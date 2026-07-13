@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { WorkflowConditionOperator } from '@prisma/client';
-import type { ConditionSpec } from '../automation.types';
+import type { ConditionSpec, ConditionTreeNode } from '../automation.types';
 
 @Injectable()
 export class ConditionEvaluatorService {
@@ -14,10 +14,20 @@ export class ConditionEvaluatorService {
         return !this.areEqual(fieldValue, spec.value);
       case WorkflowConditionOperator.CONTAINS:
         return this.contains(fieldValue, spec.value);
+      case WorkflowConditionOperator.STARTS_WITH:
+        return this.startsWith(fieldValue, spec.value);
+      case WorkflowConditionOperator.ENDS_WITH:
+        return this.endsWith(fieldValue, spec.value);
       case WorkflowConditionOperator.GREATER_THAN:
         return this.compare(fieldValue, spec.value) > 0;
       case WorkflowConditionOperator.LESS_THAN:
         return this.compare(fieldValue, spec.value) < 0;
+      case WorkflowConditionOperator.BETWEEN:
+        return this.isBetween(fieldValue, spec.value);
+      case WorkflowConditionOperator.EMPTY:
+        return this.isEmpty(fieldValue);
+      case WorkflowConditionOperator.NOT_EMPTY:
+        return !this.isEmpty(fieldValue);
       case WorkflowConditionOperator.IS_SET:
         return this.isSet(fieldValue);
       case WorkflowConditionOperator.IS_NOT_SET:
@@ -33,6 +43,68 @@ export class ConditionEvaluatorService {
     }
 
     return conditions.every((condition) => this.evaluateCondition(condition, payload));
+  }
+
+  /**
+   * Evaluates a nested condition tree. Root nodes (parentId null) are combined with AND.
+   * GROUP nodes combine their children using the group's logic (AND|OR).
+   */
+  evaluateTree(nodes: readonly ConditionTreeNode[], payload: Record<string, unknown>): boolean {
+    if (nodes.length === 0) {
+      return true;
+    }
+
+    const childrenByParent = new Map<string | null, ConditionTreeNode[]>();
+    for (const node of nodes) {
+      const parentKey = node.parentId ?? null;
+      const siblings = childrenByParent.get(parentKey) ?? [];
+      siblings.push(node);
+      childrenByParent.set(parentKey, siblings);
+    }
+
+    for (const siblings of childrenByParent.values()) {
+      siblings.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    }
+
+    const roots = childrenByParent.get(null) ?? [];
+    if (roots.length === 0) {
+      return true;
+    }
+
+    return roots.every((root) => this.evaluateNode(root, childrenByParent, payload));
+  }
+
+  private evaluateNode(
+    node: ConditionTreeNode,
+    childrenByParent: Map<string | null, ConditionTreeNode[]>,
+    payload: Record<string, unknown>,
+  ): boolean {
+    if (node.nodeType === 'GROUP') {
+      const children = childrenByParent.get(node.id) ?? [];
+      if (children.length === 0) {
+        return true;
+      }
+
+      const logic = node.logic;
+      if (logic === 'OR') {
+        return children.some((child) => this.evaluateNode(child, childrenByParent, payload));
+      }
+
+      return children.every((child) => this.evaluateNode(child, childrenByParent, payload));
+    }
+
+    if (!node.field || !node.operator) {
+      return false;
+    }
+
+    return this.evaluateCondition(
+      {
+        field: node.field,
+        operator: node.operator,
+        value: node.value,
+      },
+      payload,
+    );
   }
 
   private resolveFieldValue(payload: Record<string, unknown>, field: string): unknown {
@@ -52,6 +124,76 @@ export class ConditionEvaluatorService {
 
   private isSet(value: unknown): boolean {
     return value !== undefined && value !== null;
+  }
+
+  private isEmpty(value: unknown): boolean {
+    if (value === null || value === undefined) {
+      return true;
+    }
+    if (typeof value === 'string' && value === '') {
+      return true;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      return true;
+    }
+    return false;
+  }
+
+  private startsWith(fieldValue: unknown, expected: unknown): boolean {
+    if (typeof fieldValue !== 'string') {
+      return false;
+    }
+    const expectedString = this.toPrimitiveString(expected);
+    return expectedString !== null && fieldValue.startsWith(expectedString);
+  }
+
+  private endsWith(fieldValue: unknown, expected: unknown): boolean {
+    if (typeof fieldValue !== 'string') {
+      return false;
+    }
+    const expectedString = this.toPrimitiveString(expected);
+    return expectedString !== null && fieldValue.endsWith(expectedString);
+  }
+
+  private isBetween(fieldValue: unknown, expected: unknown): boolean {
+    const bounds = this.resolveBetweenBounds(expected);
+    if (bounds === null) {
+      return false;
+    }
+
+    const valueNumber = this.toComparableNumber(fieldValue);
+    const minNumber = this.toComparableNumber(bounds.min);
+    const maxNumber = this.toComparableNumber(bounds.max);
+
+    if (valueNumber !== null && minNumber !== null && maxNumber !== null) {
+      return valueNumber >= minNumber && valueNumber <= maxNumber;
+    }
+
+    const valueDate = this.toComparableDate(fieldValue);
+    const minDate = this.toComparableDate(bounds.min);
+    const maxDate = this.toComparableDate(bounds.max);
+
+    if (valueDate !== null && minDate !== null && maxDate !== null) {
+      const time = valueDate.getTime();
+      return time >= minDate.getTime() && time <= maxDate.getTime();
+    }
+
+    return false;
+  }
+
+  private resolveBetweenBounds(expected: unknown): { min: unknown; max: unknown } | null {
+    if (Array.isArray(expected) && expected.length >= 2) {
+      return { min: expected[0], max: expected[1] };
+    }
+
+    if (expected !== null && typeof expected === 'object' && !Array.isArray(expected)) {
+      const record = expected as Record<string, unknown>;
+      if ('min' in record && 'max' in record) {
+        return { min: record.min, max: record.max };
+      }
+    }
+
+    return null;
   }
 
   private toPrimitiveString(value: unknown): string | null {

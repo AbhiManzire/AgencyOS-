@@ -10,11 +10,15 @@ export function contactRecordToListItem(record: ContactRecord): ContactListItem 
     lastName: record.lastName ?? '',
     jobTitle: record.jobTitle ?? '',
     department: record.department ?? '',
+    role: record.role ?? '',
     email: record.email ?? '',
     mobile: record.mobile ?? '',
     phone: record.phone ?? '',
     isPrimary: record.isPrimary,
     isDecisionMaker: record.isDecisionMaker,
+    isFinance: record.isFinance,
+    isTechnical: record.isTechnical,
+    isProcurement: record.isProcurement,
     status: record.status,
   };
 }

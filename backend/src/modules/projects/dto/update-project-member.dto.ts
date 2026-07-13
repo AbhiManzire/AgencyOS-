@@ -1,11 +1,27 @@
 import { ProjectMemberRole, ProjectMemberStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsInt, IsOptional, Max, Min, ValidateIf } from 'class-validator';
+import {
+  IsDate,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpdateProjectMemberDto {
   @IsOptional()
   @IsEnum(ProjectMemberRole)
   role?: ProjectMemberRole;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(100)
+  customRoleLabel?: string | null;
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)

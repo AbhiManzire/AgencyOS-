@@ -3,7 +3,16 @@ export type ProjectStatus =
 
 export type ProjectPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 
-export type ProjectMemberRole = 'MANAGER' | 'DEVELOPER' | 'DESIGNER' | 'QA' | 'VIEWER';
+export type ProjectMemberRole =
+  | 'MANAGER'
+  | 'DEVELOPER'
+  | 'DESIGNER'
+  | 'SEO'
+  | 'MARKETING'
+  | 'QA'
+  | 'ACCOUNTS'
+  | 'CUSTOM'
+  | 'VIEWER';
 
 export type ProjectMemberStatus = 'ACTIVE' | 'INACTIVE';
 

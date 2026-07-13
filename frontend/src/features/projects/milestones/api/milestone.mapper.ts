@@ -5,6 +5,8 @@ import type { ProjectMilestoneListItem } from '@/features/projects/milestones/ty
 export function projectMilestoneRecordToListItem(
   record: ProjectMilestoneRecord,
 ): ProjectMilestoneListItem {
+  const completionPercent = record.completionPercent ?? record.progressPercent;
+
   return {
     id: record.id,
     projectId: record.projectId,
@@ -13,7 +15,9 @@ export function projectMilestoneRecordToListItem(
     status: record.status,
     startDate: record.startDate,
     dueDate: record.dueDate,
-    progressPercent: record.progressPercent,
+    progressPercent: completionPercent,
+    completionPercent,
+    dependsOnMilestoneIds: record.dependsOnMilestoneIds ?? [],
     ownerUserId: record.ownerUserId,
     ownerDisplayName: record.ownerDisplayName ?? record.ownerEmail ?? '—',
     ownerEmail: record.ownerEmail ?? '—',

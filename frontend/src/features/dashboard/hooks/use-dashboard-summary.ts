@@ -18,12 +18,15 @@ interface UseDashboardSummaryResult {
 }
 
 /** TanStack Query hook for GET /dashboard/summary. */
-export function useDashboardSummary(): UseDashboardSummaryResult {
+export function useDashboardSummary(options?: {
+  readonly enabled?: boolean;
+}): UseDashboardSummaryResult {
   const query = useQuery({
     queryKey: dashboardQueryKeys.summary(),
     queryFn: getDashboardSummary,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 
   return {

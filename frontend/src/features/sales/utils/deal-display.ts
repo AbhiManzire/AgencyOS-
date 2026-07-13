@@ -1,29 +1,39 @@
-import type { DealPriority, DealStage } from '@/features/sales/types';
+import type { LeadSource } from '@/features/sales/leads/types';
+import type {
+  DealForecastCategory,
+  DealPriority,
+  DealStage,
+  DealStatus,
+} from '@/features/sales/types';
 import { formatShortDate } from '@/lib/format/date';
 import { formatMoney } from '@/lib/format/money';
 
 const STAGE_LABELS: Record<DealStage, string> = {
-  NEW: 'New',
-  CONTACTED: 'Contacted',
-  QUALIFIED: 'Qualified',
+  QUALIFICATION: 'Qualification',
   DISCOVERY: 'Discovery',
   PROPOSAL: 'Proposal',
   NEGOTIATION: 'Negotiation',
+  VERBAL_COMMIT: 'Verbal Commit',
   WON: 'Won',
   LOST: 'Lost',
   ARCHIVED: 'Archived',
 };
 
 const STAGE_PROBABILITY: Record<DealStage, number> = {
-  NEW: 10,
-  CONTACTED: 15,
-  QUALIFIED: 25,
-  DISCOVERY: 35,
+  QUALIFICATION: 10,
+  DISCOVERY: 25,
   PROPOSAL: 50,
   NEGOTIATION: 75,
+  VERBAL_COMMIT: 90,
   WON: 100,
   LOST: 0,
   ARCHIVED: 0,
+};
+
+const LEGACY_STAGE_MAP: Record<string, DealStage> = {
+  NEW: 'QUALIFICATION',
+  CONTACTED: 'QUALIFICATION',
+  QUALIFIED: 'QUALIFICATION',
 };
 
 export const DEAL_PRIORITY_LABELS: Record<DealPriority, string> = {
@@ -33,9 +43,39 @@ export const DEAL_PRIORITY_LABELS: Record<DealPriority, string> = {
   URGENT: 'Urgent',
 };
 
+export const DEAL_STATUS_LABELS: Record<DealStatus, string> = {
+  OPEN: 'Open',
+  WON: 'Won',
+  LOST: 'Lost',
+  ARCHIVED: 'Archived',
+};
+
+export const DEAL_FORECAST_CATEGORY_LABELS: Record<DealForecastCategory, string> = {
+  PIPELINE: 'Pipeline',
+  BEST_CASE: 'Best case',
+  COMMIT: 'Commit',
+  CLOSED: 'Closed',
+  OMITTED: 'Omitted',
+};
+
+/** Normalizes legacy stage aliases to the current DealStage union. */
+export function normalizeDealStage(stage: string): DealStage {
+  if (stage in LEGACY_STAGE_MAP) {
+    return LEGACY_STAGE_MAP[stage];
+  }
+
+  return stage as DealStage;
+}
+
 /** Returns a display label for a deal pipeline stage. */
-export function formatDealStage(stage: DealStage): string {
-  return STAGE_LABELS[stage];
+export function formatDealStage(stage: string): string {
+  const normalized = normalizeDealStage(stage);
+  return STAGE_LABELS[normalized];
+}
+
+/** Returns the default win probability for a stage. */
+export function getDealStageDefaultProbability(stage: DealStage): number {
+  return STAGE_PROBABILITY[stage];
 }
 
 /** Returns win probability for a deal — prefers stored value, else stage default. */
@@ -44,6 +84,25 @@ export function formatDealProbability(stage: DealStage, probability?: number | n
     return `${String(probability)}%`;
   }
   return `${String(STAGE_PROBABILITY[stage])}%`;
+}
+
+/** Resolves numeric probability for weighted value calculations. */
+export function resolveDealProbability(stage: DealStage, probability?: number | null): number {
+  if (probability !== null && probability !== undefined) {
+    return probability;
+  }
+  return STAGE_PROBABILITY[stage];
+}
+
+/** Formats weighted deal value (value × probability). */
+export function formatWeightedDealValue(
+  value: number,
+  stage: DealStage,
+  probability: number | null | undefined,
+  currency = 'USD',
+): string {
+  const pct = resolveDealProbability(stage, probability);
+  return formatMoney((value * pct) / 100, currency, 0);
 }
 
 /** Computes deal age in days from created date. */
@@ -72,6 +131,28 @@ export function formatDealValue(value: number, currency = 'USD'): string {
 /** Formats an ISO date string for deal display. */
 export function formatDealDate(value: string | null | undefined): string {
   return formatShortDate(value);
+}
+
+/** Formats forecast category for display. */
+export function formatDealForecastCategory(category: DealForecastCategory): string {
+  return DEAL_FORECAST_CATEGORY_LABELS[category];
+}
+
+/** Formats deal status for display. */
+export function formatDealStatus(status: DealStatus): string {
+  return DEAL_STATUS_LABELS[status];
+}
+
+/** Formats lead/deal source using lead source labels when available. */
+export function formatDealSource(source: LeadSource | null | undefined): string {
+  if (source === null || source === undefined) {
+    return '—';
+  }
+
+  return source
+    .split('_')
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ');
 }
 
 /** Resolves owner display label from deal record fields. */

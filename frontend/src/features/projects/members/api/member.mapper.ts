@@ -10,6 +10,7 @@ export function projectMemberRecordToListItem(record: ProjectMemberRecord): Proj
     userDisplayName: record.userDisplayName ?? record.userEmail ?? record.userId,
     userEmail: record.userEmail ?? '—',
     role: record.role,
+    customRoleLabel: record.customRoleLabel ?? null,
     departmentName: record.departmentName ?? '—',
     assignedOn: record.startDate ?? record.createdAt,
     allocationPercent: record.allocationPercent,

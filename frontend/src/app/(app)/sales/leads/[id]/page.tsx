@@ -23,6 +23,7 @@ import { LeadDetailQualificationCard } from '@/features/sales/leads/components/l
 import { LeadDetailTabs } from '@/features/sales/leads/components/lead-detail-tabs';
 import { LeadNotFoundState } from '@/features/sales/leads/components/lead-not-found-state';
 import { LeadTagsPanel } from '@/features/sales/leads/components/lead-tags-panel';
+import { useCreateDealFromLead } from '@/features/sales/hooks/use-deal-actions';
 import { useArchiveLead } from '@/features/sales/leads/hooks/use-archive-lead';
 import { useConvertLead } from '@/features/sales/leads/hooks/use-convert-lead';
 import { useLead } from '@/features/sales/leads/hooks/use-lead';
@@ -44,7 +45,15 @@ const ActivityTimeline = dynamic(
     import('@/features/activity/components/activity-timeline').then((mod) => ({
       default: mod.ActivityTimeline,
     })),
-  { loading: () => <LoadingState label="Loading activity..." /> },
+  { loading: () => <LoadingState label="Loading timeline..." /> },
+);
+
+const EntityFollowUpsPanel = dynamic(
+  () =>
+    import('@/features/activity/follow-ups/components/entity-follow-ups-panel').then((mod) => ({
+      default: mod.EntityFollowUpsPanel,
+    })),
+  { loading: () => <LoadingState label="Loading follow-ups..." /> },
 );
 
 const FilePanel = dynamic(
@@ -67,6 +76,7 @@ export default function LeadDetailPage() {
   const { mutateAsync: archiveLead, isPending: isArchiving } = useArchiveLead();
   const { mutateAsync: restoreLead, isPending: isRestoring } = useRestoreLead();
   const { mutateAsync: convertLead, isPending: isConverting } = useConvertLead();
+  const { mutateAsync: createDealFromLead, isPending: isCreatingDeal } = useCreateDealFromLead();
   const { allowed: canUpdateLead } = usePermission('sales.update');
 
   if (isLoading) {
@@ -137,6 +147,16 @@ export default function LeadDetailPage() {
     }
   };
 
+  const handleCreateDeal = async (): Promise<void> => {
+    try {
+      const deal = await createDealFromLead({ leadId });
+      showToast('Deal created from lead', 'success');
+      router.push(`/sales/deals/${deal.id}`);
+    } catch (createError) {
+      showToast(extractApiErrorMessage(createError), 'error');
+    }
+  };
+
   return (
     <PageContainer size="lg">
       <LeadDetailHeader
@@ -153,8 +173,12 @@ export default function LeadDetailPage() {
         onConvert={() => {
           void handleConvert();
         }}
+        onCreateDeal={() => {
+          void handleCreateDeal();
+        }}
         isRestorePending={isRestoring}
         isConvertPending={isConverting}
+        isCreateDealPending={isCreatingDeal}
       />
 
       <CreateLeadDrawer
@@ -205,17 +229,28 @@ export default function LeadDetailPage() {
             </Card>
           }
           activity={
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="size-4" aria-hidden="true" />
-                  Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ActivityTimeline entityType="lead" entityId={leadId} />
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="size-4" aria-hidden="true" />
+                    Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ActivityTimeline entityType="lead" entityId={leadId} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <EntityFollowUpsPanel
+                    entityType="lead"
+                    entityId={leadId}
+                    defaultAssigneeUserId={lead.assignedToUserId}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           }
           documents={
             <Card>

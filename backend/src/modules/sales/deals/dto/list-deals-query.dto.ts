@@ -1,4 +1,4 @@
-import { DealPriority, DealStage } from '@prisma/client';
+import { DealPriority } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -13,6 +13,7 @@ import {
   Min,
 } from 'class-validator';
 import type { DealListSortField } from '../repositories/deal.repository.interface';
+import { CREATE_DEAL_STAGE_INPUT, type CreateDealStageInput } from './create-deal.dto';
 
 const SORT_FIELDS: readonly DealListSortField[] = [
   'updatedAt',
@@ -43,8 +44,8 @@ export class ListDealsQueryDto {
   q?: string;
 
   @IsOptional()
-  @IsEnum(DealStage)
-  stage?: DealStage;
+  @IsIn(CREATE_DEAL_STAGE_INPUT)
+  stage?: CreateDealStageInput;
 
   @IsOptional()
   @IsEnum(DealPriority)

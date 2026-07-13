@@ -18,7 +18,7 @@ const TAB_LABELS: Record<LeadDetailTab, string> = {
   overview: 'Overview',
   qualification: 'Qualification',
   notes: 'Notes',
-  activity: 'Activity',
+  activity: 'Timeline',
   documents: 'Documents',
 };
 

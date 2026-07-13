@@ -1,12 +1,9 @@
-export type DealStage =
-  | 'NEW'
-  | 'CONTACTED'
-  | 'QUALIFIED'
-  | 'DISCOVERY'
-  | 'PROPOSAL'
-  | 'NEGOTIATION'
-  | 'WON'
-  | 'LOST'
-  | 'ARCHIVED';
+export type {
+  DealForecastCategory,
+  DealForecastPeriod,
+  DealPriority,
+  DealStage,
+  DealStatus,
+} from '@/features/sales/types';
 
-export type DealPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export { DEAL_OPEN_STAGES } from '@/features/sales/types';

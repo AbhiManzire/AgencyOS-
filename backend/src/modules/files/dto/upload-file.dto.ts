@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ClientDocumentFolder } from '@prisma/client';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class UploadFileDto {
   @IsString()
@@ -8,4 +9,8 @@ export class UploadFileDto {
 
   @IsUUID()
   entityId!: string;
+
+  @IsOptional()
+  @IsEnum(ClientDocumentFolder)
+  folder?: ClientDocumentFolder;
 }

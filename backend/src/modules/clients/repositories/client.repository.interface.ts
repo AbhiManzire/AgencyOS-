@@ -1,4 +1,4 @@
-import type { ClientSource, ClientStatus, Prisma } from '@prisma/client';
+import type { ClientHealthStatus, ClientSource, ClientStatus, Prisma } from '@prisma/client';
 
 /** Tenant and workspace scope required on every client repository operation. */
 export interface ClientScope {
@@ -42,6 +42,11 @@ export interface CreateClientData {
   readonly source?: ClientSource | null;
   readonly externalReferenceId?: string | null;
   readonly becameClientAt?: Date | null;
+  readonly originDealId?: string | null;
+  readonly mergedIntoClientId?: string | null;
+  readonly healthStatus?: ClientHealthStatus | null;
+  readonly healthScore?: number | null;
+  readonly healthCalculatedAt?: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId?: string | null;
@@ -78,6 +83,11 @@ export interface UpdateClientData {
   readonly source?: ClientSource | null;
   readonly externalReferenceId?: string | null;
   readonly becameClientAt?: Date | null;
+  readonly originDealId?: string | null;
+  readonly mergedIntoClientId?: string | null;
+  readonly healthStatus?: ClientHealthStatus | null;
+  readonly healthScore?: number | null;
+  readonly healthCalculatedAt?: Date | null;
   readonly updatedAt: Date;
   readonly updatedByUserId?: string | null;
 }
@@ -159,6 +169,11 @@ export interface ClientRecord {
   readonly source: ClientSource | null;
   readonly externalReferenceId: string | null;
   readonly becameClientAt: Date | null;
+  readonly originDealId: string | null;
+  readonly mergedIntoClientId: string | null;
+  readonly healthStatus: ClientHealthStatus | null;
+  readonly healthScore: number | null;
+  readonly healthCalculatedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly createdByUserId: string | null;

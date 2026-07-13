@@ -13,7 +13,9 @@ import {
 export class ProjectMemberDomainService {
   validateCreate(input: CreateProjectMemberValidationInput): void {
     this.assertUserIdRequired(input.userId);
-    this.assertValidRole(input.role ?? 'DEVELOPER');
+    const role = input.role ?? 'DEVELOPER';
+    this.assertValidRole(role);
+    this.assertCustomRoleLabel(role, input.customRoleLabel);
     this.assertValidStatus(input.status ?? 'ACTIVE');
     this.assertAllocation(input.allocationPercent);
   }
@@ -21,6 +23,13 @@ export class ProjectMemberDomainService {
   validateUpdate(input: UpdateProjectMemberValidationInput): void {
     if (input.role !== undefined) {
       this.assertValidRole(input.role);
+      this.assertCustomRoleLabel(input.role, input.customRoleLabel);
+    } else if (input.customRoleLabel !== undefined) {
+      // Label-only updates are allowed when role already CUSTOM on the record;
+      // callers should pass role when switching to CUSTOM.
+      if (input.customRoleLabel === null || input.customRoleLabel.trim().length === 0) {
+        // no-op here; service layer decides based on existing role
+      }
     }
 
     if (input.status !== undefined) {
@@ -29,6 +38,23 @@ export class ProjectMemberDomainService {
 
     if (input.allocationPercent !== undefined) {
       this.assertAllocation(input.allocationPercent);
+    }
+  }
+
+  assertCustomRoleLabel(role: ProjectMemberRole, customRoleLabel: string | null | undefined): void {
+    if (role !== 'CUSTOM') {
+      return;
+    }
+
+    if (
+      customRoleLabel === undefined ||
+      customRoleLabel === null ||
+      customRoleLabel.trim().length === 0
+    ) {
+      throw new ProjectMemberDomainError(
+        PROJECT_MEMBER_DOMAIN_ERROR_CODES.CUSTOM_ROLE_LABEL_REQUIRED,
+        'customRoleLabel is required when role is CUSTOM.',
+      );
     }
   }
 

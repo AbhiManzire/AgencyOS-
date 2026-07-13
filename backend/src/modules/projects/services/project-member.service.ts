@@ -64,6 +64,7 @@ export class ProjectMemberService {
     this.projectMemberDomainService.validateCreate({
       userId: command.userId,
       role: command.role,
+      customRoleLabel: command.customRoleLabel,
       allocationPercent: command.allocationPercent,
       status: command.status,
     });
@@ -97,6 +98,7 @@ export class ProjectMemberService {
       projectId,
       userId: command.userId,
       role,
+      customRoleLabel: role === 'CUSTOM' ? (command.customRoleLabel?.trim() ?? null) : null,
       allocationPercent: command.allocationPercent ?? null,
       startDate: command.startDate ?? null,
       status: command.status ?? 'ACTIVE',
@@ -138,9 +140,17 @@ export class ProjectMemberService {
 
     this.projectMemberDomainService.validateUpdate({
       role: command.role,
+      customRoleLabel: command.customRoleLabel,
       allocationPercent: command.allocationPercent,
       status: command.status,
     });
+
+    const nextRole = command.role ?? existing.role;
+    if (nextRole === 'CUSTOM') {
+      const label =
+        command.customRoleLabel !== undefined ? command.customRoleLabel : existing.customRoleLabel;
+      this.projectMemberDomainService.assertCustomRoleLabel(nextRole, label);
+    }
 
     if (existing.role === 'MANAGER' && command.role !== undefined && command.role !== 'MANAGER') {
       const otherManager = await this.projectMemberRepository.findActiveManager(
@@ -169,6 +179,16 @@ export class ProjectMemberService {
     const now = new Date();
     const data: UpdateProjectMemberData = {
       ...(command.role !== undefined ? { role: command.role } : {}),
+      ...(command.customRoleLabel !== undefined || command.role !== undefined
+        ? {
+            customRoleLabel:
+              nextRole === 'CUSTOM'
+                ? command.customRoleLabel !== undefined
+                  ? (command.customRoleLabel?.trim() ?? null)
+                  : existing.customRoleLabel
+                : null,
+          }
+        : {}),
       ...(command.allocationPercent !== undefined
         ? { allocationPercent: command.allocationPercent }
         : {}),

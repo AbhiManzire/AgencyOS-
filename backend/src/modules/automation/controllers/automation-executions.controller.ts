@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Get, Headers, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Body, Controller, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { successResponse } from '../../../common/http/api-response';
 import type { ApiSuccessResponse } from '../../../common/http/api-response.types';
@@ -6,12 +7,14 @@ import { RequirePermissions } from '../../rbac/decorators/require-permissions.de
 import type {
   AutomationContext,
   AutomationScope,
+  WorkflowExecutionLogRecord,
   WorkflowExecutionRecord,
   WorkflowExecutionWithLogsRecord,
 } from '../automation.types';
 import { EnqueueExecutionDto } from '../dto/enqueue-execution.dto';
 import { ListExecutionsQueryDto } from '../dto/list-executions-query.dto';
 import { AutomationEngineService } from '../services/automation-engine.service';
+import { WorkflowRunnerService } from '../services/workflow-runner.service';
 
 const TENANT_HEADER = 'x-tenant-id';
 const WORKSPACE_HEADER = 'x-workspace-id';
@@ -20,7 +23,10 @@ const USER_HEADER = 'x-user-id';
 @ApiTags('automation')
 @Controller('automation/executions')
 export class AutomationExecutionsController {
-  constructor(private readonly automationEngineService: AutomationEngineService) {}
+  constructor(
+    private readonly automationEngineService: AutomationEngineService,
+    private readonly workflowRunnerService: WorkflowRunnerService,
+  ) {}
 
   @Get()
   @RequirePermissions('workflows.read')
@@ -55,6 +61,18 @@ export class AutomationExecutionsController {
     return successResponse(execution);
   }
 
+  @Get(':id/logs')
+  @RequirePermissions('workflows.read')
+  async getLogs(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiSuccessResponse<readonly WorkflowExecutionLogRecord[]>> {
+    const scope = this.resolveScope(headers);
+    const logs = await this.automationEngineService.listExecutionLogs(scope, id);
+
+    return successResponse(logs);
+  }
+
   @Post()
   @RequirePermissions('workflows.create')
   async enqueue(
@@ -70,6 +88,8 @@ export class AutomationExecutionsController {
       triggeredByUserId: context.actorUserId || null,
       maxAttempts: dto.maxAttempts,
     });
+
+    void this.workflowRunnerService.runExecution(scope, execution.id).catch(() => undefined);
 
     return successResponse(execution);
   }
