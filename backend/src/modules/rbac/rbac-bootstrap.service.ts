@@ -461,6 +461,19 @@ const SYSTEM_ROLE_SEEDS: readonly SystemRoleSeedDefinition[] = [
     permissionPatterns: ['sales.*', 'quotes.*', 'proposals.*', 'clients.read', 'dashboard.read'],
   },
   {
+    slug: 'marketing',
+    name: 'Marketing',
+    description: 'Campaign and sales visibility with client read access.',
+    permissionPatterns: [
+      'sales.read',
+      'sales.create',
+      'sales.update',
+      'clients.read',
+      'dashboard.read',
+      'reports.read',
+    ],
+  },
+  {
     slug: 'finance',
     name: 'Finance',
     description: 'Invoices, finance modules, payments, and reporting.',
@@ -550,6 +563,22 @@ export class RbacBootstrapService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.seedPermissionCatalog();
+    await this.syncSystemRolesForAllTenants();
+  }
+
+  /** Ensures every tenant has the latest DEFAULT_SYSTEM_ROLE_SLUGS permission sets. */
+  async syncSystemRolesForAllTenants(): Promise<void> {
+    const tenants = await this.prisma.tenant.findMany({
+      where: { deletedAt: null },
+      select: { id: true },
+    });
+    const now = new Date();
+
+    for (const tenant of tenants) {
+      await this.seedDefaultSystemRoles(tenant.id, now);
+    }
+
+    this.logger.log(`RBAC system roles synchronized for ${String(tenants.length)} tenant(s).`);
   }
 
   /** Seeds default permissions and system roles for a tenant workspace fixture. */

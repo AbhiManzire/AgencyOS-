@@ -11,13 +11,17 @@ export interface ResolvedAgencyIdentity {
 
 /**
  * Maps Keycloak JWT `sub` to AgencyOS `User.id` for RBAC and tenant scoping.
- * Lookup order: keycloak_subject match, then User.id == sub (UUID bootstrap).
+ * Lookup order: keycloak_subject, User.id == sub (UUID bootstrap), then email claim
+ * (links invite-created users to Keycloak on first login).
  */
 @Injectable()
 export class IdentityResolutionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async resolveByKeycloakSubject(subject: string): Promise<ResolvedAgencyIdentity> {
+  async resolveByKeycloakSubject(
+    subject: string,
+    email?: string | null,
+  ): Promise<ResolvedAgencyIdentity> {
     const trimmed = subject.trim();
     if (trimmed.length === 0) {
       throw new UnauthorizedException('Invalid token subject');
@@ -37,16 +41,7 @@ export class IdentityResolutionService {
     });
 
     if (bySubject !== null) {
-      if (!bySubject.isActive) {
-        throw new UnauthorizedException('User account is inactive');
-      }
-
-      return {
-        userId: bySubject.id,
-        keycloakSubject: bySubject.keycloakSubject,
-        email: bySubject.email,
-        isActive: bySubject.isActive,
-      };
+      return this.toActiveIdentity(bySubject);
     }
 
     if (isUUID(trimmed)) {
@@ -64,19 +59,64 @@ export class IdentityResolutionService {
       });
 
       if (byId !== null) {
-        if (!byId.isActive) {
-          throw new UnauthorizedException('User account is inactive');
-        }
+        return this.toActiveIdentity(byId);
+      }
+    }
 
-        return {
-          userId: byId.id,
-          keycloakSubject: byId.keycloakSubject,
-          email: byId.email,
-          isActive: byId.isActive,
-        };
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (normalizedEmail && normalizedEmail.length > 0) {
+      const byEmail = await this.prisma.user.findFirst({
+        where: {
+          email: normalizedEmail,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          keycloakSubject: true,
+          email: true,
+          isActive: true,
+        },
+      });
+
+      if (byEmail !== null) {
+        this.toActiveIdentity(byEmail);
+
+        const linked = await this.prisma.user.update({
+          where: { id: byEmail.id },
+          data: {
+            keycloakSubject: trimmed,
+            updatedAt: new Date(),
+          },
+          select: {
+            id: true,
+            keycloakSubject: true,
+            email: true,
+            isActive: true,
+          },
+        });
+
+        return this.toActiveIdentity(linked);
       }
     }
 
     throw new UnauthorizedException('Unknown identity');
+  }
+
+  private toActiveIdentity(user: {
+    readonly id: string;
+    readonly keycloakSubject: string;
+    readonly email: string;
+    readonly isActive: boolean;
+  }): ResolvedAgencyIdentity {
+    if (!user.isActive) {
+      throw new UnauthorizedException('User account is inactive');
+    }
+
+    return {
+      userId: user.id,
+      keycloakSubject: user.keycloakSubject,
+      email: user.email,
+      isActive: user.isActive,
+    };
   }
 }

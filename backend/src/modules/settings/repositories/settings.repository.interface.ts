@@ -125,10 +125,36 @@ export interface SettingsRepository {
   unlockUser(scope: SettingsScope, userId: string, now: Date): Promise<SettingsUserRecord>;
 
   findPendingInvitationByEmail(scope: SettingsScope, email: string): Promise<{ id: string } | null>;
+  findPendingInvitationByTokenHash(tokenHash: string): Promise<{
+    readonly id: string;
+    readonly tenantId: string;
+    readonly workspaceId: string;
+    readonly email: string;
+    readonly roleId: string | null;
+    readonly expiresAt: Date;
+  } | null>;
   createInvitation(
     scope: SettingsScope,
     input: CreateInvitationInput,
   ): Promise<SettingsInvitationRecord>;
+  acceptInvitation(input: {
+    readonly invitationId: string;
+    readonly userId: string;
+    readonly tenantId: string;
+    readonly workspaceId: string;
+    readonly roleId: string | null;
+    readonly email: string;
+    readonly firstName?: string | null;
+    readonly lastName?: string | null;
+    readonly displayName?: string | null;
+    readonly keycloakSubject: string;
+    readonly now: Date;
+  }): Promise<{ readonly userId: string; readonly createdUser: boolean }>;
+  findUserByEmail(email: string): Promise<{
+    readonly id: string;
+    readonly email: string;
+    readonly isActive: boolean;
+  } | null>;
 
   listRoles(scope: SettingsScope): Promise<readonly SettingsRoleRecord[]>;
   getRoleDetail(scope: SettingsScope, roleId: string): Promise<SettingsRoleDetail | null>;

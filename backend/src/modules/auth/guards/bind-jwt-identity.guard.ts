@@ -30,7 +30,10 @@ export class BindJwtIdentityGuard implements CanActivate {
       return true;
     }
 
-    const identity = await this.identityResolution.resolveByKeycloakSubject(subject);
+    const identity = await this.identityResolution.resolveByKeycloakSubject(
+      subject,
+      user.email ?? user.preferred_username ?? null,
+    );
     request.agencyUserId = identity.userId;
     request.headers[RBAC_SCOPE_HEADERS.USER] = identity.userId;
 

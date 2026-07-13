@@ -659,6 +659,161 @@ export class PrismaSettingsRepository implements SettingsRepository {
     };
   }
 
+  async findPendingInvitationByTokenHash(tokenHash: string): Promise<{
+    readonly id: string;
+    readonly tenantId: string;
+    readonly workspaceId: string;
+    readonly email: string;
+    readonly roleId: string | null;
+    readonly expiresAt: Date;
+  } | null> {
+    return this.prisma.userInvitation.findFirst({
+      where: {
+        tokenHash,
+        status: 'PENDING',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        workspaceId: true,
+        email: true,
+        roleId: true,
+        expiresAt: true,
+      },
+    });
+  }
+
+  async findUserByEmail(email: string): Promise<{
+    readonly id: string;
+    readonly email: string;
+    readonly isActive: boolean;
+  } | null> {
+    return this.prisma.user.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+      },
+    });
+  }
+
+  async acceptInvitation(input: {
+    readonly invitationId: string;
+    readonly userId: string;
+    readonly tenantId: string;
+    readonly workspaceId: string;
+    readonly roleId: string | null;
+    readonly email: string;
+    readonly firstName?: string | null;
+    readonly lastName?: string | null;
+    readonly displayName?: string | null;
+    readonly keycloakSubject: string;
+    readonly now: Date;
+  }): Promise<{ readonly userId: string; readonly createdUser: boolean }> {
+    return this.prisma.$transaction(async (tx) => {
+      let userId = input.userId;
+      let createdUser = false;
+
+      const existing = await tx.user.findFirst({
+        where: { email: input.email.toLowerCase(), deletedAt: null },
+        select: { id: true },
+      });
+
+      if (existing === null) {
+        createdUser = true;
+        await tx.user.create({
+          data: {
+            id: userId,
+            keycloakSubject: input.keycloakSubject,
+            email: input.email.toLowerCase(),
+            firstName: input.firstName ?? null,
+            lastName: input.lastName ?? null,
+            displayName: input.displayName ?? null,
+            isActive: true,
+            createdAt: input.now,
+            updatedAt: input.now,
+          },
+        });
+      } else {
+        userId = existing.id;
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),
+            ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
+            ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
+            updatedAt: input.now,
+          },
+        });
+      }
+
+      const employee = await tx.employee.findFirst({
+        where: {
+          tenantId: input.tenantId,
+          userId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (employee === null) {
+        await tx.employee.create({
+          data: {
+            id: randomUUID(),
+            tenantId: input.tenantId,
+            workspaceId: input.workspaceId,
+            userId,
+            status: 'ACTIVE',
+            isActive: true,
+            createdAt: input.now,
+            updatedAt: input.now,
+          },
+        });
+      }
+
+      if (input.roleId) {
+        await tx.userRole.upsert({
+          where: {
+            tenantId_userId_roleId: {
+              tenantId: input.tenantId,
+              userId,
+              roleId: input.roleId,
+            },
+          },
+          create: {
+            id: randomUUID(),
+            tenantId: input.tenantId,
+            userId,
+            roleId: input.roleId,
+            createdAt: input.now,
+            updatedAt: input.now,
+          },
+          update: {
+            deletedAt: null,
+            deletedByUserId: null,
+            updatedAt: input.now,
+          },
+        });
+      }
+
+      await tx.userInvitation.update({
+        where: { id: input.invitationId },
+        data: {
+          status: 'ACCEPTED',
+          acceptedAt: input.now,
+          updatedAt: input.now,
+        },
+      });
+
+      return { userId, createdUser };
+    });
+  }
+
   async listRoles(scope: SettingsScope): Promise<readonly SettingsRoleRecord[]> {
     const roles = await this.prisma.role.findMany({
       where: {

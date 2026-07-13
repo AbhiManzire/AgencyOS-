@@ -6,6 +6,7 @@ export const DEFAULT_SYSTEM_ROLE_SLUGS = [
   'admin',
   'manager',
   'sales',
+  'marketing',
   'finance',
   'project-manager',
   'developer',

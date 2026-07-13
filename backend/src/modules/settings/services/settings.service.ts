@@ -5,9 +5,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { EMAIL_SERVICE, type EmailService } from '../../notifications/email.service.interface';
 import { RoleService } from '../../rbac/services/role.service';
+import type { AcceptInvitationDto } from '../dto/accept-invitation.dto';
 import type { CreateRoleDto } from '../dto/create-role.dto';
 import type { InviteUserDto } from '../dto/invite-user.dto';
 import type { SetRolePermissionsDto } from '../dto/set-role-permissions.dto';
@@ -24,6 +26,7 @@ import {
 import type {
   CompanyProfile,
   ListSettingsUsersQuery,
+  AcceptInvitationResult,
   SettingsEmailReadyResult,
   SettingsInvitationRecord,
   SettingsRoleDetail,
@@ -46,6 +49,7 @@ export class SettingsService {
     @Inject(EMAIL_SERVICE)
     private readonly emailService: EmailService,
     private readonly roleService: RoleService,
+    private readonly configService: ConfigService,
   ) {}
 
   async getCompanyProfile(scope: SettingsScope): Promise<CompanyProfile> {
@@ -219,13 +223,66 @@ export class SettingsService {
       now,
     });
 
+    const appOrigin = this.configService.get<string>('cors.origin', 'http://localhost:3000');
+    const acceptUrl = `${appOrigin.replace(/\/$/, '')}/auth/accept-invite?token=${rawToken}`;
+
     await this.emailService.send({
       to: email,
       subject: 'You are invited to AgencyOS',
-      html: `<p>You have been invited to join a workspace on AgencyOS.</p><p>Invitation token: ${rawToken}</p><p>This invitation expires on ${expiresAt.toISOString()}.</p>`,
+      html: `<p>You have been invited to join a workspace on AgencyOS.</p><p><a href="${acceptUrl}">Accept invitation</a></p><p>This invitation expires on ${expiresAt.toISOString()}.</p>`,
     });
 
     return invitation;
+  }
+
+  async acceptInvitation(dto: AcceptInvitationDto): Promise<AcceptInvitationResult> {
+    const tokenHash = createHash('sha256').update(dto.token.trim()).digest('hex');
+    const invitation = await this.settingsRepository.findPendingInvitationByTokenHash(tokenHash);
+
+    if (invitation === null) {
+      throw new NotFoundException('Invitation was not found or is no longer pending.');
+    }
+
+    if (invitation.expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Invitation has expired.');
+    }
+
+    const existing = await this.settingsRepository.findUserByEmail(invitation.email);
+    if (existing !== null && !existing.isActive) {
+      throw new ConflictException('A deactivated account already exists for this email.');
+    }
+
+    const alreadyInWorkspace = await this.settingsRepository.findUserIdByEmailInWorkspace(
+      { tenantId: invitation.tenantId, workspaceId: invitation.workspaceId },
+      invitation.email,
+    );
+    if (alreadyInWorkspace !== null) {
+      throw new ConflictException('User already belongs to this workspace.');
+    }
+
+    const userId = existing?.id ?? randomUUID();
+    const now = new Date();
+    const result = await this.settingsRepository.acceptInvitation({
+      invitationId: invitation.id,
+      userId,
+      tenantId: invitation.tenantId,
+      workspaceId: invitation.workspaceId,
+      roleId: invitation.roleId,
+      email: invitation.email,
+      firstName: dto.firstName?.trim() ? dto.firstName.trim() : null,
+      lastName: dto.lastName?.trim() ? dto.lastName.trim() : null,
+      displayName: dto.displayName?.trim() ? dto.displayName.trim() : null,
+      keycloakSubject: `invite:${userId}`,
+      now,
+    });
+
+    return {
+      userId: result.userId,
+      email: invitation.email,
+      tenantId: invitation.tenantId,
+      workspaceId: invitation.workspaceId,
+      createdUser: result.createdUser,
+    };
   }
 
   async updateUserProfile(

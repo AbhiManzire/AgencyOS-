@@ -134,6 +134,14 @@ export interface SettingsInvitationRecord {
   readonly emailReady: true;
 }
 
+export interface AcceptInvitationResult {
+  readonly userId: string;
+  readonly email: string;
+  readonly tenantId: string;
+  readonly workspaceId: string;
+  readonly createdUser: boolean;
+}
+
 export interface SettingsEmailReadyResult {
   readonly emailReady: true;
   readonly messageId: string;
