@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -82,7 +83,7 @@ export class CreditNoteService {
         {
           entityType: 'credit_note',
           entityId: created.id,
-          type: 'credit_note.created',
+          type: ActivityType.CUSTOM,
           title: 'Credit Note Created',
           description: 'Credit note was created.',
           metadata: { amount: created.amount, creditNoteNumber: created.creditNoteNumber },

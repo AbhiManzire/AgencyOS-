@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -74,7 +75,7 @@ export class ExpenseService {
         {
           entityType: 'expense',
           entityId: created.id,
-          type: 'expense.added',
+          type: ActivityType.CUSTOM,
           title: 'Expense Added',
           description: 'Expense was recorded.',
           metadata: { amount: created.amount, category: created.category },

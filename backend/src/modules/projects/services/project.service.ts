@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { ActivityType, type Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../activities/services/activity.service';
 import { WorkflowEventDispatcher } from '../../automation/services/workflow-event-dispatcher.service';
@@ -123,7 +123,7 @@ export class ProjectService {
       await this.emitActivity(
         scope,
         project.id,
-        'PROJECT_CREATED',
+        ActivityType.PROJECT_CREATED,
         'Project Created',
         context,
         undefined,
@@ -222,7 +222,7 @@ export class ProjectService {
         await this.emitActivity(
           scope,
           updated.id,
-          'project.status_changed',
+          ActivityType.STATUS_CHANGED,
           'Status Changed',
           context,
           { from: existing.status, to: updated.status },
@@ -232,7 +232,7 @@ export class ProjectService {
         await this.emitActivity(
           scope,
           updated.id,
-          'project.updated',
+          ActivityType.CUSTOM,
           'Project Updated',
           context,
           undefined,
@@ -277,7 +277,7 @@ export class ProjectService {
       await this.emitActivity(
         scope,
         updated.id,
-        'project.status_changed',
+        ActivityType.STATUS_CHANGED,
         'Status Changed',
         context,
         {
@@ -324,7 +324,7 @@ export class ProjectService {
       await this.emitActivity(
         scope,
         updated.id,
-        'project.status_changed',
+        ActivityType.STATUS_CHANGED,
         'Status Changed',
         context,
         { from: existing.status, to: 'INVOICE_READY' },
@@ -369,7 +369,7 @@ export class ProjectService {
       await this.emitActivity(
         scope,
         archived.id,
-        'project.archived',
+        ActivityType.CUSTOM,
         'Archived',
         context,
         undefined,
@@ -425,7 +425,7 @@ export class ProjectService {
       await this.emitActivity(
         scope,
         restored.id,
-        'project.restored',
+        ActivityType.CUSTOM,
         'Restored',
         context,
         undefined,
@@ -523,7 +523,7 @@ export class ProjectService {
   private async emitActivity(
     scope: ProjectScope,
     projectId: string,
-    type: string,
+    type: ActivityType,
     title: string,
     context: ProjectApplicationContext,
     metadata?: Prisma.InputJsonValue,

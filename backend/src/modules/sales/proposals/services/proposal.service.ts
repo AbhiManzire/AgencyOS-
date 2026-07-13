@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ActivityType, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -103,7 +103,7 @@ export class ProposalService {
       await this.logActivity(scope, context, {
         entityType: 'deal',
         entityId: proposal.dealId,
-        type: 'proposal.created',
+        type: ActivityType.CUSTOM,
         title: 'Proposal created',
         description: `${proposal.title} (v${String(proposal.version)})`,
         metadata: { proposalId: proposal.id, version: proposal.version },
@@ -189,7 +189,7 @@ export class ProposalService {
       await this.logActivity(scope, context, {
         entityType: 'deal',
         entityId: updated.dealId,
-        type: shouldIncrementVersion ? 'proposal.versioned' : 'proposal.updated',
+        type: ActivityType.CUSTOM,
         title: shouldIncrementVersion ? 'Proposal version saved' : 'Proposal updated',
         description: `${updated.title} (v${String(updated.version)})`,
         metadata: { proposalId: updated.id, version: updated.version },
@@ -199,7 +199,7 @@ export class ProposalService {
         await this.logActivity(scope, context, {
           entityType: 'deal',
           entityId: updated.dealId,
-          type: 'proposal.sent',
+          type: ActivityType.PROPOSAL_SENT,
           title: 'Proposal sent',
           description: `${updated.title} (v${String(updated.version)}) was sent.`,
           metadata: { proposalId: updated.id, version: updated.version },
@@ -242,7 +242,7 @@ export class ProposalService {
     command: {
       readonly entityType: string;
       readonly entityId: string;
-      readonly type: string;
+      readonly type: ActivityType;
       readonly title: string;
       readonly description: string;
       readonly metadata: Prisma.InputJsonValue;

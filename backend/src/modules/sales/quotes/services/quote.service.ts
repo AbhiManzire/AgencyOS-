@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { ActivityType, type Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import type { ClientScope } from '../../../clients/repositories/client.repository.interface';
@@ -82,7 +82,7 @@ export class QuoteService {
       await this.emitActivity(
         scope,
         created.dealId,
-        'quote.created',
+        ActivityType.CUSTOM,
         'Quote Created',
         context,
         { quoteId: created.id, quoteNumber: created.quoteNumber },
@@ -168,7 +168,7 @@ export class QuoteService {
       await this.emitActivity(
         scope,
         updated.dealId,
-        'quote.updated',
+        ActivityType.CUSTOM,
         'Quote Updated',
         context,
         { quoteId: updated.id, quoteNumber: updated.quoteNumber },
@@ -179,7 +179,7 @@ export class QuoteService {
         await this.emitActivity(
           scope,
           updated.dealId,
-          'quote.sent',
+          ActivityType.QUOTE_SENT,
           'Quote Sent',
           context,
           { quoteId: updated.id, quoteNumber: updated.quoteNumber },
@@ -189,7 +189,7 @@ export class QuoteService {
         await this.emitActivity(
           scope,
           updated.dealId,
-          'quote.generated',
+          ActivityType.CUSTOM,
           'Quote Generated',
           context,
           { quoteId: updated.id, quoteNumber: updated.quoteNumber },
@@ -335,7 +335,7 @@ export class QuoteService {
   private async emitActivity(
     scope: QuoteScope,
     dealId: string,
-    type: string,
+    type: ActivityType,
     title: string,
     context: QuoteApplicationContext,
     metadata: Prisma.InputJsonValue,

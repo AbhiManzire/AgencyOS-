@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { WorkflowEventDispatcher } from '../../../automation/services/workflow-event-dispatcher.service';
@@ -139,7 +140,7 @@ export class PaymentService {
         {
           entityType: 'invoice',
           entityId: invoice.id,
-          type: 'invoice.payment.recorded',
+          type: ActivityType.PAYMENT_RECEIVED,
           title: `Payment of ${payment.amount.toFixed(2)} ${payment.currency} recorded`,
           metadata: {
             paymentId: payment.id,
@@ -154,7 +155,7 @@ export class PaymentService {
         {
           entityType: 'payment',
           entityId: payment.id,
-          type: 'payment.received',
+          type: ActivityType.PAYMENT_RECEIVED,
           title: 'Payment received',
           description: `Payment of ${payment.amount.toFixed(2)} ${payment.currency} received.`,
           metadata: {

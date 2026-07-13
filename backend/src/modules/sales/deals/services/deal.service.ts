@@ -1,5 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ProjectServiceType, type DealStage, type Prisma } from '@prisma/client';
+import {
+  ActivityType,
+  ProjectServiceType,
+  WorkflowTriggerType,
+  type DealStage,
+  type Prisma,
+} from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { WorkflowEventDispatcher } from '../../../automation/services/workflow-event-dispatcher.service';
@@ -7,7 +13,10 @@ import { ClientService } from '../../../clients/services/client.service';
 import { ClientConversionService } from '../../../clients/success/services/client-conversion.service';
 import type { ClientScope } from '../../../clients/repositories/client.repository.interface';
 import { SalesNotificationEmitter } from '../../../notifications/events/sales-notification.emitter';
-import { NOTIFICATION_EVENT_KEYS } from '../../../notifications/events/notification-event.catalog';
+import {
+  NOTIFICATION_EVENT_KEYS,
+  type NotificationEventKey,
+} from '../../../notifications/events/notification-event.catalog';
 import type { ProjectScope } from '../../../projects/repositories/project.repository.interface';
 import { ProjectService } from '../../../projects/services/project.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -196,7 +205,7 @@ export class DealService {
       return createdDeal;
     });
 
-    this.emitWorkflowEvent(scope, 'DEAL_CREATED', created, context.actorUserId);
+    this.emitWorkflowEvent(scope, WorkflowTriggerType.DEAL_CREATED, created, context.actorUserId);
     return created;
   }
 
@@ -368,10 +377,16 @@ export class DealService {
     }
 
     const updated = await this.applyStageChange(scope, existing, command.stage, context, {});
-    this.emitWorkflowEvent(scope, 'DEAL_STAGE_CHANGED', updated, context.actorUserId, {
-      fromStage: existing.stage,
-      toStage: updated.stage,
-    });
+    this.emitWorkflowEvent(
+      scope,
+      WorkflowTriggerType.DEAL_STAGE_CHANGED,
+      updated,
+      context.actorUserId,
+      {
+        fromStage: existing.stage,
+        toStage: updated.stage,
+      },
+    );
     return updated;
   }
 
@@ -426,7 +441,7 @@ export class DealService {
       { actorUserId: context.actorUserId },
     );
 
-    this.emitWorkflowEvent(scope, 'DEAL_WON', deal, context.actorUserId);
+    this.emitWorkflowEvent(scope, WorkflowTriggerType.DEAL_WON, deal, context.actorUserId);
     return deal;
   }
 
@@ -444,7 +459,7 @@ export class DealService {
       competitor: normalizeOptionalString(command.competitor),
       lossNotes: normalizeOptionalString(command.lossNotes),
     });
-    this.emitWorkflowEvent(scope, 'DEAL_LOST', lost, context.actorUserId, {
+    this.emitWorkflowEvent(scope, WorkflowTriggerType.DEAL_LOST, lost, context.actorUserId, {
       lossReason: command.lossReason.trim(),
     });
     return lost;
@@ -1065,7 +1080,7 @@ export class DealService {
 
   private emitWorkflowEvent(
     scope: DealScope,
-    triggerType: string,
+    triggerType: WorkflowTriggerType,
     deal: DealRecord,
     actorUserId?: string | null,
     extra?: Record<string, unknown>,
@@ -1100,7 +1115,7 @@ export class DealService {
   private async emitDealNotification(
     scope: DealScope,
     recipientUserId: string,
-    eventKey: string,
+    eventKey: NotificationEventKey,
     vars: Readonly<Record<string, string | number | null | undefined>>,
     dealId: string,
   ): Promise<void> {
@@ -1186,7 +1201,7 @@ export class DealService {
   private async emitActivity(
     scope: DealScope,
     dealId: string,
-    type: string,
+    type: ActivityType,
     title: string,
     context: DealApplicationContext,
     metadata?: Prisma.InputJsonValue,

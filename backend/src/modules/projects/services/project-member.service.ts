@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../activities/services/activity.service';
 import { ProjectMemberDomainService } from '../domain/project-member-domain.service';
@@ -115,7 +116,7 @@ export class ProjectMemberService {
         {
           entityType: 'project',
           entityId: projectId,
-          type: 'project.member_added',
+          type: ActivityType.CUSTOM,
           title: 'Member Added',
           description: `Member assigned with role ${created.role}.`,
           metadata: { memberId: created.id, userId: created.userId, role: created.role },
@@ -265,7 +266,7 @@ export class ProjectMemberService {
         {
           entityType: 'project',
           entityId: projectId,
-          type: 'project.member_removed',
+          type: ActivityType.CUSTOM,
           title: 'Member Removed',
           description: `Member with role ${existing.role} was removed.`,
           metadata: { memberId: existing.id, userId: existing.userId, role: existing.role },

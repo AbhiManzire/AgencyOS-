@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import type { ClientScope } from '../../../clients/repositories/client.repository.interface';
@@ -110,7 +111,7 @@ export class InvoiceService {
         {
           entityType: 'invoice',
           entityId: created.id,
-          type: 'invoice.created',
+          type: ActivityType.CUSTOM,
           title: 'Invoice created',
           description: `Invoice ${created.invoiceNumber} was created.`,
           metadata: {
@@ -206,7 +207,7 @@ export class InvoiceService {
           {
             entityType: 'invoice',
             entityId: updated.id,
-            type: 'invoice.sent',
+            type: ActivityType.INVOICE_SENT,
             title: 'Invoice sent',
             description: `Invoice ${updated.invoiceNumber} was marked as sent.`,
             metadata: {
@@ -296,7 +297,7 @@ export class InvoiceService {
         {
           entityType: 'invoice',
           entityId: updated.id,
-          type: 'invoice.cancelled',
+          type: ActivityType.CUSTOM,
           title: 'Invoice cancelled',
           description: `Invoice ${updated.invoiceNumber} was cancelled.`,
           metadata: { invoiceNumber: updated.invoiceNumber },

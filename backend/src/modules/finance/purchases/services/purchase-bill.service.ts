@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -398,7 +399,7 @@ export class PurchaseBillService {
           {
             entityType: 'purchase_bill',
             entityId: billId,
-            type: 'bill.paid',
+            type: ActivityType.PAYMENT_RECEIVED,
             title: 'Bill Paid',
             description: 'Purchase bill was fully paid.',
             metadata: { paymentId: payment.id, amount: payment.amount },

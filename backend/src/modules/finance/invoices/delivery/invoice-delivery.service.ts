@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ActivityType, Prisma } from '@prisma/client';
 import { ActivityService } from '../../../activities/services/activity.service';
 import {
   CLIENT_CONTACT_REPOSITORY,
@@ -87,7 +87,7 @@ export class InvoiceDeliveryService {
       await this.logActivity(scope, context, {
         entityType: INVOICE_ENTITY_TYPE,
         entityId: invoiceId,
-        type: 'invoice.pdf.generated',
+        type: ActivityType.ATTACHMENT_UPLOADED,
         title: 'Invoice PDF generated',
         description: `${originalName} was created.`,
         metadata: { fileId: file.id, invoiceNumber: invoice.invoiceNumber },
@@ -150,7 +150,7 @@ export class InvoiceDeliveryService {
         await this.logActivity(scope, context, {
           entityType: INVOICE_ENTITY_TYPE,
           entityId: invoiceId,
-          type: 'invoice.email.sent',
+          type: ActivityType.INVOICE_SENT,
           title: 'Invoice emailed',
           description: `Sent to ${recipientEmail}.`,
           metadata: {
@@ -175,7 +175,7 @@ export class InvoiceDeliveryService {
       await this.logActivity(scope, context, {
         entityType: INVOICE_ENTITY_TYPE,
         entityId: invoiceId,
-        type: 'invoice.email.failed',
+        type: ActivityType.CUSTOM,
         title: 'Invoice email failed',
         description: message,
         metadata: {
@@ -326,7 +326,7 @@ export class InvoiceDeliveryService {
     command: {
       readonly entityType: string;
       readonly entityId: string;
-      readonly type: string;
+      readonly type: ActivityType;
       readonly title: string;
       readonly description: string;
       readonly metadata: Prisma.InputJsonValue;

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { LeadSource, Prisma } from '@prisma/client';
+import { ActivityType, WorkflowTriggerType, type LeadSource, type Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../../activities/services/activity.service';
 import { WorkflowEventDispatcher } from '../../../automation/services/workflow-event-dispatcher.service';
@@ -169,10 +169,10 @@ export class LeadService {
 
     if (created.assignedToUserId !== null) {
       await this.emitAssignmentNotification(scope, created);
-      this.emitWorkflowEvent(scope, 'LEAD_ASSIGNED', created, actorUserId);
+      this.emitWorkflowEvent(scope, WorkflowTriggerType.LEAD_ASSIGNED, created, actorUserId);
     }
 
-    this.emitWorkflowEvent(scope, 'LEAD_CREATED', created, actorUserId);
+    this.emitWorkflowEvent(scope, WorkflowTriggerType.LEAD_CREATED, created, actorUserId);
 
     return created;
   }
@@ -472,7 +472,7 @@ export class LeadService {
       command.assignedToUserId !== existing.assignedToUserId
     ) {
       await this.emitAssignmentNotification(scope, updated);
-      this.emitWorkflowEvent(scope, 'LEAD_ASSIGNED', updated, actorUserId);
+      this.emitWorkflowEvent(scope, WorkflowTriggerType.LEAD_ASSIGNED, updated, actorUserId);
     }
 
     if (
@@ -480,10 +480,10 @@ export class LeadService {
       command.status !== existing.status &&
       command.status === 'QUALIFIED'
     ) {
-      this.emitWorkflowEvent(scope, 'LEAD_QUALIFIED', updated, actorUserId);
+      this.emitWorkflowEvent(scope, WorkflowTriggerType.LEAD_QUALIFIED, updated, actorUserId);
     }
 
-    this.emitWorkflowEvent(scope, 'LEAD_UPDATED', updated, actorUserId);
+    this.emitWorkflowEvent(scope, WorkflowTriggerType.LEAD_UPDATED, updated, actorUserId);
 
     return updated;
   }
@@ -631,9 +631,15 @@ export class LeadService {
         `lead.converted:${converted.id}`,
       );
 
-      this.emitWorkflowEvent(scope, 'LEAD_CONVERTED', converted, context.actorUserId, {
-        convertedClientId: client.id,
-      });
+      this.emitWorkflowEvent(
+        scope,
+        WorkflowTriggerType.LEAD_CONVERTED,
+        converted,
+        context.actorUserId,
+        {
+          convertedClientId: client.id,
+        },
+      );
 
       return converted;
     });
@@ -678,7 +684,7 @@ export class LeadService {
 
   private emitWorkflowEvent(
     scope: LeadScope,
-    triggerType: string,
+    triggerType: WorkflowTriggerType,
     lead: LeadRecord,
     actorUserId?: string | null,
     extra?: Record<string, unknown>,
@@ -729,7 +735,7 @@ export class LeadService {
   private async emitActivity(
     scope: LeadScope,
     leadId: string,
-    type: string,
+    type: ActivityType,
     title: string,
     context: LeadApplicationContext,
     metadata?: Prisma.InputJsonValue,

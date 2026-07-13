@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { ActivityType, type Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../activities/services/activity.service';
 import { WorkflowEventDispatcher } from '../../automation/services/workflow-event-dispatcher.service';
@@ -104,7 +104,7 @@ export class TaskService {
       await this.emitActivity(
         scope,
         created.id,
-        'task.created',
+        ActivityType.TASK,
         'Task Created',
         context,
         undefined,
@@ -115,7 +115,7 @@ export class TaskService {
         await this.emitActivity(
           scope,
           created.id,
-          'TASK_ASSIGNED',
+          ActivityType.TASK_ASSIGNED,
           'Task Assigned',
           context,
           { assigneeUserId: created.assigneeUserId },
@@ -204,7 +204,7 @@ export class TaskService {
         await this.emitActivity(
           scope,
           updated.id,
-          'task.status_changed',
+          ActivityType.STATUS_CHANGED,
           'Status Changed',
           context,
           { from: existing.status, to: command.status },
@@ -215,7 +215,7 @@ export class TaskService {
           await this.emitActivity(
             scope,
             updated.id,
-            'TASK',
+            ActivityType.TASK,
             'Task Completed',
             context,
             undefined,
@@ -228,7 +228,7 @@ export class TaskService {
         await this.emitActivity(
           scope,
           updated.id,
-          'task.updated',
+          ActivityType.TASK,
           'Task Updated',
           context,
           undefined,
@@ -244,7 +244,7 @@ export class TaskService {
           await this.emitActivity(
             scope,
             updated.id,
-            'TASK_ASSIGNED',
+            ActivityType.TASK_ASSIGNED,
             'Task Assigned',
             context,
             {
@@ -293,7 +293,7 @@ export class TaskService {
       await this.emitActivity(
         scope,
         archived.id,
-        'task.archived',
+        ActivityType.CUSTOM,
         'Archived',
         context,
         undefined,
@@ -334,7 +334,7 @@ export class TaskService {
       await this.emitActivity(
         scope,
         restored.id,
-        'task.restored',
+        ActivityType.CUSTOM,
         'Restored',
         context,
         undefined,
@@ -447,7 +447,7 @@ export class TaskService {
       await this.emitActivity(
         scope,
         created.id,
-        'task.created',
+        ActivityType.TASK,
         'Subtask Created',
         context,
         { parentTaskId },
@@ -509,7 +509,7 @@ export class TaskService {
         await this.emitActivity(
           scope,
           updated.id,
-          'task.status_changed',
+          ActivityType.STATUS_CHANGED,
           'Status Changed',
           context,
           { from: existing.status, to: command.status },
@@ -520,7 +520,7 @@ export class TaskService {
           await this.emitActivity(
             scope,
             updated.id,
-            'TASK',
+            ActivityType.TASK,
             'Task Completed',
             context,
             undefined,
@@ -563,7 +563,7 @@ export class TaskService {
       await this.emitActivity(
         scope,
         deleted.id,
-        'task.archived',
+        ActivityType.CUSTOM,
         'Archived',
         context,
         { parentTaskId },
@@ -606,7 +606,7 @@ export class TaskService {
       await this.emitActivity(
         scope,
         taskId,
-        'task.dependency_added',
+        ActivityType.CUSTOM,
         'Dependency Added',
         context,
         { dependsOnTaskId },
@@ -699,7 +699,7 @@ export class TaskService {
   private async emitActivity(
     scope: TaskScope,
     taskId: string,
-    type: string,
+    type: ActivityType,
     title: string,
     context: TaskApplicationContext,
     metadata?: Prisma.InputJsonValue,

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ActivityType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ActivityService } from '../../activities/services/activity.service';
 import {
@@ -95,7 +96,7 @@ export class TimeEntryService {
         {
           entityType: 'task',
           entityId: taskId,
-          type: 'time.logged',
+          type: ActivityType.CUSTOM,
           title: `${this.timeEntryDomainService.formatLoggedHours(durationMinutes)}h logged`,
           description: entry.notes ?? undefined,
           metadata: {
@@ -256,7 +257,7 @@ export class TimeEntryService {
         {
           entityType: 'task',
           entityId: updated.taskId,
-          type: 'time.logged',
+          type: ActivityType.CUSTOM,
           title: `${this.timeEntryDomainService.formatLoggedHours(durationMinutes)}h logged`,
           description: updated.notes ?? undefined,
           metadata: {
